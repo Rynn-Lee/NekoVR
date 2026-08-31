@@ -9,10 +9,10 @@
 
 websocket-connecting = 서버에 연결하는 중...
 websocket-connection_lost = 서버와의 연결이 끊어졌어요. 다시 연결하는 중...
-websocket-connection_lost-desc = SlimeVR 서버에 오류가 발생한 것 같습니다. 로그를 확인하고 프로그램을 재시작해 주세요
+websocket-connection_lost-desc = NekoVR 서버에 오류가 발생한 것 같습니다. 로그를 확인하고 프로그램을 재시작해 주세요
 websocket-timedout = 서버에 연결할 수 없습니다
-websocket-timedout-desc = SlimeVR 서버에 오류가 발생했거나 연결 시간이 초과된 것 같습니다. 로그를 확인하고 프로그램을 재시작해 주세요
-websocket-error-close = SlimeVR 종료
+websocket-timedout-desc = NekoVR 서버에 오류가 발생했거나 연결 시간이 초과된 것 같습니다. 로그를 확인하고 프로그램을 재시작해 주세요
+websocket-error-close = NekoVR 종료
 websocket-error-logs = 로그 폴더 열기
 
 ## Update notification
@@ -28,7 +28,7 @@ tips-find_tracker = 어떤 트래커가 어디에 대응되는지 모르겠나�
 tips-do_not_move_heels = 기록하는 동안 발뒤꿈치가 움직이지 않도록 조심하세요!
 tips-file_select = 파일을 <u>열거나</u>, 여기에 드래그&드롭하세요.
 tips-tap_setup = 목록에서 트래커를 선택하는 대신 트래커를 천천히 2번 탭해서 선택할 수 있어요.
-tips-turn_on_tracker = 공식 SlimeVR 트래커를 사용 중이신가요? 트래커를 <b><em>PC에 연결</em></b>하고 <b><em>전원을 키셔야</em></b> 해요.
+tips-turn_on_tracker = 공식 NekoVR 트래커를 사용 중이신가요? 트래커를 <b><em>PC에 연결</em></b>하고 <b><em>전원을 키셔야</em></b> 해요.
 tips-failed_webgl = WebGL 초기화에 실패했습니다.
 
 ## Units
@@ -67,7 +67,7 @@ board_type-WROOM32 = WROOM32
 board_type-WEMOSD1MINI = Wemos D1 Mini
 board_type-TTGO_TBASE = TTGO T-Base
 board_type-ESP01 = ESP-01
-board_type-SLIMEVR = SlimeVR
+board_type-SLIMEVR = NekoVR
 board_type-LOLIN_C3_MINI = Lolin C3 Mini
 board_type-BEETLE32C3 = Beetle ESP32-C3
 board_type-ESP32C3DEVKITM1 = Espressif ESP32-C3 DevKitM-1
@@ -78,7 +78,7 @@ board_type-WEMOSWROOM02 = Wemos Wroom-02 D1 Mini
 board_type-XIAO_ESP32C3 = Seeed Studio XIAO ESP32C3
 board_type-HARITORA = Haritora
 board_type-ESP32C6DEVKITC1 = Espressif ESP32-C6 DevKitC-1
-board_type-GLOVE_IMU_SLIMEVR_DEV = SlimeVR Dev IMU Glove
+board_type-GLOVE_IMU_SLIMEVR_DEV = NekoVR Dev IMU Glove
 
 ## Proportions
 
@@ -276,7 +276,7 @@ tracker-settings-name_section-description = 귀여운 이름을 지어주세요!
 tracker-settings-name_section-placeholder = NightyBeast's left leg
 tracker-settings-name_section-label = 트래커 이름
 tracker-settings-forget = 트래커 삭제
-tracker-settings-forget-description = SlimeVR 서버에서 트래커를 제거하고 서버를 다시 시작할 때까지 자동으로 연결하지 않아요. 트래커의 설정은 지워지지 않아요.
+tracker-settings-forget-description = NekoVR 서버에서 트래커를 제거하고 서버를 다시 시작할 때까지 자동으로 연결하지 않아요. 트래커의 설정은 지워지지 않아요.
 tracker-settings-forget-label = 트래커 삭제
 tracker-settings-update-up_to_date = 최신 버전
 tracker-settings-update = 지금 업데이트
@@ -558,16 +558,16 @@ settings-general-interface-feedback_sound-description = 이 옵션을 켜면 트
 settings-general-interface-feedback_sound-label = 피드백 사운드
 settings-general-interface-feedback_sound-volume = 피드백 사운드 음량
 settings-general-interface-connected_trackers_warning = 작동 중인 트래커 경고
-settings-general-interface-connected_trackers_warning-description = 이 옵션은 트래커가 연결되어 있는 채로 SlimeVR을 종료하려고 할 때 팝업을 표시합니다. 그렇게 하면 실수로 트래커를 끄지 않아 배터리가 방전되는 일을 예방할 수 있어요.
+settings-general-interface-connected_trackers_warning-description = 이 옵션은 트래커가 연결되어 있는 채로 NekoVR을 종료하려고 할 때 팝업을 표시합니다. 그렇게 하면 실수로 트래커를 끄지 않아 배터리가 방전되는 일을 예방할 수 있어요.
 settings-general-interface-connected_trackers_warning-label = 종료 시 작동 중인 트래커 경고 활성화
 
 ## Behavior settings
 
 settings-general-interface-use_tray = 작업 표시줄로 최소화
-settings-general-interface-use_tray-description = SlimeVR 서버를 닫지 않고 창만 닫을 수 있게 하여 사용 시 항상 GUI를 띄워 놓을 필요가 없게 해요.
+settings-general-interface-use_tray-description = NekoVR 서버를 닫지 않고 창만 닫을 수 있게 하여 사용 시 항상 GUI를 띄워 놓을 필요가 없게 해요.
 settings-general-interface-use_tray-label = 작업 표시줄로 최소화
 settings-general-interface-discord_presence = Discord에서 활동 공유
-settings-general-interface-discord_presence-description = Discord 활동 상태에 SlimeVR을 사용 중이라는 것과 사용 중인 트래커의 개수를 같이 표시합니다.
+settings-general-interface-discord_presence-description = Discord 활동 상태에 NekoVR을 사용 중이라는 것과 사용 중인 트래커의 개수를 같이 표시합니다.
 settings-general-interface-discord_presence-label = DIscord에서 활동 공유
 settings-general-interface-discord_presence-message =
     { $amount ->
@@ -614,7 +614,7 @@ settings-osc-router-network = 네트워크 포트
 # This cares about multilines
 settings-osc-router-network-description =
     데이터 수신 및 전송을 위한 포트 설정
-    이들은 SlimeVR 서버에서 사용되는 다른 포트와 동일해도 돼요.
+    이들은 NekoVR 서버에서 사용되는 다른 포트와 동일해도 돼요.
 settings-osc-router-network-port_in =
     .label = 들어오는 포트
     .placeholder = Port in (기본값: 9002)
@@ -667,7 +667,7 @@ settings-osc-vrchat-network-trackers-elbows = Elbows
 settings-osc-vmc = Virtual Motion Capture
 # This cares about multilines
 settings-osc-vmc-description =
-    SlimeVR의 골격 데이터를 보내고 다른 앱에서 이 데이터를 수신하기 위해
+    NekoVR의 골격 데이터를 보내고 다른 앱에서 이 데이터를 수신하기 위해
     VMC(Virtual Motion Capture) 프로토콜 설정을 변경합니다.
 settings-osc-vmc-enable = 활성화
 settings-osc-vmc-enable-description = 활성화해서 데이터 송수신
@@ -736,7 +736,7 @@ onboarding-wip = 아직 공사중이에요!
 onboarding-previous_step = 이전 단계
 onboarding-setup_warning =
     <b>주의:</b> 더 좋은 추적을 위해서는 초기 설정이 필요해요.
-    SlimeVR을 처음 사용하는 경우에도 필요합니다.
+    NekoVR을 처음 사용하는 경우에도 필요합니다.
 onboarding-setup_warning-skip = 설정 건너뛰기
 onboarding-setup_warning-cancel = 설정 계속하기
 
@@ -785,7 +785,7 @@ onboarding-reset_tutorial-2 =
 
 ## Setup start
 
-onboarding-home = SlimeVR에 어서오세요!
+onboarding-home = NekoVR에 어서오세요!
 onboarding-home-start = 설정하러 가보죠!
 
 ## Setup done
@@ -973,7 +973,7 @@ onboarding-manual_mounting-next = 다음 단계
 
 onboarding-automatic_mounting-back = VR 입장 페이지로 돌아가기
 onboarding-automatic_mounting-title = 착용 방향 정렬
-onboarding-automatic_mounting-description = SlimeVR 트래커가 작동하려면, 실제 트래커의 장착 위치와 맞게 트래커의 착용 방향을 설정해야 해요.
+onboarding-automatic_mounting-description = NekoVR 트래커가 작동하려면, 실제 트래커의 장착 위치와 맞게 트래커의 착용 방향을 설정해야 해요.
 onboarding-automatic_mounting-manual_mounting = 수동으로 착용 방향 설정
 onboarding-automatic_mounting-next = 다음 단계
 onboarding-automatic_mounting-prev_step = 이전 단계
@@ -1001,7 +1001,7 @@ onboarding-manual_proportions-file_type = 신체 비율 파일
 
 onboarding-automatic_proportions-back = 정렬 튜토리얼로 돌아가기
 onboarding-automatic_proportions-title = 신체 비율을 측정해보세요
-onboarding-automatic_proportions-description = SlimeVR 트래커가 작동하려면 뼈의 길이를 알아야 하는데, 이 짧은 보정을 통해 측정할 수 있어요.
+onboarding-automatic_proportions-description = NekoVR 트래커가 작동하려면 뼈의 길이를 알아야 하는데, 이 짧은 보정을 통해 측정할 수 있어요.
 onboarding-automatic_proportions-manual = 수동 신체 비율 설정
 onboarding-automatic_proportions-prev_step = 뒤로
 onboarding-automatic_proportions-put_trackers_on-title = 트래커를 착용하세요
@@ -1012,8 +1012,8 @@ onboarding-automatic_proportions-requirements-title = 요구사항
 onboarding-automatic_proportions-requirements-descriptionv2 =
     다리를 추적하기 위해 최소 5개 이상의 트래커를 착용하세요.
     VR 헤드셋을 착용하세요.
-    VR 헤드셋과 컨트롤러의 위치 정보가 SlimeVR 서버에 실시간으로 표시되는지 확인하세요.
-    SlimeVR 서버에 연결된 트래커와 VR 헤드셋이 끊김이나 렉 없이 제대로 표시되는지 확인하세요. (이것은 SteamVR이 실행 중이며 SlimeVR의 SteamVR 드라이버를 사용하여 SlimeVR에 올바르게 연결되어 있다는 것을 의미합니다)
+    VR 헤드셋과 컨트롤러의 위치 정보가 NekoVR 서버에 실시간으로 표시되는지 확인하세요.
+    NekoVR 서버에 연결된 트래커와 VR 헤드셋이 끊김이나 렉 없이 제대로 표시되는지 확인하세요. (이것은 SteamVR이 실행 중이며 NekoVR의 SteamVR 드라이버를 사용하여 NekoVR에 올바르게 연결되어 있다는 것을 의미합니다)
     트래커가 제대로 작동하고 나의 움직임을 올바르게 반영중인지 확인하세요. (예: 전체 정렬을 수행했으며 발차기, 허리 숙이기, 앉기 등 올바른 방향으로 움직임)
 onboarding-automatic_proportions-requirements-next = 요구사항을 모두 읽었어요
 onboarding-automatic_proportions-check_height-title-v3 = 헤드셋 높이 측정
@@ -1094,8 +1094,8 @@ home-no_trackers = 감지되거나 할당된 트래커가 없어요.
 ## Trackers Still On notification
 
 trackers_still_on-modal-title = 트래커가 아직 켜져 있어요!
-trackers_still_on-modal-description = 하나 이상의 트래커가 여전히 켜져 있는 것으로 보여요. SlimeVR을 종료할까요?
-trackers_still_on-modal-confirm = SlimeVR 종료
+trackers_still_on-modal-description = 하나 이상의 트래커가 여전히 켜져 있는 것으로 보여요. NekoVR을 종료할까요?
+trackers_still_on-modal-confirm = NekoVR 종료
 trackers_still_on-modal-cancel = 돌아가기
 
 ## Status system
@@ -1103,8 +1103,8 @@ trackers_still_on-modal-cancel = 돌아가기
 status_system-StatusTrackerReset = 전체 정렬을 수행해 아직 정렬되지 않은 트래커를 정렬해주세요.
 status_system-StatusSteamVRDisconnected =
     { $type ->
-        [steamvr_feeder] SlimeVR 피더와 연결되지 않음
-       *[other] SlimeVR 드라이버가 SteamVR과 연결되지 않음
+        [steamvr_feeder] NekoVR 피더와 연결되지 않음
+       *[other] NekoVR 드라이버가 SteamVR과 연결되지 않음
     }
 status_system-StatusTrackerError = { $trackerName } 트래커에 문제가 발생했어요.
 status_system-StatusUnassignedHMD = VR 헤드셋은 머리 트래커로 할당되어야 해요.
@@ -1127,7 +1127,7 @@ firmware_tool-flash_method_step = 펌웨어 플래시 방식
 firmware_tool-flash_method_step-description = 펌웨어를 트래커에 플래시할 방법을 선택해 주세요
 firmware_tool-flashbtn_step = BOOT 버튼 누르기
 firmware_tool-flashbtn_step-description = 다음 단계로 진행하기 전 몇 가지 작업을 해야 해요
-firmware_tool-flashbtn_step-board_SLIMEVR = 트래커를 끄고, 케이스를 제거하고 (만약 있다면), 이 컴퓨터에 USB 케이블을 연결한 후 SlimeVR 보드 버전에 따라 해당하는 작업을 수행해 주세요:
+firmware_tool-flashbtn_step-board_SLIMEVR = 트래커를 끄고, 케이스를 제거하고 (만약 있다면), 이 컴퓨터에 USB 케이블을 연결한 후 NekoVR 보드 버전에 따라 해당하는 작업을 수행해 주세요:
 firmware_tool-flashbtn_step-board_OTHER =
     펌웨어를 쓰기 전에 트래커를 부트로더 모드에 진입시켜야 해요.
     대부분의 경우 이는 펌웨어 쓰기 작업이 시작되기 전 보드에 있는 BOOT 버튼을 누르면 가능합니다.
@@ -1176,7 +1176,7 @@ firmware_update-status-ERROR_UNKNOWN = 알 수 없는 오류
 
 firmware_update-title = 펌웨어 업데이트
 firmware_update-devices = 사용 가능한 장치
-firmware_update-devices-description = 최신 버전의 SlimeVR 펌웨어로 업데이트하려는 트래커들을 선택하십시오.
+firmware_update-devices-description = 최신 버전의 NekoVR 펌웨어로 업데이트하려는 트래커들을 선택하십시오.
 firmware_update-no_devices = 업데이트하고자 하는 트래커들의 전원이 켜져 있고, Wi-Fi에 연결되어 있는지 확인해 주세요!
 firmware_update-changelog-title = { $version }으로 업데이트 중
 firmware_update-looking_for_devices = 업데이트할 장치들 찾는 중
@@ -1198,7 +1198,7 @@ tray_or_exit_modal-description =
     이 옵션은 닫기 버튼을 누를 때 서버를 종료할지 또는 시스템 트레이로 최소화할지를 결정합니다.
     
     언제든지 설정의 인터페이스 탭에서 변경하실 수 있어요!
-tray_or_exit_modal-radio-exit = SlimeVR 종료하기
+tray_or_exit_modal-radio-exit = NekoVR 종료하기
 tray_or_exit_modal-radio-tray = 작업 표시줄로 최소화
 tray_or_exit_modal-submit = 저장
 tray_or_exit_modal-cancel = 취소
@@ -1208,7 +1208,7 @@ tray_or_exit_modal-cancel = 취소
 unknown_device-modal-title = 새로운 트래커를 찾았어요!
 unknown_device-modal-description =
     <b>{ $deviceID }</b>의 MAC 주소를 가진 새로운 트래커를 발견했어요.
-    SlimeVR에 연결할까요?
+    NekoVR에 연결할까요?
 unknown_device-modal-confirm = 당연하죠!
 unknown_device-modal-forget = 무시할게요
 

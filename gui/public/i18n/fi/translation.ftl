@@ -13,7 +13,7 @@ websocket-connection_lost = Yhteys epäonnistui. Yritetään uudelleen...
 ## Update notification
 
 version_update-title = Uusi versio saatavilla: { $version }
-version_update-description = Valitsemalla "{ version_update-update }" lataa SlimeVR-asennusohjelman.
+version_update-description = Valitsemalla "{ version_update-update }" lataa NekoVR-asennusohjelman.
 version_update-update = Päivitys
 version_update-close = Sulje
 
@@ -454,15 +454,15 @@ settings-general-interface-feedback_sound-description = Tämä asetus toistaa ä
 settings-general-interface-feedback_sound-label = Palaute ääni
 settings-general-interface-feedback_sound-volume = Palaute äänen voimakkuus
 settings-general-interface-connected_trackers_warning = Yhdistettyjen jäljittimien varoitus
-settings-general-interface-connected_trackers_warning-description = Tämä vaihtoehto näyttää ponnahdusikkunan aina, kun yrität poistua SlimeVR:stä, kun sinulla on yksi tai useampi yhdistetty jäljitin. Se muistuttaa sinua sammuttamaan jäljittimet, kun olet valmis, akun käyttöiän säästämiseksi.
+settings-general-interface-connected_trackers_warning-description = Tämä vaihtoehto näyttää ponnahdusikkunan aina, kun yrität poistua NekoVR:stä, kun sinulla on yksi tai useampi yhdistetty jäljitin. Se muistuttaa sinua sammuttamaan jäljittimet, kun olet valmis, akun käyttöiän säästämiseksi.
 
 ## Behavior settings
 
 settings-general-interface-use_tray = Pienennä ilmaisinalueelle
-settings-general-interface-use_tray-description = Voit sulkea ikkunan sulkematta SlimeVR-palvelinta, jotta voit jatkaa sen käyttöä ilman, että graafinen käyttöliittymä häiritsee sinua.
+settings-general-interface-use_tray-description = Voit sulkea ikkunan sulkematta NekoVR-palvelinta, jotta voit jatkaa sen käyttöä ilman, että graafinen käyttöliittymä häiritsee sinua.
 settings-general-interface-use_tray-label = Pienennä ilmaisinalueelle
 settings-general-interface-discord_presence = Jaa toiminta Discordissa
-settings-general-interface-discord_presence-description = Kertoo Discordille, että käytät SlimeVR:ää, sekä käyttämiesi IMU-seurantalaitteiden määrän.
+settings-general-interface-discord_presence-description = Kertoo Discordille, että käytät NekoVR:ää, sekä käyttämiesi IMU-seurantalaitteiden määrän.
 settings-general-interface-discord_presence-label = Jaa toiminta Discordissa
 
 ## Serial settings
@@ -501,7 +501,7 @@ settings-osc-router-network = Verkkoportit
 # This cares about multilines
 settings-osc-router-network-description =
     Aseta portit tietojen kuuntelua ja lähettämistä varten.
-    Nämä voivat olla samat kuin muut SlimeVR-palvelimessa käytetyt portit.
+    Nämä voivat olla samat kuin muut NekoVR-palvelimessa käytetyt portit.
 settings-osc-router-network-port_in =
     .label = Portti sisään
     .placeholder = Portti sisään (oletus: 9002)
@@ -543,7 +543,7 @@ settings-osc-vmc = Virtual Motion Capture
 # This cares about multilines
 settings-osc-vmc-description =
     Muuta VMC (Virtual Motion Capture) -protokollan asetuksia
-        lähettääksesi ja vastaanottaaksesi SlimeVR:n luutietoja muihin sovelluksiin.
+        lähettääksesi ja vastaanottaaksesi NekoVR:n luutietoja muihin sovelluksiin.
 settings-osc-vmc-enable = Käytä
 settings-osc-vmc-enable-description = Vaihda tietojen lähettäminen ja vastaanottaminen.
 settings-osc-vmc-enable-label = Käytä
@@ -585,7 +585,7 @@ onboarding-wip = Keskeneräinen
 onboarding-previous_step = Edellinen vaihe
 onboarding-setup_warning =
     <b>Varoitus:</b> Alkuasennus vaaditaan hyvään jäljitykseen,
-    sitä tarvitaan, jos käytät SlimeVR:ää ensimmäistä kertaa.
+    sitä tarvitaan, jos käytät NekoVR:ää ensimmäistä kertaa.
 onboarding-setup_warning-skip = Ohita asennus
 onboarding-setup_warning-cancel = Jatka asennusta
 
@@ -633,7 +633,7 @@ onboarding-reset_tutorial-2 =
 
 ## Setup start
 
-onboarding-home = Tervetuloa SlimeVR:ään
+onboarding-home = Tervetuloa NekoVR:ään
 onboarding-home-start = Mennään asentamaan!
 
 ## Setup done
@@ -801,7 +801,7 @@ onboarding-manual_mounting-next = Seuraava vaihe
 
 onboarding-automatic_mounting-back = Palaa takaisin VR:ään
 onboarding-automatic_mounting-title = Asennuksen Kalibrointi
-onboarding-automatic_mounting-description = Jotta SlimeVR jäljittimet toimisivat, meidän on määritettävä jäljittimille asennuksen kierto, jotta ne voidaan kohdistaa fyysisen jäljittimen asennuksen kanssa.
+onboarding-automatic_mounting-description = Jotta NekoVR jäljittimet toimisivat, meidän on määritettävä jäljittimille asennuksen kierto, jotta ne voidaan kohdistaa fyysisen jäljittimen asennuksen kanssa.
 onboarding-automatic_mounting-manual_mounting = Manuaalinen asennus
 onboarding-automatic_mounting-next = Seuraava vaihe
 onboarding-automatic_mounting-prev_step = Edellinen vaihe
@@ -870,8 +870,8 @@ home-no_trackers = Jäjittimiä ei havaittu tai määritetty
 trackers_still_on-modal-title = Jäljittimet ovat vielä päällä
 trackers_still_on-modal-description =
     Yksi tai useampi jäljitin on edelleen päällä.
-    Haluatko silti poistua SlimeVR:stä?
-trackers_still_on-modal-confirm = Poistu SlimeVR:stä
+    Haluatko silti poistua NekoVR:stä?
+trackers_still_on-modal-confirm = Poistu NekoVR:stä
 trackers_still_on-modal-cancel = Odota...
 
 ## Status system
@@ -879,8 +879,8 @@ trackers_still_on-modal-cancel = Odota...
 status_system-StatusTrackerReset = On suositeltavaa suorittaa täydellinen nollaus, koska yhtä tai useampaa jäljitintä ei ole säädetty.
 status_system-StatusSteamVRDisconnected =
     { $type ->
-        [steamvr_feeder] Tällä hetkellä ei ole yhdistetty SlimeVR Feeder -sovellukseen.
-       *[other] Tällä hetkellä ei ole yhdistetty SteamVR:ään SlimeVR-ajurin kautta.
+        [steamvr_feeder] Tällä hetkellä ei ole yhdistetty NekoVR Feeder -sovellukseen.
+       *[other] Tällä hetkellä ei ole yhdistetty SteamVR:ään NekoVR-ajurin kautta.
     }
 status_system-StatusTrackerError = { $trackerName } jäljittimessä on virhe
 

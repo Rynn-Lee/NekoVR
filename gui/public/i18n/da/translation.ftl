@@ -13,7 +13,7 @@ websocket-connection_lost = Forbindelse mistet til serveren. Forsøger at oprett
 ## Update notification
 
 version_update-title = Ny version tilgængelig: { $version }
-version_update-description = Ved at klikke på "Opdater" downloades SlimeVR-installationsprogrammet for dig.
+version_update-description = Ved at klikke på "Opdater" downloades NekoVR-installationsprogrammet for dig.
 version_update-update = Opdater
 version_update-close = Luk
 
@@ -399,7 +399,7 @@ settings-osc-router-network = Netværksporte
 # This cares about multilines
 settings-osc-router-network-description =
     Vælg de porte der skal bruges til at lytte og sende data.
-    Disse kan være de samme som de andre porte der bruges på SlimeVR-serveren.
+    Disse kan være de samme som de andre porte der bruges på NekoVR-serveren.
 settings-osc-router-network-port_in =
     .label = Port ind
     .placeholder = Port ind (standard: 9002)
@@ -438,7 +438,7 @@ settings-osc-vmc = Virtual Motion Capture
 # This cares about multilines
 settings-osc-vmc-description =
     Skift indstillinger, der er specifikke for VMC-protokollen (Virtual Motion Capture)
-        for at sende SlimeVRs data og modtage data fra andre apps.
+        for at sende NekoVRs data og modtage data fra andre apps.
 settings-osc-vmc-enable = Aktiver
 settings-osc-vmc-enable-description = Skift afsendelse og modtagelse af data.
 settings-osc-vmc-enable-label = Aktiver
@@ -476,7 +476,7 @@ onboarding-continue = Fortsæt
 onboarding-previous_step = Forrige trin
 onboarding-setup_warning =
     <b>Advarsel:</b> Den indledende opsætning er nødvendig for god tracking,
-    det er nødvendigt, hvis det er første gang, du bruger SlimeVR.
+    det er nødvendigt, hvis det er første gang, du bruger NekoVR.
 onboarding-setup_warning-skip = Spring opsætning over
 onboarding-setup_warning-cancel = Fortsæt konfigurationen
 
@@ -504,7 +504,7 @@ onboarding-reset_tutorial = Start forfra
 
 ## Setup start
 
-onboarding-home = Velkommen til SlimeVR
+onboarding-home = Velkommen til NekoVR
 onboarding-home-start = Lad os komme i gang!
 
 ## Setup done

@@ -1,78 +1,41 @@
-import { useConfig } from '@/hooks/config';
-
-export function SlimeVRIcon({ drag }: { drag?: boolean }) {
-  const { config } = useConfig();
-  if (config?.theme == 'snep') {
-    return (
-      <svg
-        width="49"
-        height="29"
-        viewBox="-4 -2 49 33"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        data-electron-drag-region={drag}
-      >
-        <path
-          d="m 1.6647024,15.257308 4.84329,-5.8061114 5.1394996,4.7526114"
-          stroke="#FFCCE5"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-        <path
-          d="m 22.099692,14.390108 5.7806,-4.8728814 4.2323,5.5751814"
-          stroke="#FFCCE5"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-        <path
-          d="m 9.7241618,27.517333 c 2.9071362,-0.836166 5.2501762,-1.583484 7.0857782,-3.854543 1.787374,2.222439 3.963276,3.063619 7.087706,3.839132"
-          stroke="#FFCCE5"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-        <path
-          d="m 19.337465,19.962745 c -1.861871,0.437141 -3.433485,0.530797 -5.209565,0.06165 1.286223,0.173275 2.222982,0.778091 2.686704,1.605299 0.327959,-0.839305 1.382466,-1.47415 2.522861,-1.666949 z"
-          stroke="#FFCCE5"
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <path
-          d="m 35.942918,2.6356084 c 6.330566,-1.5164535 11.583704,-1.69795947 15.609729,0.9503118 2.180495,1.4343036 1.678869,4.6673575 0.754839,5.9005803 -2.596688,3.4655715 -9.485458,7.3237605 -5.116612,11.0623905 -4.998324,0.352073 -3.13787,5.686673 1.260384,6.928864"
-          stroke="#FFCCE5"
-          strokeWidth="3"
-          strokeLinecap="round"
-        />
-      </svg>
-    );
-  }
+export function SlimeVRIcon({
+  drag,
+  width = 30,
+  height = 30,
+}: {
+  drag?: boolean;
+  width?: number;
+  height?: number;
+}) {
   return (
     <svg
-      width="49"
-      height="29"
-      viewBox="0 0 49 29"
+      width={width}
+      height={height}
+      viewBox="-4.48 -4.48 24.96 24.96"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       data-electron-drag-region={drag}
+      className="overflow-visible"
     >
-      <path
-        d="M2 26.996C10.44 25.59 29.16 23.1571 46.509 26.9091C46.509 26.9091 48.89 -0.199966 35.761 2.14503"
-        stroke="#A44FED"
-        strokeWidth="3"
-        strokeLinecap="round"
-      />
-      <path
-        d="M7.52161 15.0107L12.3649 9.20459L17.5044 13.9572"
-        stroke="#A44FED"
-        strokeWidth="3.00157"
-        strokeLinecap="round"
-      />
-      <path
-        d="M27.9566 14.1435L33.7372 9.27062L37.9695 14.8458"
-        stroke="#A44FED"
-        strokeWidth="3.00136"
-        strokeLinecap="round"
-      />
+      <g>
+        <path
+          transform="translate(-4.48, -4.48), scale(1.56)"
+          fill="rgb(var(--background-60))"
+          d="M9.166.33a2.25 2.25 0 00-2.332 0l-5.25 3.182A2.25 2.25 0 00.5 5.436v5.128a2.25 2.25 0 001.084 1.924l5.25 3.182a2.25 2.25 0 002.332 0l5.25-3.182a2.25 2.25 0 001.084-1.924V5.436a2.25 2.25 0 00-1.084-1.924L9.166.33z"
+        />
+      </g>
+      <g>
+        <path
+          fillRule="evenodd"
+          clipRule="evenodd"
+          d="M1 7L4.80061 1.43926C5.56059 0.527292 6.68638 0 7.8735 0H8V4L12 5L15 10L14.1875 11.2188C13.4456 12.3316 12.1967 13 10.8593 13H9L7 16H5L1 7ZM10 9C10.5523 9 11 8.55229 11 8C11 7.44772 10.5523 7 10 7C9.44771 7 9 7.44772 9 8C9 8.55229 9.44771 9 10 9Z"
+          fill="rgb(var(--accent-background-30))"
+        />
+        <path
+          d="M10 0.465878V2.43845L12 2.93845V0H11.8735C11.2125 0 10.5704 0.163501 10 0.465878Z"
+          fill="rgb(var(--accent-background-30))"
+        />
+      </g>
     </svg>
   );
 }

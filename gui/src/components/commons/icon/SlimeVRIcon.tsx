@@ -1,55 +1,29 @@
-import { useConfig } from '@/hooks/config';
-
 export function SlimeVRIcon({ width = 28 }: { width?: number }) {
-  const { config } = useConfig();
-  if (config?.theme == 'snep') {
-    return (
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fillRule="evenodd"
-        strokeMiterlimit="10"
-        clipRule="evenodd"
-        width={width}
-        viewBox="0 0 380 380"
-      >
-        <g fill="none" stroke="#fff">
-          <path strokeWidth="13.62" d="m 58.065408,191.74 37,-39 39,36" />
-          <path strokeWidth="13.62" d="m 194.06861,187.74 38,-35 36,38" />
-          <path
-            strokeLinecap="square"
-            strokeWidth="17"
-            d="m 264.21323,100.54097 c 36.55564,-13.927358 80.48248,-20.252638 96.44182,-0.16058 15.95933,20.09207 -5.55378,62.57663 -18.85775,71.31398 -13.30397,8.73734 -24.9251,23.65102 11.38415,55.001 -41.88653,1.00415 -20.70613,38.05812 4.23915,51.07844"
-          />
-          <path
-            strokeLinecap="round"
-            strokeWidth="17"
-            d="m 178.71549,220.85825 c -11.18717,2.62658 -20.63024,3.18933 -31.30189,0.37013 7.7283,1.04116 13.35686,4.67519 16.14313,9.6455 1.97058,-5.04296 8.30663,-8.85748 15.15876,-10.01593 z"
-          />
-          <path
-            strokeLinecap="square"
-            strokeWidth="17"
-            d="m 114.0349,266.90992 c 14.41809,-4.43279 38.26495,-10.17404 49.29422,-23.81979 10.73948,13.35362 31.14902,18.81171 48.74742,23.621"
-          />
-        </g>
-      </svg>
-    );
-  }
   return (
     <svg
-      xmlns="http://www.w3.org/2000/svg"
-      fillRule="evenodd"
-      strokeMiterlimit="10"
-      clipRule="evenodd"
       width={width}
-      viewBox="0 0 380 380"
+      height={width}
+      viewBox="-4.48 -4.48 24.96 24.96"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
     >
-      <g fill="none" stroke="#fff">
-        <path strokeWidth="13.62" d="M72.867 191.74l37-39 39 36" />
-        <path strokeWidth="13.62" d="M208.87 187.74l38-35 36 38" />
+      <g>
         <path
-          strokeLinecap="square"
-          strokeWidth="17"
-          d="M56.867 253.74s130.61-31.182 248 5c13.45 4.146 20.244 2.975 20-8s1.909-126.06-46-131"
+          transform="translate(-4.48, -4.48), scale(1.56)"
+          fill="rgb(var(--background-60))"
+          d="M9.166.33a2.25 2.25 0 00-2.332 0l-5.25 3.182A2.25 2.25 0 00.5 5.436v5.128a2.25 2.25 0 001.084 1.924l5.25 3.182a2.25 2.25 0 002.332 0l5.25-3.182a2.25 2.25 0 001.084-1.924V5.436a2.25 2.25 0 00-1.084-1.924L9.166.33z"
+        />
+      </g>
+      <g>
+        <path
+          fillRule="evenodd"
+          clipRule="evenodd"
+          d="M1 7L4.80061 1.43926C5.56059 0.527292 6.68638 0 7.8735 0H8V4L12 5L15 10L14.1875 11.2188C13.4456 12.3316 12.1967 13 10.8593 13H9L7 16H5L1 7ZM10 9C10.5523 9 11 8.55229 11 8C11 7.44772 10.5523 7 10 7C9.44771 7 9 7.44772 9 8C9 8.55229 9.44771 9 10 9Z"
+          fill="rgb(var(--accent-background-30))"
+        />
+        <path
+          d="M10 0.465878V2.43845L12 2.93845V0H11.8735C11.2125 0 10.5704 0.163501 10 0.465878Z"
+          fill="rgb(var(--accent-background-30))"
         />
       </g>
     </svg>

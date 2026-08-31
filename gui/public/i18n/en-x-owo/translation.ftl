@@ -983,7 +983,7 @@ onboarding-manual_mounting-next = newt stewp
 
 onboarding-automatic_mounting-back = go bak to entaw vawe
 onboarding-automatic_mounting-title = meownting cawibwation
-onboarding-automatic_mounting-description = fow SlimeVR twackaws to wowk, we need to assign a meownting wowation to yowo twackaws to awign them with yowo pwysical twackaw mounting.
+onboarding-automatic_mounting-description = fow NekoVR twackaws to wowk, we need to assign a meownting wowation to yowo twackaws to awign them with yowo pwysical twackaw mounting.
 onboarding-automatic_mounting-manual_mounting = manually set meownting
 onboarding-automatic_mounting-next = next step
 onboarding-automatic_mounting-prev_step = pwevious step

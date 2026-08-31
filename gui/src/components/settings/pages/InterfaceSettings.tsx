@@ -431,66 +431,46 @@ export function InterfaceSettings() {
               <Typography variant="section-title">
                 {l10n.getString('settings-general-interface-theme')}
               </Typography>
-              <div className="flex flex-wrap gap-3 pt-2">
+              <div className="flex flex-wrap gap-4 pt-3">
                 <ThemeSelector
                   control={control}
                   name="appearance.theme"
-                  value={'slime'}
-                  colors="!bg-slime"
+                  value={'dark-orange'}
+                  colors="!bg-dark-orange"
+                  label={l10n.getString('settings-interface-theme-dark-orange')}
+                  description={l10n.getString(
+                    'settings-interface-theme-dark-orange-desc'
+                  )}
                 />
                 <ThemeSelector
                   control={control}
                   name="appearance.theme"
-                  value={'slime-green'}
-                  colors="!bg-slime-green"
+                  value={'dark-purple'}
+                  colors="!bg-dark-purple"
+                  label={l10n.getString('settings-interface-theme-dark-purple')}
+                  description={l10n.getString(
+                    'settings-interface-theme-dark-purple-desc'
+                  )}
                 />
                 <ThemeSelector
                   control={control}
                   name="appearance.theme"
-                  value={'slime-yellow'}
-                  colors="!bg-slime-yellow"
+                  value={'dark-gray'}
+                  colors="!bg-dark-gray"
+                  label={l10n.getString('settings-interface-theme-dark-gray')}
+                  description={l10n.getString(
+                    'settings-interface-theme-dark-gray-desc'
+                  )}
                 />
                 <ThemeSelector
                   control={control}
                   name="appearance.theme"
-                  value={'slime-orange'}
-                  colors="!bg-slime-orange"
-                />
-                <ThemeSelector
-                  control={control}
-                  name="appearance.theme"
-                  value={'slime-red'}
-                  colors="!bg-slime-red"
-                />
-                <ThemeSelector
-                  control={control}
-                  name="appearance.theme"
-                  value={'dark'}
-                  colors="!bg-dark"
-                />
-                <ThemeSelector
-                  control={control}
-                  name="appearance.theme"
-                  value={'light'}
-                  colors="!bg-light"
-                />
-                <ThemeSelector
-                  control={control}
-                  name="appearance.theme"
-                  value={'trans'}
-                  colors="!bg-trans-flag"
-                />
-                <ThemeSelector
-                  control={control}
-                  name="appearance.theme"
-                  value={'asexual'}
-                  colors="!bg-asexual-flag"
-                />
-                <ThemeSelector
-                  control={control}
-                  name="appearance.theme"
-                  value={'snep'}
-                  colors="!bg-snep"
+                  value={'light-clean'}
+                  colors="!bg-light-clean"
+                  label={l10n.getString('settings-interface-theme-light-clean')}
+                  description={l10n.getString(
+                    'settings-interface-theme-light-clean-desc'
+                  )}
                 />
               </div>
             </div>

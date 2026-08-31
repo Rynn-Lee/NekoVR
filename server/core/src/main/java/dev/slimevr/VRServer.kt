@@ -127,6 +127,15 @@ class VRServer @JvmOverloads constructor(
 	@JvmField
 	val handshakeHandler = HandshakeHandler()
 
+	@JvmField
+	val aiDriftEngine = dev.slimevr.ai.AIDriftEngine()
+
+	@JvmField
+	val datasetRecorder = dev.slimevr.dataset.DatasetRecorder()
+
+	@JvmField
+	val autoUpdater = dev.slimevr.updater.AutoUpdater()
+
 	val trackingChecklistManager: TrackingChecklistManager
 
 	val networkProfileChecker: NetworkProfileChecker
@@ -262,6 +271,20 @@ class VRServer @JvmOverloads constructor(
 				tracker.tick(fpsTimer.timePerFrame)
 			}
 			humanPoseManager.update()
+			if (datasetRecorder.isRecording) {
+				val headTracker = dev.slimevr.tracking.trackers.TrackerUtils.getTrackerForSkeleton(trackers, dev.slimevr.tracking.trackers.TrackerPosition.HEAD)
+				val hmdRot = headTracker?.getRotation() ?: io.github.axisangles.ktmath.Quaternion.IDENTITY
+				val hmdPos = headTracker?.position ?: io.github.axisangles.ktmath.Vector3.NULL
+				val trackerRots = mutableMapOf<Int, io.github.axisangles.ktmath.Quaternion>()
+				val trackerAccs = mutableMapOf<Int, io.github.axisangles.ktmath.Vector3>()
+				for (t in trackers) {
+					if (t.isImu()) {
+						trackerRots[t.id] = t.getRotation()
+						trackerAccs[t.id] = t.getAcceleration() ?: io.github.axisangles.ktmath.Vector3.NULL
+					}
+				}
+				datasetRecorder.recordFrame(hmdRot, hmdPos, trackerRots, trackerAccs)
+			}
 			for (bridge in bridges) {
 				bridge.dataWrite()
 			}

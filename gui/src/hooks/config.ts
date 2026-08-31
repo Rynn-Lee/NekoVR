@@ -82,7 +82,7 @@ export const defaultConfig: Config = {
   feedbackSound: true,
   feedbackSoundVolume: 0.5,
   connectedTrackersWarning: true,
-  theme: 'slime',
+  theme: 'dark-orange',
   textSize: 12,
   fonts: ['poppins'],
   useTray: null,
@@ -99,6 +99,13 @@ export const defaultConfig: Config = {
   dontShowUdevModal: false,
 };
 
+export const VALID_THEMES = [
+  'dark-orange',
+  'dark-purple',
+  'dark-gray',
+  'light-clean',
+];
+
 const localStore: CrossStorage = {
   get: async <T>(key: string) => (localStorage.getItem(key) as T) ?? undefined,
   set: async (key, value) => localStorage.setItem(key, value as string),
@@ -114,7 +121,11 @@ const store: CrossStorage = window.electronAPI
   : localStore;
 
 function fallbackToDefaults(loadedConfig: any): Config {
-  return Object.assign({}, defaultConfig, loadedConfig);
+  const cfg: Config = Object.assign({}, defaultConfig, loadedConfig);
+  if (!VALID_THEMES.includes(cfg.theme)) {
+    cfg.theme = defaultConfig.theme;
+  }
+  return cfg;
 }
 
 // Move the load of the config ouside of react

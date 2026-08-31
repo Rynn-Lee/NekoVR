@@ -95,6 +95,10 @@ dependencies {
 	implementation("io.ktor:ktor-client-core:2.3.13")
 	implementation("io.ktor:ktor-client-cio:2.3.13")
 
+	// NekoVR AI Drift Correction Engine & Dataset compression
+	implementation("com.microsoft.onnxruntime:onnxruntime:1.20.0")
+	implementation("com.github.luben:zstd-jni:1.5.6-8")
+
 	testImplementation(kotlin("test"))
 	// Use JUnit test framework
 	testImplementation(platform("org.junit:junit-bom:6.0.2"))

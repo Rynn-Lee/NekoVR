@@ -13,7 +13,7 @@ websocket-connection_lost = サーバーへの接続が失われました。再�
 ## Update notification
 
 version_update-title = 新しいバージョンが利用可能です：{ $version }
-version_update-description = { version_update-update }をクリックすると、SlimeVRインストーラーがダウンロードされます。
+version_update-description = { version_update-update }をクリックすると、NekoVRインストーラーがダウンロードされます。
 version_update-update = アップデート
 version_update-close = 閉じる
 
@@ -23,7 +23,7 @@ tips-find_tracker = どのトラッカーがどれだかわからない？トラ
 tips-do_not_move_heels = レコーディング中にかかとが動かないように注意しましょう！
 tips-file_select = 使用するファイルをドラッグ&ドロップするか、 <u>参照</u>します。
 tips-tap_setup = 追跡装置をゆっくり2回軽くタップして選択することができます、メニューから選ぶ必要はありません
-tips-turn_on_tracker = SlimeVRの公式トラッカーを使っていますか？トラッカーをPCに接続した後は<b><em>必ず電源を入れて</em></b>ください!
+tips-turn_on_tracker = NekoVRの公式トラッカーを使っていますか？トラッカーをPCに接続した後は<b><em>必ず電源を入れて</em></b>ください!
 tips-failed_webgl = WebGLの初期化に失敗しました。
 
 ## Units
@@ -168,7 +168,7 @@ widget-developer_mode = 開発者モード
 widget-developer_mode-high_contrast = ハイ コントラスト
 widget-developer_mode-precise_rotation = 正確な回転角度を表示
 widget-developer_mode-fast_data_feed = 高速表示モード
-widget-developer_mode-filter_slimes_and_hmd = SlimeVRとHMDのみを表示
+widget-developer_mode-filter_slimes_and_hmd = NekoVRとHMDのみを表示
 widget-developer_mode-sort_by_name = 表示名順
 widget-developer_mode-raw_slime_rotation = 元の回転角度
 widget-developer_mode-more_info = 他情報
@@ -343,7 +343,7 @@ settings-general-steamvr-subtitle = SteamVRのトラッカー
 # This one is one of this cases that cares about multilines
 settings-general-steamvr-description =
     有効化したい部位にチャックを入れてください。
-    SlimeVRが行うことをよりコントロールしたい場合に便利です。
+    NekoVRが行うことをよりコントロールしたい場合に便利です。
 settings-general-steamvr-trackers-waist = 腰
 settings-general-steamvr-trackers-chest = 胸
 settings-general-steamvr-trackers-tracker_toggling-description = 現在のトラッカー割り当てに応じて、SteamVRトラッカーのオン・オフを自動的に切り替えます。
@@ -504,7 +504,7 @@ settings-osc-router-network = ネットワークポート
 # This cares about multilines
 settings-osc-router-network-description =
     データのリスニングと送信のためのポートを設定します。
-    これらはSlimeVRサーバーで使用する他のポートと同じでかまいません。
+    これらはNekoVRサーバーで使用する他のポートと同じでかまいません。
 settings-osc-router-network-port_in =
     .label = ポートイン
     .placeholder = ポートイン (デフォルト: 9002)
@@ -599,7 +599,7 @@ onboarding-reset_tutorial-skip = ステップをスキップする
 
 ## Setup start
 
-onboarding-home = SlimeVRへようこそ
+onboarding-home = NekoVRへようこそ
 onboarding-home-start = セットアップ開始！
 
 ## Setup done
@@ -681,7 +681,7 @@ onboarding-manual_mounting-next = 次のステップ
 
 onboarding-automatic_mounting-back = VRの入力に戻る
 onboarding-automatic_mounting-title = マウントキャリブレーション
-onboarding-automatic_mounting-description = SlimeVRのトラッカーを動作させるためには、物理的なトラッカーの取り付け位置と合わせるために、トラッカーの取り付け方向を合わせる必要があります。
+onboarding-automatic_mounting-description = NekoVRのトラッカーを動作させるためには、物理的なトラッカーの取り付け位置と合わせるために、トラッカーの取り付け方向を合わせる必要があります。
 onboarding-automatic_mounting-manual_mounting = マニュアルマウント
 onboarding-automatic_mounting-next = 次のステップ
 onboarding-automatic_mounting-prev_step = 前のステップ
@@ -704,7 +704,7 @@ onboarding-manual_proportions-title = マニュアルボディプロポーショ
 
 onboarding-automatic_proportions-back = チュートリアルをリセットする
 onboarding-automatic_proportions-title = 自分の体の測定
-onboarding-automatic_proportions-description = SlimeVRのトラッカーが動作するためには、あなたの骨の長さを知る必要があります。この短いキャリブレーションでそれを測定します。
+onboarding-automatic_proportions-description = NekoVRのトラッカーが動作するためには、あなたの骨の長さを知る必要があります。この短いキャリブレーションでそれを測定します。
 onboarding-automatic_proportions-manual = 手動調整
 onboarding-automatic_proportions-prev_step = 前のステップ
 onboarding-automatic_proportions-put_trackers_on-title = トラッカーを装着する
@@ -749,7 +749,7 @@ home-no_trackers = トラッカーを検出できません。もしくは割り�
 
 ## Trackers Still On notification
 
-trackers_still_on-modal-confirm = SlimeVRを終了する
+trackers_still_on-modal-confirm = NekoVRを終了する
 trackers_still_on-modal-cancel = ちょっと待って...
 
 ## Status system
@@ -757,8 +757,8 @@ trackers_still_on-modal-cancel = ちょっと待って...
 status_system-StatusTrackerReset = 一つ以上のトラッカーが調整されていないため、完全なリセットを実行することをお勧めします
 status_system-StatusSteamVRDisconnected =
     { $type ->
-        [steamvr_feeder] SlimeVR Feederアプリに接続されていません
-       *[other] SlimeVRドライバ経由でSteamVRに接続されていません
+        [steamvr_feeder] NekoVR Feederアプリに接続されていません
+       *[other] NekoVRドライバ経由でSteamVRに接続されていません
     }
 status_system-StatusTrackerError = { $trackerName } トラッカーにエラーが発生しています
 

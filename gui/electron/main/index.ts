@@ -311,7 +311,7 @@ function createWindow() {
     getPlatform() === 'macos' ? appleTrayIcon : trayIcon
   );
   const tray = new Tray(icon);
-  tray.setToolTip('SlimeVR');
+  tray.setToolTip('NekoVR');
   tray.on('click', () => {
     mainWindow?.show();
   });
@@ -376,8 +376,8 @@ const checkEnvironmentVariables = () => {
   const set = disallowedVars.filter((env) => !!process.env[env]);
   if (set.length > 0) {
     dialog.showErrorBox(
-      'SlimeVR',
-      `You have environment variables ${set.join(', ')} set, which may cause the SlimeVR Server to fail to launch properly.`
+      'NekoVR',
+      `You have environment variables ${set.join(', ')} set, which may cause the NekoVR Server to fail to launch properly.`
     );
     app.quit();
   }
@@ -403,7 +403,7 @@ const spawnServer = async () => {
   const javaBin = await findSystemJRE(sharedDir);
   if (!javaBin) {
     dialog.showErrorBox(
-      'SlimeVR',
+      'NekoVR',
       'Unable to find a compatible Java version, please download Java 17 or higher'
     );
     app.quit();
@@ -486,7 +486,7 @@ app.whenReady().then(async () => {
   } catch (err) {
     logger.error(err, 'Failed to initialize stores');
     dialog.showErrorBox(
-      'SlimeVR',
+      'NekoVR',
       'Failed to initialize application storage. Please make sure the application has write permissions to its data folder.'
     );
     app.quit();
@@ -499,7 +499,7 @@ app.whenReady().then(async () => {
 
   createWindow();
 
-  logger.info('SlimeVR started!');
+  logger.info('NekoVR started!');
 
   app.on('window-all-closed', () => {
     app.quit();

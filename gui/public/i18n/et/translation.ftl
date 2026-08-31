@@ -13,7 +13,7 @@ websocket-connection_lost = Ühendus serveriga on kaotatud. Ühenduse taastamine
 ## Update notification
 
 version_update-title = Uus versioon olemas: { $version }
-version_update-description = Vajutades "{ version_update-update }" tõmbab programm alla SlimeVR installeri.
+version_update-description = Vajutades "{ version_update-update }" tõmbab programm alla NekoVR installeri.
 version_update-update = Värskenda
 version_update-close = Sulge
 
@@ -470,7 +470,7 @@ settings-osc-router-network = Võrgupordid
 # This cares about multilines
 settings-osc-router-network-description =
     Lisage võrgupordid, mille pealt saata ja kuulata andmeid.
-    Need võivad olla samad võrgupordid mida kasutab SlimeVR server.
+    Need võivad olla samad võrgupordid mida kasutab NekoVR server.
 settings-osc-router-network-port_in =
     .label = Võrguport sisse
     .placeholder = Võrguport sisse (vaikimisi: 9002)
@@ -510,7 +510,7 @@ settings-osc-vmc = Virtual Motion Capture
 # This cares about multilines
 settings-osc-vmc-description =
     VMC (Virtual Motion Capture) protokollile omaste sätete muutmine
-        SlimeVR-i luuandmete saatmiseks ja luuandmete vastuvõtmiseks teistest rakendustest.
+        NekoVR-i luuandmete saatmiseks ja luuandmete vastuvõtmiseks teistest rakendustest.
 settings-osc-vmc-enable = Luba
 settings-osc-vmc-enable-description = Lülitage andmete sisestamine sisse/välja.
 settings-osc-vmc-enable-label = Luba
@@ -552,7 +552,7 @@ onboarding-wip = Töö käib
 onboarding-previous_step = Eelmine samm
 onboarding-setup_warning =
     <b>Hoiatus:</b> Hea jälgimise jaoks on vajalik esialgne seadistamine,
-    see on vajalik, kui kasutate SlimeVR-i esimest korda.
+    see on vajalik, kui kasutate NekoVR-i esimest korda.
 onboarding-setup_warning-skip = Jäta seadistamine vahele
 onboarding-setup_warning-cancel = Jätka seadistamist
 
@@ -600,7 +600,7 @@ onboarding-reset_tutorial-2 =
 
 ## Setup start
 
-onboarding-home = Tere tulemast SlimeVR-i
+onboarding-home = Tere tulemast NekoVR-i
 onboarding-home-start = Hakkame sättima!
 
 ## Setup done
@@ -694,7 +694,7 @@ onboarding-manual_mounting-next = Järgmine Samm
 
 onboarding-automatic_mounting-back = Minge tagasi, et siseneda VR-i
 onboarding-automatic_mounting-title = Paigaldamis kalibreerimine
-onboarding-automatic_mounting-description = Et SlimeVR jälgijad töötaksid peame me nendele seadistama paigaldamise pöörde, et need joondada teie füüsilise jälgijate paigaldusega.
+onboarding-automatic_mounting-description = Et NekoVR jälgijad töötaksid peame me nendele seadistama paigaldamise pöörde, et need joondada teie füüsilise jälgijate paigaldusega.
 onboarding-automatic_mounting-manual_mounting = Manuaalselt seadistamine
 onboarding-automatic_mounting-next = Järgmine Samm
 onboarding-automatic_mounting-prev_step = Eelmine Samm
@@ -717,7 +717,7 @@ onboarding-manual_proportions-title = Käsitsi keha proportsioonid
 
 onboarding-automatic_proportions-back = Mine tagasi lähtestamise õppetusse
 onboarding-automatic_proportions-title = Mõõtke oma keha
-onboarding-automatic_proportions-description = Et SlimeVR jälgijad töötaks peame me teadma teie kontide pikkust. See lühike kalibreerimine mõõdab selle teie jaoks.
+onboarding-automatic_proportions-description = Et NekoVR jälgijad töötaks peame me teadma teie kontide pikkust. See lühike kalibreerimine mõõdab selle teie jaoks.
 onboarding-automatic_proportions-manual = Manuaalne Kalibreerimine
 onboarding-automatic_proportions-prev_step = Eelmine Samm
 onboarding-automatic_proportions-put_trackers_on-title = Pange kõik jälgijad peale
@@ -776,8 +776,8 @@ home-no_trackers = Jälgijaid ei tuvastatud ega määratud
 
 status_system-StatusSteamVRDisconnected =
     { $type ->
-        [steamvr_feeder] Praegu ei ole SlimeVR-feeder äpiga ühendatud.
-       *[other] Praegu ei ole SlimeVR-draiveri kaudu SteamVR-iga ühendatud.
+        [steamvr_feeder] Praegu ei ole NekoVR-feeder äpiga ühendatud.
+       *[other] Praegu ei ole NekoVR-draiveri kaudu SteamVR-iga ühendatud.
     }
 status_system-StatusTrackerError = Jälgijal { $trackerName } on tõrge.
 

@@ -9,16 +9,16 @@
 
 websocket-connecting = Připojování k serveru
 websocket-connection_lost = Ztraceno spojení se serverem. Pokouším se znovu připojit...
-websocket-connection_lost-desc = Vypadá to že SlimeVR server spadl. Zkontrolujte záznamy protokolů a restartuje aplikaci
+websocket-connection_lost-desc = Vypadá to že NekoVR server spadl. Zkontrolujte záznamy protokolů a restartuje aplikaci
 websocket-timedout = Nepodařilo se připojit k serveru
-websocket-timedout-desc = Vypadá to že buď vypršel časový limit SlimeVR serveru, a nebo došlo k zhroucení. Zkontrolujte záznamy protokolů a restartuje aplikaci
-websocket-error-close = Ukončit SlimeVR
+websocket-timedout-desc = Vypadá to že buď vypršel časový limit NekoVR serveru, a nebo došlo k zhroucení. Zkontrolujte záznamy protokolů a restartuje aplikaci
+websocket-error-close = Ukončit NekoVR
 websocket-error-logs = Otevření složku s záznamy protokolů
 
 ## Update notification
 
 version_update-title = K dispozici je nová verze: { $version }
-version_update-description = Kliknutím na "{ version_update-update }", stáhnete instalační program SlimeVR.
+version_update-description = Kliknutím na "{ version_update-update }", stáhnete instalační program NekoVR.
 version_update-update = Aktualizace
 version_update-close = Zavřít
 
@@ -28,7 +28,7 @@ tips-find_tracker = Nejste si jisti, který tracker je který? Zatřeste tracker
 tips-do_not_move_heels = Během nahrávání se ujistěte, že se vaše paty nepohybují!
 tips-file_select = Nahrajte soubory přetažením zde, nebo tlačítkem <u>procházet</u>
 tips-tap_setup = Pro výběr trackeru na něj můžete dvakrát pomalu poklepat, místo výběru z nabídky.
-tips-turn_on_tracker = Máte oficiální SlimeVR trackery? <b><em>Po připojení k PC je nezapomeňte zapnout!</em></b>
+tips-turn_on_tracker = Máte oficiální NekoVR trackery? <b><em>Po připojení k PC je nezapomeňte zapnout!</em></b>
 tips-failed_webgl = Načtení WebGL selhalo.
 
 ## Units
@@ -76,9 +76,9 @@ board_type-WROOM32 = WROOM32
 board_type-WEMOSD1MINI = Wemos D1 Mini
 board_type-TTGO_TBASE = TTGO T-Base
 board_type-ESP01 = ESP-01
-board_type-SLIMEVR = SlimeVR
-board_type-SLIMEVR_DEV = SlimeVR Dev Board
-board_type-SLIMEVR_V1_2 = SlimeVR v1.2
+board_type-SLIMEVR = NekoVR
+board_type-SLIMEVR_DEV = NekoVR Dev Board
+board_type-SLIMEVR_V1_2 = NekoVR v1.2
 board_type-LOLIN_C3_MINI = Lolin C3 Mini
 board_type-BEETLE32C3 = Beetle ESP32-C3
 board_type-ESP32C3DEVKITM1 = Espressif ESP32-C3 DevKitM-1
@@ -89,12 +89,12 @@ board_type-WEMOSWROOM02 = Wemos Wroom-02 D1 Mini
 board_type-XIAO_ESP32C3 = Seeed Studio XIAO ESP32C3
 board_type-HARITORA = Haritora
 board_type-ESP32C6DEVKITC1 = Espressif ESP32-C6 DevKitC-1
-board_type-GLOVE_IMU_SLIMEVR_DEV = SlimeVR vývojářská IMU rukavice
+board_type-GLOVE_IMU_SLIMEVR_DEV = NekoVR vývojářská IMU rukavice
 board_type-GESTURES = Gesta
 board_type-ESP32S3_SUPERMINI = ESP32-S3 Supermini
 board_type-GENERIC_NRF = Obecné nRF
-board_type-SLIMEVR_BUTTERFLY_DEV = SlimeVR Dev Butterfly
-board_type-SLIMEVR_BUTTERFLY = SlimeVR Butterfly
+board_type-SLIMEVR_BUTTERFLY_DEV = NekoVR Dev Butterfly
+board_type-SLIMEVR_BUTTERFLY = NekoVR Butterfly
 
 ## Proportions
 
@@ -308,7 +308,7 @@ tracker-settings-name_section-description = Třeba nějakou roztomilou přezdív
 tracker-settings-name_section-placeholder = Erimelova levá tlapka
 tracker-settings-name_section-label = Název trackeru
 tracker-settings-forget = Zapomenout tracker
-tracker-settings-forget-description = Odebere tracker z SlimeVR Serveru a zabrání jeho opětovnému připojení do té doby, dokud nebude server restarován. Konfigurace trackeru nebude ztracena.
+tracker-settings-forget-description = Odebere tracker z NekoVR Serveru a zabrání jeho opětovnému připojení do té doby, dokud nebude server restarován. Konfigurace trackeru nebude ztracena.
 tracker-settings-forget-label = Zapomenout tracker
 tracker-settings-update-unavailable-v2 = Žádné vydání nebyla nalezena
 tracker-settings-update-incompatible = Nelze aktualizovat. Nekompatibilní deska nebo verze firmwaru
@@ -628,17 +628,17 @@ settings-general-interface-feedback_sound-description = Tato možnost spustí zv
 settings-general-interface-feedback_sound-label = Zvuk zpětné vazby
 settings-general-interface-feedback_sound-volume = Hlasitost zvuku zpětné vazby
 settings-general-interface-connected_trackers_warning = Upozornění o připojených trackerů
-settings-general-interface-connected_trackers_warning-description = Tato možnost zobrazí vyskakovací okno pokaždé, když se pokusíte opustit SlimeVR, když máte připojen jeden nebo více trackerů. Připomene vám, abyste vypnuli své trackery, až budete hotovi, abyste prodloužili životnost baterie.
+settings-general-interface-connected_trackers_warning-description = Tato možnost zobrazí vyskakovací okno pokaždé, když se pokusíte opustit NekoVR, když máte připojen jeden nebo více trackerů. Připomene vám, abyste vypnuli své trackery, až budete hotovi, abyste prodloužili životnost baterie.
 settings-general-interface-connected_trackers_warning-label = Upozornění o připojených trackerech při ukončení
 
 ## Behavior settings
 
 settings-interface-behavior = Chování
 settings-general-interface-use_tray = Minimalizovat do oznamovací oblasti
-settings-general-interface-use_tray-description = Umožňuje vám zavřít okno, aniž byste zavřeli SlimeVR Server, takže ho můžete nadále používat bez rozhraní.
+settings-general-interface-use_tray-description = Umožňuje vám zavřít okno, aniž byste zavřeli NekoVR Server, takže ho můžete nadále používat bez rozhraní.
 settings-general-interface-use_tray-label = Minimalizovat do oznamovací oblasti
 settings-general-interface-discord_presence = Sdílet aktivitu na Discordu
-settings-general-interface-discord_presence-description = Sdělí Discord klientu, že používáte SlimeVR společně s počtem trackerů IMU, které používáte.
+settings-general-interface-discord_presence-description = Sdělí Discord klientu, že používáte NekoVR společně s počtem trackerů IMU, které používáte.
 settings-general-interface-discord_presence-label = Sdílet aktivitu na Discordu
 settings-general-interface-discord_presence-message =
     { $amount ->
@@ -652,9 +652,9 @@ settings-interface-behavior-error_tracking = Sběr chyb prostřednictvím Sentry
 settings-interface-behavior-error_tracking-description_v2 =
     <h1>Souhlasíte se shromažďováním anonymizovaých údajů o chybých?</h1>
     
-    <b>Neschrožďujeme osobní udaje!</b> pro příklad IP adresy nebo přihlašovací údaje k sítím Wi-Fi. SlimeVR respektuje vaše soukromí!
+    <b>Neschrožďujeme osobní udaje!</b> pro příklad IP adresy nebo přihlašovací údaje k sítím Wi-Fi. NekoVR respektuje vaše soukromí!
     
-    Aby jsme mohli poskytnout nejlepší zážitek uživatelům, schromažďujeme proto anonymizované zprávy o chybých, metriky výkon a informace o operačním systém. To nám pomáhá zjištovat chyby a problémy s SlimeVR. Tyto matriky jsou schromažďovány prostřednictvím Sentry.io.
+    Aby jsme mohli poskytnout nejlepší zážitek uživatelům, schromažďujeme proto anonymizované zprávy o chybých, metriky výkon a informace o operačním systém. To nám pomáhá zjištovat chyby a problémy s NekoVR. Tyto matriky jsou schromažďovány prostřednictvím Sentry.io.
 settings-interface-behavior-error_tracking-label = Odeslat chyby vývojářům
 settings-interface-behavior-bvh_directory = Cesta pro uložení BVH záznamů
 settings-interface-behavior-bvh_directory-description = Vyberte cestu k uložení záznamů BHV. namísto toho, abyste pokaždé vybírali, kam je uložit.
@@ -701,7 +701,7 @@ settings-osc-router-network = Síťové porty
 # This cares about multilines
 settings-osc-router-network-description =
     Nastavení portů pro naslouchání a odesílání dat.
-    Tyto porty mohou být stejné jako ostatní porty používané v serveru SlimeVR.
+    Tyto porty mohou být stejné jako ostatní porty používané v serveru NekoVR.
 settings-osc-router-network-port_in =
     .label = Vstup portu
     .placeholder = Vstup portu (výchozí: 9002)
@@ -750,7 +750,7 @@ settings-osc-vmc = Virtuální snímání pohybu (Také známo jako Virtual Moti
 # This cares about multilines
 settings-osc-vmc-description =
     Změna nastavení specificky pro VCM (Virtual Motion Capture) protokol
-        odesílat data o kostech SlimeVR a přijímat data o kostech z jiných aplikací.
+        odesílat data o kostech NekoVR a přijímat data o kostech z jiných aplikací.
 settings-osc-vmc-enable = Zapnout
 settings-osc-vmc-enable-description = Vypnutí a zapnutí odesílání a přijímání dat.
 settings-osc-vmc-enable-label = Zapnout
@@ -807,10 +807,10 @@ settings-utils-advanced-reset_warning =
 settings-utils-advanced-reset_warning-reset = Obnovit nastavení
 settings-utils-advanced-reset_warning-cancel = Zrušit
 settings-utils-advanced-open_data-v1 = Složka s konfigurací
-settings-utils-advanced-open_data-description-v1 = Otevřít složku s konfiguračními soubory pro SlimeVR v průzkumníku souborů?
+settings-utils-advanced-open_data-description-v1 = Otevřít složku s konfiguračními soubory pro NekoVR v průzkumníku souborů?
 settings-utils-advanced-open_data-label = Otevřít složku
 settings-utils-advanced-open_logs = Složka s záznamy protokolů
-settings-utils-advanced-open_logs-description = Otevřít složku s konfiguračními soubory pro SlimeVR v průzkumníku souborů?
+settings-utils-advanced-open_logs-description = Otevřít složku s konfiguračními soubory pro NekoVR v průzkumníku souborů?
 settings-utils-advanced-open_logs-label = Otevřít složku
 
 ## Home Screen
@@ -832,7 +832,7 @@ onboarding-wip = Probíhající práce
 onboarding-previous_step = Předchozí krok
 onboarding-setup_warning =
     <b>Varování:</b> Pro dobré trackování je vyžadována počáteční kalibrace a nastavení,
-    Je nutné, pokud používáte SlimeVR poprvé.
+    Je nutné, pokud používáte NekoVR poprvé.
 onboarding-setup_warning-skip = Přeskočit nastavení
 onboarding-setup_warning-cancel = Pokračovat v nastavení
 
@@ -877,7 +877,7 @@ onboarding-reset_tutorial-1 =
 
 ## Setup start
 
-onboarding-home = Vítejte ve SlimeVR
+onboarding-home = Vítejte ve NekoVR
 onboarding-home-start = Pusťme se do toho!
 
 ## Setup done
@@ -1027,7 +1027,7 @@ onboarding-manual_mounting-next = Další krok
 
 onboarding-automatic_mounting-back = Zpět do VR
 onboarding-automatic_mounting-title = Kalibrace nasazení
-onboarding-automatic_mounting-description = Pro správnou funkci trackerů SlimeVR jim musíme přiřadit orientaci.  Ta musí odpovídat tomu, jak jsou fyzicky nasměrovány na vašem těle.
+onboarding-automatic_mounting-description = Pro správnou funkci trackerů NekoVR jim musíme přiřadit orientaci.  Ta musí odpovídat tomu, jak jsou fyzicky nasměrovány na vašem těle.
 onboarding-automatic_mounting-manual_mounting = Manuální nasazení
 onboarding-automatic_mounting-next = Další krok
 onboarding-automatic_mounting-prev_step = Předchozí krok
@@ -1064,7 +1064,7 @@ onboarding-manual_proportions-estimated_height = Odhadovaná výška uživatele
 
 onboarding-automatic_proportions-back = Zpět na tutoriál
 onboarding-automatic_proportions-title = Změřte své tělo
-onboarding-automatic_proportions-description = Aby trackery SlimeVR fungovaly, potřebujeme znát délku vašich kostí. Tato krátká kalibrace vám to změří.
+onboarding-automatic_proportions-description = Aby trackery NekoVR fungovaly, potřebujeme znát délku vašich kostí. Tato krátká kalibrace vám to změří.
 onboarding-automatic_proportions-manual = Manuální kalibrace proporcí
 onboarding-automatic_proportions-prev_step = Předchozí krok
 onboarding-automatic_proportions-put_trackers_on-title = Nasaďte si trackery
@@ -1075,8 +1075,8 @@ onboarding-automatic_proportions-requirements-title = Požadavky
 onboarding-automatic_proportions-requirements-descriptionv2 =
     Minimálně 5 trackerů: Máte dostatečný počet trackerů pro sledování nohou.
     Nasazené vybavení: Máte nasazené trackery a headset.
-    Připojení a funkčnost: Trackery a headset jsou připojeny k serveru SlimeVR a fungují správně (bez záseků, odpojování apod.).
-    SteamVR a SlimeVR: Headset odesílá pozici do serveru SlimeVR (obvykle je potřeba mít spuštěný SteamVR a připojený k SlimeVR pomocí ovladače SlimeVR pro SteamVR).
+    Připojení a funkčnost: Trackery a headset jsou připojeny k serveru NekoVR a fungují správně (bez záseků, odpojování apod.).
+    SteamVR a NekoVR: Headset odesílá pozici do serveru NekoVR (obvykle je potřeba mít spuštěný SteamVR a připojený k NekoVR pomocí ovladače NekoVR pro SteamVR).
     Přesné sledování: Sledování funguje a přesně zaznamenává vaše pohyby (například jste provedli kompletní reset a trackery se správně pohybují při kopání, předklonu, sezení apod.).
 onboarding-automatic_proportions-requirements-next = Přečetl jsem si požadavky
 onboarding-automatic_proportions-check_height-title-v3 = Měření výšky vašeho headsetu
@@ -1205,8 +1205,8 @@ home-settings-close = Zavřít
 trackers_still_on-modal-title = Máte trackery stále zapnuté
 trackers_still_on-modal-description =
     Jeden nebo více trackerů jsou stále zapnuty.
-    Opravdu chcete ukončit SlimeVR?
-trackers_still_on-modal-confirm = Zavřít SlimeVR
+    Opravdu chcete ukončit NekoVR?
+trackers_still_on-modal-confirm = Zavřít NekoVR
 trackers_still_on-modal-cancel = Dejte my chvilku!
 
 ## Status system
@@ -1214,8 +1214,8 @@ trackers_still_on-modal-cancel = Dejte my chvilku!
 status_system-StatusTrackerReset = Pro dosažení nejlepších výsledků proveďte kompletní reset. Alespoň jeden tracker není správně nastaven.
 status_system-StatusSteamVRDisconnected =
     { $type ->
-        [steamvr_feeder] Nejste připojeni k SlimeVR "Feeder" aplikaci.
-       *[steamvr] Nejste připojeni ke SteamVR zapomocí ovladače SlimeVR.
+        [steamvr_feeder] Nejste připojeni k NekoVR "Feeder" aplikaci.
+       *[steamvr] Nejste připojeni ke SteamVR zapomocí ovladače NekoVR.
     }
 status_system-StatusTrackerError = Tracker { $trackerName } není v pořádku.
 status_system-StatusUnassignedHMD = Váš VR Headset by měl být přiřazen jako tracker hlavy.
@@ -1258,7 +1258,7 @@ firmware_tool-flash_method_step-serial-v2 =
     .description = Použíjte USB kabel k aktualizování vaších trackerů
 firmware_tool-flashbtn_step = Stiskněte tlačítko bootu btn
 firmware_tool-flashbtn_step-description = Než přejdeme na další krok, je tady pár věcí které musíte udělat
-firmware_tool-flashbtn_step-board_SLIMEVR = Vypněte tracker, vyndejte z obalu (jestli v nějakém je), Připojte USB kabel k tomuto počítači a poté následujte jeden z kroků revize odpovídající k vaší verzi desky trackeru SlimeVR:
+firmware_tool-flashbtn_step-board_SLIMEVR = Vypněte tracker, vyndejte z obalu (jestli v nějakém je), Připojte USB kabel k tomuto počítači a poté následujte jeden z kroků revize odpovídající k vaší verzi desky trackeru NekoVR:
 firmware_tool-flashbtn_step-board_OTHER =
     Před flashováním, pravděpodobně budete muset přepnout tracker do bootloader režimu.
     Ve většině případů to znamená stisknutí boot tlačítka na desce trakeru před tím než začne proces flashování.
@@ -1314,7 +1314,7 @@ firmware_update-status-ERROR_UNKNOWN = Neznámá chyba
 
 firmware_update-title = Aktualizace firmwaru
 firmware_update-devices = Dostupná zařízení
-firmware_update-devices-description = Prosím zvolte tracker, který chcete aktualizovat na nejnovější verzi SlimeVR firmwaru
+firmware_update-devices-description = Prosím zvolte tracker, který chcete aktualizovat na nejnovější verzi NekoVR firmwaru
 firmware_update-no_devices = Prosím ujistěte se, že tracker který chcete aktualizovat je ZAPNUTO a připojeno k Wi-Fi!
 firmware_update-changelog-title = Aktualizování na { $version }
 firmware_update-looking_for_devices = Hledání zařízení pro aktualizaci
@@ -1346,12 +1346,12 @@ tray_or_exit_modal-cancel = Zrušit
 unknown_device-modal-title = Byl nalezen nový tracker!
 unknown_device-modal-description =
     Byl objeven nový tracker s MAC adresou <b>{ $deviceId }</b>.
-    Chcete jej připojit k SlimeVR?
+    Chcete jej připojit k NekoVR?
 unknown_device-modal-confirm = Jasně!
 unknown_device-modal-forget = Ignoruj
 # VRChat config warnings
 vrc_config-page-title = Varování VRChat konfigurace
-vrc_config-page-desc = Tato stránka slouží k zobrazení vašeho aktuálního stavu nastavení ve VRChat. přesněji, nástavní které jsou nekompatibilní s SlimeVR. Je silně doporučeno poupravit všechny chybné nastavení které jsou zde zobrazeny pro nejlepší zážitek s SlimeVR.
+vrc_config-page-desc = Tato stránka slouží k zobrazení vašeho aktuálního stavu nastavení ve VRChat. přesněji, nástavní které jsou nekompatibilní s NekoVR. Je silně doporučeno poupravit všechny chybné nastavení které jsou zde zobrazeny pro nejlepší zážitek s NekoVR.
 vrc_config-page-help = Nemůžete najít specifické nastavení?
 vrc_config-page-help-desc = Podívejte se na naší <a>dokumentaci k tomuto tématu!</a>
 vrc_config-page-big_menu = Sledování & IK (Velké Menu)
@@ -1403,8 +1403,8 @@ error_collection_modal-cancel = Nesouhlasím
 ## Tracking checklist section
 
 tracking_checklist-settings-close = Zavřít
-tracking_checklist-status-incomplete = Nejste připraveni používat SlimeVR!
-tracking_checklist-status-complete = Jste připravení k použití SlimeVR
+tracking_checklist-status-incomplete = Nejste připraveni používat NekoVR!
+tracking_checklist-status-complete = Jste připravení k použití NekoVR
 tracking_checklist-FULL_RESET = Proveďte plné obnovení
 tracking_checklist-STEAMVR_DISCONNECTED = SteamVR není zapnut
 tracking_checklist-STEAMVR_DISCONNECTED-desc = SteamVR není zapnut. Používáte ho pro VR?

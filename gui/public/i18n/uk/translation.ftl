@@ -13,7 +13,7 @@ websocket-connection_lost = З'єднання з сервером втрачен
 ## Update notification
 
 version_update-title = Доступна нова версія: { $version }
-version_update-description = Натискання "{ version_update-update }" почнеться завантаження SlimeVR installer.
+version_update-description = Натискання "{ version_update-update }" почнеться завантаження NekoVR installer.
 version_update-update = Оновлення
 version_update-close = Закрити
 
@@ -23,7 +23,7 @@ tips-find_tracker = Не знаєте який трекер вибирати? П
 tips-do_not_move_heels = Переконайтеся, що не рухаєте п'ятами під час запису!
 tips-file_select = Перетягніть файли для використання або <u>знайдіть</u>.
 tips-tap_setup = Ви можете повільно постукати 2 рази по трекеру, щоб вибрати його, замість того, щоб вибирати його з меню.
-tips-turn_on_tracker = Використовуєте офіційні трекери SlimeVR? Не забудьте <b><em>увімкнути трекер</em></b> після підключення до ПК!
+tips-turn_on_tracker = Використовуєте офіційні трекери NekoVR? Не забудьте <b><em>увімкнути трекер</em></b> після підключення до ПК!
 tips-failed_webgl = Не вдалося ініціалізувати WebGL.
 
 ## Units
@@ -224,7 +224,7 @@ tracker-settings-name_section = Ім'я трекера
 tracker-settings-name_section-description = Дайте йому миле прізвисько °^°
 tracker-settings-name_section-placeholder = Ліва нога NightyBeast
 tracker-settings-forget = Забути трекери
-tracker-settings-forget-description = Прибирає трекер із SlimeVR і забороняє йому підключатися до сервера до того, як він буде перезапущений. Конфігурацію трекера не буде втрачено.
+tracker-settings-forget-description = Прибирає трекер із NekoVR і забороняє йому підключатися до сервера до того, як він буде перезапущений. Конфігурацію трекера не буде втрачено.
 tracker-settings-forget-label = Забути трекери
 
 ## Tracker part card info
@@ -324,7 +324,7 @@ settings-general-steamvr-trackers-right_elbow = Правий лікоть
 settings-general-steamvr-trackers-left_hand = Ліва рука
 settings-general-steamvr-trackers-right_hand = Права рука
 settings-general-steamvr-trackers-tracker_toggling = Автоматичне призначення трекерів
-settings-general-steamvr-trackers-tracker_toggling-description = Автоматично займається увімкненням та вимкненням трекерів SlimeVR залежно від поточних призначень ваших трекерів
+settings-general-steamvr-trackers-tracker_toggling-description = Автоматично займається увімкненням та вимкненням трекерів NekoVR залежно від поточних призначень ваших трекерів
 settings-general-steamvr-trackers-tracker_toggling-label = Автоматичне призначення трекерів
 settings-general-steamvr-trackers-hands-warning =
     <b>Увага:</b> трекери рук перевизначать ваші контролери.
@@ -472,16 +472,16 @@ settings-general-interface-feedback_sound-description = Ця опція відт
 settings-general-interface-feedback_sound-label = Звук зворотного зв'язку
 settings-general-interface-feedback_sound-volume = Гучність звуку зворотного зв'язку
 settings-general-interface-connected_trackers_warning = Попередження про підключені трекери
-settings-general-interface-connected_trackers_warning-description = Ця опція відображатиме спливаюче вікно кожного разу, коли ви намагатиметеся вийти зі SlimeVR, якщо підключено один або декілька трекерів. Він нагадує вам вимкнути ваші трекери, коли ви закінчите, щоб зберегти заряд батареї.
+settings-general-interface-connected_trackers_warning-description = Ця опція відображатиме спливаюче вікно кожного разу, коли ви намагатиметеся вийти зі NekoVR, якщо підключено один або декілька трекерів. Він нагадує вам вимкнути ваші трекери, коли ви закінчите, щоб зберегти заряд батареї.
 settings-general-interface-connected_trackers_warning-label = Попередження про підключені трекери під час виходу
 
 ## Behavior settings
 
 settings-general-interface-use_tray = Згорнути в системний трей
-settings-general-interface-use_tray-description = Дозволяє закрити вікно, не закриваючи сервер SlimeVR, так що ви можете продовжувати використати його, не турбуючись про інтерфейс.
+settings-general-interface-use_tray-description = Дозволяє закрити вікно, не закриваючи сервер NekoVR, так що ви можете продовжувати використати його, не турбуючись про інтерфейс.
 settings-general-interface-use_tray-label = Згорнути в системний трей
 settings-general-interface-discord_presence = Ділитися активністю в Discord
-settings-general-interface-discord_presence-description = Повідомляє вашому клієнту Discord, що ви використовуєте SlimeVR, а також передає кількість трекерів IMU, які ви використовуєте.
+settings-general-interface-discord_presence-description = Повідомляє вашому клієнту Discord, що ви використовуєте NekoVR, а також передає кількість трекерів IMU, які ви використовуєте.
 settings-general-interface-discord_presence-label = Ділитися активністю в Discord
 
 ## Serial settings
@@ -521,7 +521,7 @@ settings-osc-router-network = Мережеві порти
 # This cares about multilines
 settings-osc-router-network-description =
     Встановіть порти для прослуховування і відправки даних.
-    Вони можуть бути такими ж, як і інші порти, що використовуються на сервері SlimeVR.
+    Вони можуть бути такими ж, як і інші порти, що використовуються на сервері NekoVR.
 settings-osc-router-network-port_in =
     .label = Вхідний Порт
     .placeholder = Вхідний Порт (зазвичай: 9002)
@@ -563,7 +563,7 @@ settings-osc-vmc = Віртуальне захоплення руху
 # This cares about multilines
 settings-osc-vmc-description =
     Змінення настройок протоколу VMC (Virtual Motion Capture)
-        щоб надсилати дані про кістки SlimeVR та отримувати дані про кістки з інших програм.
+        щоб надсилати дані про кістки NekoVR та отримувати дані про кістки з інших програм.
 settings-osc-vmc-enable = Увімкнути
 settings-osc-vmc-enable-description = Перемикайте відправку та отримання даних.
 settings-osc-vmc-enable-label = Увімкнути
@@ -608,7 +608,7 @@ onboarding-wip = В роботі
 onboarding-previous_step = Попередній крок
 onboarding-setup_warning =
     <b>Попередження:</b> Початкова настройка потрібна для хорошого відстеження,
-    це потрібно, якщо ви вперше використовуєте SlimeVR.
+    це потрібно, якщо ви вперше використовуєте NekoVR.
 onboarding-setup_warning-skip = Пропустити налаштування
 onboarding-setup_warning-cancel = Продовжити налаштування
 
@@ -656,7 +656,7 @@ onboarding-reset_tutorial-2 =
 
 ## Setup start
 
-onboarding-home = Ласкаво просимо до SlimeVR
+onboarding-home = Ласкаво просимо до NekoVR
 onboarding-home-start = Давайте налаштуємося!
 
 ## Setup done
@@ -850,7 +850,7 @@ tray_or_exit_modal-cancel = Скасувати
 unknown_device-modal-title = Знайдено новий трекер!
 unknown_device-modal-description =
     З'явився новий трекер із MAC-адресою <b>{ $deviceId }</b>.
-    Бажаєте підключити його до SlimeVR?
+    Бажаєте підключити його до NekoVR?
 unknown_device-modal-confirm = Звісно!
 unknown_device-modal-forget = Ігнорувати
 

@@ -243,14 +243,25 @@ class TrackerResetsHandler(val tracker: Tracker) {
 	 * and returns it
 	 */
 	private fun adjustToDrift(rotation: Quaternion): Quaternion {
+		var rot = rotation
 		if (driftCompensationEnabled && totalDriftTime > 0) {
 			var driftTimeRatio = ((System.currentTimeMillis() - driftSince).toFloat() / totalDriftTime)
 			if (!driftPrediction) {
 				driftTimeRatio = min(1.0f, driftTimeRatio)
 			}
-			return averagedDriftQuat.pow(driftAmount * driftTimeRatio) * rotation
+			rot = averagedDriftQuat.pow(driftAmount * driftTimeRatio) * rot
 		}
-		return rotation
+
+		// NekoVR Real-Time AI Drift Correction Engine
+		val aiEngine = VRServer.instance?.aiDriftEngine
+		if (aiEngine != null && aiEngine.config.enabled) {
+			rot = aiEngine.correctRotation(
+				trackerId = tracker.id,
+				rawRotation = rot,
+				acceleration = tracker.getAcceleration() ?: Vector3.NULL,
+			)
+		}
+		return rot
 	}
 
 	/**

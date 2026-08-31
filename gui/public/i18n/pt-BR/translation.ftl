@@ -9,16 +9,16 @@
 
 websocket-connecting = Carregando...
 websocket-connection_lost = O servidor parou de funcionar!
-websocket-connection_lost-desc = Parece que o servidor do SlimeVR parou de funcionar. Verifique os logs e reinicie o programa.
+websocket-connection_lost-desc = Parece que o servidor do NekoVR parou de funcionar. Verifique os logs e reinicie o programa.
 websocket-timedout = Não foi possível conectar-se ao servidor
-websocket-timedout-desc = Parece que o servidor do SlimeVR parou de funcionar ou atingiu o tempo limite. Verifique os logs e reinicie o programa.
-websocket-error-close = Sair do SlimeVR
+websocket-timedout-desc = Parece que o servidor do NekoVR parou de funcionar ou atingiu o tempo limite. Verifique os logs e reinicie o programa.
+websocket-error-close = Sair do NekoVR
 websocket-error-logs = Abrir a pasta de logs
 
 ## Update notification
 
 version_update-title = Nova versão disponível: { $version }
-version_update-description = Ao clicar em "{ version_update-update }" irá baixar o instalador do SlimeVR para você.
+version_update-description = Ao clicar em "{ version_update-update }" irá baixar o instalador do NekoVR para você.
 version_update-update = Atualizar
 version_update-close = Fechar
 
@@ -28,7 +28,7 @@ tips-find_tracker = Não tem certeza de qual tracker é qual? Sacuda um tracker 
 tips-do_not_move_heels = Certifique-se de manter os calcanhares imóveis durante a gravação!
 tips-file_select = Arraste e solte arquivos para usar, ou <u>pesquise</u>.
 tips-tap_setup = Você pode tocar lentamente no seu tracker 2 vezes para selecioná-lo, em vez de escolhê-lo pelo menu.
-tips-turn_on_tracker = Está usando trackers oficiais do SlimeVR? Lembre-se de <b><em> ligar o seu tracker </em></b> após conectá-lo ao computador!
+tips-turn_on_tracker = Está usando trackers oficiais do NekoVR? Lembre-se de <b><em> ligar o seu tracker </em></b> após conectá-lo ao computador!
 tips-failed_webgl = Falha ao inicializar o WebGL.
 
 ## Units
@@ -101,9 +101,9 @@ board_type-WROOM32 = WROOM32
 board_type-WEMOSD1MINI = Wemos D1 Mini
 board_type-TTGO_TBASE = TTGO T-Base
 board_type-ESP01 = ESP-01
-board_type-SLIMEVR = SlimeVR
-board_type-SLIMEVR_DEV = Placa do SlimeVR Dev
-board_type-SLIMEVR_V1_2 = SlimeVR v1.2
+board_type-SLIMEVR = NekoVR
+board_type-SLIMEVR_DEV = Placa do NekoVR Dev
+board_type-SLIMEVR_V1_2 = NekoVR v1.2
 board_type-LOLIN_C3_MINI = Lolin C3 Mini
 board_type-BEETLE32C3 = Beetle ESP32-C3
 board_type-ESP32C3DEVKITM1 = Espressif ESP32-C3 DevKitM-1
@@ -114,12 +114,12 @@ board_type-WEMOSWROOM02 = Wemos Wroom-02 D1 Mini
 board_type-XIAO_ESP32C3 = Seeed Studio XIAO ESP32C3
 board_type-HARITORA = Haritora
 board_type-ESP32C6DEVKITC1 = Espressif ESP32-C6 DevKitC-1
-board_type-GLOVE_IMU_SLIMEVR_DEV = SlimeVR Dev IMU Glove
+board_type-GLOVE_IMU_SLIMEVR_DEV = NekoVR Dev IMU Glove
 board_type-GESTURES = Gestos
 board_type-ESP32S3_SUPERMINI = ESP32-S3 Supermini
 board_type-GENERIC_NRF = nRF genérico
-board_type-SLIMEVR_BUTTERFLY_DEV = SlimeVR Dev Butterfly
-board_type-SLIMEVR_BUTTERFLY = SlimeVR Butterfly
+board_type-SLIMEVR_BUTTERFLY_DEV = NekoVR Dev Butterfly
+board_type-SLIMEVR_BUTTERFLY = NekoVR Butterfly
 
 ## Proportions
 
@@ -426,7 +426,7 @@ tracker-settings-name_section-description = Dê um apelido fofo :)
 tracker-settings-name_section-placeholder = Coxa esquerda de NightyBeast
 tracker-settings-name_section-label = Nome do tracker
 tracker-settings-forget = Esquecer o tracker
-tracker-settings-forget-description = Remove o tracker do servidor SlimeVR e impede que ele se conecte a ele até que o servidor seja reiniciado. A configuração do tracker não será perdida.
+tracker-settings-forget-description = Remove o tracker do servidor NekoVR e impede que ele se conecte a ele até que o servidor seja reiniciado. A configuração do tracker não será perdida.
 tracker-settings-forget-label = Esquecer o tracker
 tracker-settings-update-unavailable-v2 = Nenhuma versão nova encontrada
 tracker-settings-update-incompatible = Não é possível atualizar. Placa ou versão de firmware incompatível
@@ -757,17 +757,17 @@ settings-general-interface-feedback_sound-description = Essa opção reproduzir�
 settings-general-interface-feedback_sound-label = Som de feedback
 settings-general-interface-feedback_sound-volume = Volume do som de feedback
 settings-general-interface-connected_trackers_warning = Aviso de trackers conectados
-settings-general-interface-connected_trackers_warning-description = Essa opção exibirá um pop-up toda vez que você tentar fechar o SlimeVR enquanto tiver um ou mais trackers conectados. Ela o lembrará de desligar os trackers quando você terminar para preservar a vida útil da bateria.
+settings-general-interface-connected_trackers_warning-description = Essa opção exibirá um pop-up toda vez que você tentar fechar o NekoVR enquanto tiver um ou mais trackers conectados. Ela o lembrará de desligar os trackers quando você terminar para preservar a vida útil da bateria.
 settings-general-interface-connected_trackers_warning-label = Aviso de trackers conectados ao fechar
 
 ## Behavior settings
 
 settings-interface-behavior = Comportamento
 settings-general-interface-use_tray = Minimizar para bandeja do sistema
-settings-general-interface-use_tray-description = Permite que você feche a janela sem fechar o servidor do SlimeVR, para que possa continuar usando-o sem que a interface gráfica o incomode.
+settings-general-interface-use_tray-description = Permite que você feche a janela sem fechar o servidor do NekoVR, para que possa continuar usando-o sem que a interface gráfica o incomode.
 settings-general-interface-use_tray-label = Minimizar para a bandeja do sistema
 settings-general-interface-discord_presence = Compartilhar atividade no Discord
-settings-general-interface-discord_presence-description = Informa ao seu Discord que o SlimeVR está aberto, juntamente com o número de trackers IMU que você está utilizando.
+settings-general-interface-discord_presence-description = Informa ao seu Discord que o NekoVR está aberto, juntamente com o número de trackers IMU que você está utilizando.
 settings-general-interface-discord_presence-label = Compartilhar atividade no Discord
 settings-general-interface-discord_presence-message =
     { $amount ->
@@ -779,9 +779,9 @@ settings-interface-behavior-error_tracking = Coleta de erros via Sentry.io
 settings-interface-behavior-error_tracking-description_v2 =
     <h1>Você consente com a coleta de dados de erro anonimizados?</h1>
     
-    <b>Não coletamos informações pessoais</b>, como seu endereço IP ou credenciais de rede sem fio. O SlimeVR valoriza sua privacidade!
+    <b>Não coletamos informações pessoais</b>, como seu endereço IP ou credenciais de rede sem fio. O NekoVR valoriza sua privacidade!
     
-    Para oferecer a melhor experiência possível, coletamos relatórios de erro anonimizados, métricas de desempenho e informações sobre o sistema operacional. Isso nos ajuda a identificar bugs e problemas no SlimeVR. Essas métricas são coletadas por meio do Sentry.io.
+    Para oferecer a melhor experiência possível, coletamos relatórios de erro anonimizados, métricas de desempenho e informações sobre o sistema operacional. Isso nos ajuda a identificar bugs e problemas no NekoVR. Essas métricas são coletadas por meio do Sentry.io.
 settings-interface-behavior-error_tracking-label = Enviar erros para os desenvolvedores
 settings-interface-behavior-bvh_directory = Diretório para salvar gravações BVH
 settings-interface-behavior-bvh_directory-description = Escolha um diretório para salvar suas gravações BVH, em vez de precisar escolher onde salvá-las a cada vez.
@@ -829,7 +829,7 @@ settings-osc-router-network = Portas de rede
 # This cares about multilines
 settings-osc-router-network-description =
     Defina as portas para receber e enviar dados.
-    Elas podem ser as mesmas portas usadas no servidor do SlimeVR.
+    Elas podem ser as mesmas portas usadas no servidor do NekoVR.
 settings-osc-router-network-port_in =
     .label = Porta de Entrada
     .placeholder = Porta de entrada (padrão: 9002)
@@ -884,7 +884,7 @@ settings-osc-vmc = Captura virtual de movimentos
 # This cares about multilines
 settings-osc-vmc-description =
     Altere as configurações específicas do protocolo VMC (Virtual Motion Capture)
-    para enviar dados de esqueleto do SlimeVR e receber dados de esqueleto de outros aplicativos.
+    para enviar dados de esqueleto do NekoVR e receber dados de esqueleto de outros aplicativos.
 settings-osc-vmc-enable = Ativar
 settings-osc-vmc-enable-description = Ative o envio e o recebimento de dados.
 settings-osc-vmc-enable-label = Ativar
@@ -942,10 +942,10 @@ settings-utils-advanced-reset_warning =
 settings-utils-advanced-reset_warning-reset = Resetar configurações
 settings-utils-advanced-reset_warning-cancel = Cancelar
 settings-utils-advanced-open_data-v1 = Pasta de configuração
-settings-utils-advanced-open_data-description-v1 = Abre a pasta de configuração do SlimeVR no explorador de arquivos, contendo as configurações
+settings-utils-advanced-open_data-description-v1 = Abre a pasta de configuração do NekoVR no explorador de arquivos, contendo as configurações
 settings-utils-advanced-open_data-label = Abrir pasta
 settings-utils-advanced-open_logs = Pasta de logs
-settings-utils-advanced-open_logs-description = Abre a pasta de logs do SlimeVR no explorador de arquivos, contendo os logs do aplicativo
+settings-utils-advanced-open_logs-description = Abre a pasta de logs do NekoVR no explorador de arquivos, contendo os logs do aplicativo
 settings-utils-advanced-open_logs-label = Abrir pasta
 
 ## Home Screen
@@ -968,7 +968,7 @@ onboarding-wip = Em desenvolvimento
 onboarding-previous_step = Passo anterior
 onboarding-setup_warning =
     <b>Aviso:</b> A configuração inicial é necessária para um rastreamento adequado,
-    isso é necessário se for a primeira vez usando o SlimeVR.
+    isso é necessário se for a primeira vez usando o NekoVR.
 onboarding-setup_warning-skip = Pular configurações
 onboarding-setup_warning-cancel = Continuar configurações
 
@@ -982,23 +982,23 @@ onboarding-quiz-more_sets_modal-confirm = Eu conectei todos os meus trackers
 onboarding-quiz-more_sets_modal-cancel = Quero conectar mais trackers
 onboarding-quiz-slimeset-title = Que tipo de trackers você está conectando?
 onboarding-quiz-slimeset-description = Se você tiver vários conjuntos, você será solicitado novamente mais tarde no processo
-onboarding-quiz-slimeset-official-sets = Trackers Oficiais do SlimeVR
+onboarding-quiz-slimeset-official-sets = Trackers Oficiais do NekoVR
 onboarding-quiz-slimeset-thirdparty-sets = Trackers de Terceiros ou Feitos por Você.
-onboarding-quiz-slimeset-answer-regular = SlimeVR V1.0 e V1.2
+onboarding-quiz-slimeset-answer-regular = NekoVR V1.0 e V1.2
 onboarding-quiz-slimeset-answer-butterfly = Butterfly
 onboarding-quiz-slimeset-answer-wifi = Slime baseado em Wi-Fi
 onboarding-quiz-slimeset-answer-dongle = Slime baseado em Dongle
 onboarding-quiz-usage-title = Para que você está usando seus trackers?
-onboarding-quiz-usage-description = Se você pretende usar o SlimeVR para múltiplas finalidades, você pode alterar as configurações afetadas mais tarde.
+onboarding-quiz-usage-description = Se você pretende usar o NekoVR para múltiplas finalidades, você pode alterar as configurações afetadas mais tarde.
 onboarding-quiz-usage-answer-VRC = Jogos em VR (ex.: VRChat)
 onboarding-quiz-usage-answer-mocap_vtubing = Mocap e VTubing
 onboarding-quiz-runtime-title = Você executa jogos via SteamVR ou diretamente no headset (standalone)?
 onboarding-quiz-runtime-answer-steamvr = SteamVR
 onboarding-quiz-runtime-answer-standalone = Standalone
 onboarding-quiz-mocap_preferences-title = Preferências de Mocap
-onboarding-quiz-mocap_preferences-desc = Especifique como você pretende usar o SlimeVR para mocap ou VTubing
+onboarding-quiz-mocap_preferences-desc = Especifique como você pretende usar o NekoVR para mocap ou VTubing
 onboarding-quiz-mocap_preferences-playspace-title = Qual é o seu espaço de jogo?
-onboarding-quiz-mocap_preferences-playspace-desc = Se estiver em pé, o SlimeVR tentará rastrear o movimento de caminhada em vez de manter você ancorado em um único lugar.
+onboarding-quiz-mocap_preferences-playspace-desc = Se estiver em pé, o NekoVR tentará rastrear o movimento de caminhada em vez de manter você ancorado em um único lugar.
 onboarding-quiz-mocap_preferences-playspace-sitting = Sentado
 onboarding-quiz-mocap_preferences-playspace-standing = Em Pé
 onboarding-quiz-mocap_preferences-vrm_model-title = Você tem um modelo VRM? (Opcional)
@@ -1016,7 +1016,7 @@ onboarding-wifi_creds-back-v2 = Voltar
 onboarding-wifi_creds-v2 = Trackers conectados via Wi-Fi
 # This cares about multilines
 onboarding-wifi_creds-description-v2 =
-    A maioria dos trackers (como os trackers oficiais do SlimeVR) utiliza Wi-Fi para se conectar ao servidor.
+    A maioria dos trackers (como os trackers oficiais do NekoVR) utiliza Wi-Fi para se conectar ao servidor.
     Use as credenciais da rede Wi-Fi à qual seu dispositivo está conectado no momento.
     
     Certifique-se de usar uma conexão Wi-Fi de 2,4 GHz para os seus trackers!
@@ -1067,7 +1067,7 @@ install-info_udev-rules_modal-dont-show-again_checkbox = Não mostrar novamente
 
 ## Setup start
 
-onboarding-home = Bem-vindo ao SlimeVR
+onboarding-home = Bem-vindo ao NekoVR
 onboarding-home-start = Vamos configurar!
 
 ## Setup done
@@ -1103,7 +1103,7 @@ onboarding-connect_serial-error-modal-no_serial_device_found-desc =
     Se isso não funcionar:
      — tente usar um cabo USB diferente
      — tente usar uma porta USB diferente
-     — tente reinstalar o servidor do SlimeVR e selecione “Drivers USB” na seção de componentes
+     — tente reinstalar o servidor do NekoVR e selecione “Drivers USB” na seção de componentes
 # $amount (Number) - Amount of trackers connected (this is a number, but you can use CLDR plural rules for your language)
 # More info on https://www.unicode.org/cldr/cldr-aux/charts/22/supplemental/language_plural_rules.html
 # English in this case only has 2 plural rules, which are "one" and "other",
@@ -1279,7 +1279,7 @@ onboarding-manual_mounting-next = Próximo passo
 
 onboarding-automatic_mounting-back = Entrar no VR
 onboarding-automatic_mounting-title = Calibração de Montagem
-onboarding-automatic_mounting-description = Para que os trackers SlimeVR funcionem, precisamos atribuir uma orientação de montagem aos seus trackers para alinhá-los com a forma como estão fixados fisicamente no seu corpo.
+onboarding-automatic_mounting-description = Para que os trackers NekoVR funcionem, precisamos atribuir uma orientação de montagem aos seus trackers para alinhá-los com a forma como estão fixados fisicamente no seu corpo.
 onboarding-automatic_mounting-manual_mounting = Montagem manual
 onboarding-automatic_mounting-next = Próximo passo
 onboarding-automatic_mounting-prev_step = Passo anterior
@@ -1319,7 +1319,7 @@ onboarding-manual_proportions-estimated_height = Altura estimada do usuário
 
 onboarding-automatic_proportions-back = Voltar para Proporções Manuais
 onboarding-automatic_proportions-title = Meça seu corpo
-onboarding-automatic_proportions-description = Para que os trackers SlimeVR funcionem corretamente, precisamos do comprimento dos seus ossos. Esta calibração rápida medirá isso automaticamente para você.
+onboarding-automatic_proportions-description = Para que os trackers NekoVR funcionem corretamente, precisamos do comprimento dos seus ossos. Esta calibração rápida medirá isso automaticamente para você.
 onboarding-automatic_proportions-manual = Proporções Manuais
 onboarding-automatic_proportions-prev_step = Passo anterior
 onboarding-automatic_proportions-put_trackers_on-title = Coloque seus trackers
@@ -1330,8 +1330,8 @@ onboarding-automatic_proportions-requirements-title = Requisitos
 onboarding-automatic_proportions-requirements-descriptionv2 =
     Você tem trackers suficientes para rastrear seus pés (geralmente 5 trackers).
     Você está com seus trackers e headset colocados e os vestindo corretamente.
-    Seus trackers e headset estão conectados ao servidor do SlimeVR e funcionando corretamente (ex.: sem travamentos, desconexões, etc.).
-    Seu headset está enviando dados de posição para o servidor do SlimeVR (isso geralmente significa que o SteamVR está em execução e conectado ao SlimeVR usando o driver do SteamVR do SlimeVR).
+    Seus trackers e headset estão conectados ao servidor do NekoVR e funcionando corretamente (ex.: sem travamentos, desconexões, etc.).
+    Seu headset está enviando dados de posição para o servidor do NekoVR (isso geralmente significa que o SteamVR está em execução e conectado ao NekoVR usando o driver do SteamVR do NekoVR).
     Seu rastreamento está funcionando e representando seus movimentos com precisão (ex.: você já executou "Redefinir Tudo" e eles se movem na direção correta ao chutar, se inclinar, sentar, etc.).
 onboarding-automatic_proportions-requirements-next = Eu li os requisitos.
 onboarding-automatic_proportions-check_height-title-v3 = Meça a altura do seu headset
@@ -1403,7 +1403,7 @@ onboarding-automatic_proportions-smol_warning-cancel = Voltar
 ## User height calibration
 
 onboarding-user_height-title = Qual é a sua altura?
-onboarding-user_height-description = Precisamos da sua altura para calcular as proporções do seu corpo e representar seus movimentos com precisão. Você pode deixar o SlimeVR calculá-la automaticamente ou inserir sua altura manualmente.
+onboarding-user_height-description = Precisamos da sua altura para calcular as proporções do seu corpo e representar seus movimentos com precisão. Você pode deixar o NekoVR calculá-la automaticamente ou inserir sua altura manualmente.
 onboarding-user_height-need_head_tracker = É necessário um headset e controles com rastreamento posicional para realizar a calibração.
 onboarding-user_height-calculate = Calcular minha altura automaticamente
 onboarding-user_height-next_step = Continuar e salvar
@@ -1474,8 +1474,8 @@ home-settings-close = Fechar
 trackers_still_on-modal-title = Trackers ainda ligados.
 trackers_still_on-modal-description =
     Um ou mais trackers ainda estão ligados.
-    Você ainda deseja sair do SlimeVR?
-trackers_still_on-modal-confirm = Sair do SlimeVR
+    Você ainda deseja sair do NekoVR?
+trackers_still_on-modal-confirm = Sair do NekoVR
 trackers_still_on-modal-cancel = Aguarde...
 
 ## Status system
@@ -1483,15 +1483,15 @@ trackers_still_on-modal-cancel = Aguarde...
 status_system-StatusTrackerReset = Recomenda-se executar "Redefinir Tudo", pois um ou mais trackers não estão ajustados.
 status_system-StatusSteamVRDisconnected =
     { $type ->
-        [steamvr_feeder] Atualmente não conectado ao aplicativo SlimeVR Feeder.
-       *[other] Atualmente não conectado ao SteamVR via driver do SlimeVR.
+        [steamvr_feeder] Atualmente não conectado ao aplicativo NekoVR Feeder.
+       *[other] Atualmente não conectado ao SteamVR via driver do NekoVR.
     }
 status_system-StatusTrackerError = O tracker { $trackerName } tem um erro.
 status_system-StatusUnassignedHMD = O headset (HMD) deve ser designado como o tracker da cabeça.
 status_system-StatusPublicNetwork =
     { $count ->
-        [one] Seu perfil de rede está atualmente definido como Público ({ $adapters }). Isso não é recomendado para que o SlimeVR funcione corretamente. <PublicFixLink>Veja aqui como corrigir.</PublicFixLink>
-       *[other] Alguns dos seus adaptadores de rede estão definidos como Públicos: { $adapters }. Isso não é recomendado para que o SlimeVR funcione corretamente. <PublicFixLink>Veja aqui como corrigir.</PublicFixLink>
+        [one] Seu perfil de rede está atualmente definido como Público ({ $adapters }). Isso não é recomendado para que o NekoVR funcione corretamente. <PublicFixLink>Veja aqui como corrigir.</PublicFixLink>
+       *[other] Alguns dos seus adaptadores de rede estão definidos como Públicos: { $adapters }. Isso não é recomendado para que o NekoVR funcione corretamente. <PublicFixLink>Veja aqui como corrigir.</PublicFixLink>
     }
 
 ## Firmware tool globals
@@ -1539,7 +1539,7 @@ firmware_tool-flash_method_step-serial-v2 =
     .description = Use um cabo USB para atualizar seu tracker.
 firmware_tool-flashbtn_step = Pressione o botão de boot
 firmware_tool-flashbtn_step-description = Antes de ir para o próximo passo, aqui estão algumas etapas que você necessita fazer
-firmware_tool-flashbtn_step-board_SLIMEVR = Desligue o tracker, tire de case (se tiver), conecte o cabo USB nesse computador, e tente seguir os seguintes passos de acordo com a revisão de sua placa SlimeVR
+firmware_tool-flashbtn_step-board_SLIMEVR = Desligue o tracker, tire de case (se tiver), conecte o cabo USB nesse computador, e tente seguir os seguintes passos de acordo com a revisão de sua placa NekoVR
 firmware_tool-flashbtn_step-board_SLIMEVR-r11-v2 = Ligue o tracker enquanto faz um curto entre o segundo pad retangular FLASH a partir da borda, no lado superior da placa, e o escudo metálico do microcontrolador. O LED do tracker deve piscar rapidamente.
 firmware_tool-flashbtn_step-board_SLIMEVR-r12-v2 = Ligue o tracker enquanto faz um curto entre o pad circular FLASH, no lado superior da placa, e o escudo metálico do microcontrolador. O LED do tracker deve piscar rapidamente.
 firmware_tool-flashbtn_step-board_SLIMEVR-r14-v2 = Ligue o tracker enquanto pressiona o botão FLASH, no lado superior da placa. O LED do tracker deve piscar rapidamente.
@@ -1599,7 +1599,7 @@ firmware_update-status-ERROR_UNKNOWN = Erro desconhecido
 
 firmware_update-title = Atualização do firmware
 firmware_update-devices = Dispositivos disponíveis
-firmware_update-devices-description = Selecione os trackers que deseja atualizar para a versão mais recente do firmware SlimeVR
+firmware_update-devices-description = Selecione os trackers que deseja atualizar para a versão mais recente do firmware NekoVR
 firmware_update-no_devices = Certifique-se de que os trackers que você deseja atualizar estejam LIGADOS e conectados ao Wi-Fi!
 firmware_update-changelog-title = Atualizando para { $version }
 firmware_update-looking_for_devices = Procurando dispositivos para atualizar...
@@ -1631,12 +1631,12 @@ tray_or_exit_modal-cancel = Cancelar
 unknown_device-modal-title = Um novo tracker foi encontrado!
 unknown_device-modal-description =
     Há um novo tracker com o endereço MAC <b>{ $deviceId }</b>.
-    Deseja conectá-lo ao SlimeVR?
+    Deseja conectá-lo ao NekoVR?
 unknown_device-modal-confirm = Claro!
 unknown_device-modal-forget = Ignore-o
 # VRChat config warnings
 vrc_config-page-title = Alerta de configuração do VRChat
-vrc_config-page-desc = Esta página mostra o estado das suas configurações do VRChat e indica quais configurações são incompatíveis com o SlimeVR. É altamente recomendável corrigir quaisquer avisos exibidos aqui para obter a melhor experiência de uso com o SlimeVR.
+vrc_config-page-desc = Esta página mostra o estado das suas configurações do VRChat e indica quais configurações são incompatíveis com o NekoVR. É altamente recomendável corrigir quaisquer avisos exibidos aqui para obter a melhor experiência de uso com o NekoVR.
 vrc_config-page-help = Não consegue encontrar as configurações?
 vrc_config-page-help-desc = Confira nossa <a>documentação sobre este assunto!</a>
 vrc_config-page-big_menu = Rastreamento e IK (Menu Grande)
@@ -1690,13 +1690,13 @@ error_collection_modal-cancel = Eu não quero
 tracking_checklist = Checklist do Rastreamento
 tracking_checklist-settings = Configurações do Checklist do Rastreamento
 tracking_checklist-settings-close = Fechar
-tracking_checklist-status-incomplete = Você ainda não está pronto para usar o SlimeVR!
+tracking_checklist-status-incomplete = Você ainda não está pronto para usar o NekoVR!
 tracking_checklist-status-partial =
     { $count ->
         [one] Você tem 1 aviso!
        *[other] Você tem { $count } avisos!
     }
-tracking_checklist-status-complete = Você está pronto para usar o SlimeVR!
+tracking_checklist-status-complete = Você está pronto para usar o NekoVR!
 tracking_checklist-MOUNTING_CALIBRATION = Realize uma calibração de montagem
 tracking_checklist-FEET_MOUNTING_CALIBRATION = Realize uma calibração de montagem dos pés
 tracking_checklist-FULL_RESET = Execute "Redefinir Tudo"
@@ -1718,11 +1718,11 @@ tracking_checklist-UNASSIGNED_HMD-desc = O headset de VR deve ser atribuído com
 tracking_checklist-NETWORK_PROFILE_PUBLIC = Altere seu perfil de rede
 tracking_checklist-NETWORK_PROFILE_PUBLIC-desc =
     { $count ->
-        [one] Seu perfil de rede está atualmente definido como Público ({ $adapters }). Isso não é recomendado para que o SlimeVR funcione corretamente. <PublicFixLink>Veja como corrigir isso aqui.</PublicFixLink>
+        [one] Seu perfil de rede está atualmente definido como Público ({ $adapters }). Isso não é recomendado para que o NekoVR funcione corretamente. <PublicFixLink>Veja como corrigir isso aqui.</PublicFixLink>
        *[other]
             Alguns dos seus adaptadores de rede estão definidos como Público:
             { $adapters }
-            Isso não é recomendado para o funcionamento adequado do SlimeVR. <PublicFixLink>Veja como corrigir aqui.</PublicFixLink>
+            Isso não é recomendado para o funcionamento adequado do NekoVR. <PublicFixLink>Veja como corrigir aqui.</PublicFixLink>
     }
 tracking_checklist-NETWORK_PROFILE_PUBLIC-open = Abrir o Painel de Controle
 tracking_checklist-STAY_ALIGNED_CONFIGURED = Configurar o Manter Alinhado

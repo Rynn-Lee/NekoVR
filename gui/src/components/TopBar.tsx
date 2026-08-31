@@ -156,7 +156,9 @@ export function TopBar({
                   className={classNames('flex justify-around flex-col')}
                   data-electron-drag-region
                 >
-                  <Typography>SlimeVR</Typography>
+                  <Typography className="font-bold tracking-wide">
+                    NekoVR
+                  </Typography>
                 </div>
               )}
               {(!doesMatchSettings || !isMobile) && <VersionTag />}

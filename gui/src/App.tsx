@@ -43,6 +43,7 @@ import { Preload } from './components/Preload';
 import { UnknownDeviceModal } from './components/UnknownDeviceModal';
 import { useDiscordPresence } from './hooks/discord-presence';
 import { withSentryReactRouterV6Routing } from '@sentry/react';
+import { AIDriftPage } from './components/ai-drift/AIDriftPage';
 import { ScaledProportionsPage } from './components/onboarding/pages/body-proportions/ScaledProportions';
 import { AdvancedSettings } from './components/settings/pages/AdvancedSettings';
 import { FirmwareUpdate } from './components/firmware-update/FirmwareUpdate';
@@ -125,6 +126,14 @@ function Layout() {
             element={
               <MainLayout isMobile={isMobile}>
                 <VRCWarningsPage />
+              </MainLayout>
+            }
+          />
+          <Route
+            path="/ai-drift"
+            element={
+              <MainLayout isMobile={isMobile}>
+                <AIDriftPage />
               </MainLayout>
             }
           />

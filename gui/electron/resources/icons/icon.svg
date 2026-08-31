@@ -1,1 +1,9 @@
-<svg xmlns="http://www.w3.org/2000/svg" fill-rule="evenodd" stroke-miterlimit="10" clip-rule="evenodd" version="1.1" viewBox="0 0 380 380" xml:space="preserve"><rect id="bg" width="380" height="380" fill="#663499" stroke-width="1" rx="76" /><g id="logo" fill="none" stroke="#fff"><path id="left" stroke-width="13.62" d="m72.867 191.74 37-39 39 36"/><path id="right" stroke-width="13.62" d="m208.87 187.74 38-35 36 38"/><path id="outer" stroke-linecap="square" stroke-width="17" d="m56.867 253.74s130.61-31.182 248 5c13.45 4.146 20.244 2.975 20-8s1.909-126.06-46-131"/></g></svg>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN" "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
+<!-- Uploaded to: SVG Repo, www.svgrepo.com, Transformed by: SVG Repo Mixer Tools -->
+<svg width="256px" height="256px" viewBox="-4.48 -4.48 24.96 24.96" fill="none" xmlns="http://www.w3.org/2000/svg" stroke="#000000" stroke-width="0.00016">
+<g id="SVGRepo_bgCarrier" stroke-width="0" transform="translate(0,0), scale(1)">
+<path transform="translate(-4.48, -4.48), scale(1.56)" fill="#292929" d="M9.166.33a2.25 2.25 0 00-2.332 0l-5.25 3.182A2.25 2.25 0 00.5 5.436v5.128a2.25 2.25 0 001.084 1.924l5.25 3.182a2.25 2.25 0 002.332 0l5.25-3.182a2.25 2.25 0 001.084-1.924V5.436a2.25 2.25 0 00-1.084-1.924L9.166.33z" strokewidth="0"/>
+</g>
+<g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round" stroke="#CCCCCC" stroke-width="0.032"/>
+<g id="SVGRepo_iconCarrier"> <path fill-rule="evenodd" clip-rule="evenodd" d="M1 7L4.80061 1.43926C5.56059 0.527292 6.68638 0 7.8735 0H8V4L12 5L15 10L14.1875 11.2188C13.4456 12.3316 12.1967 13 10.8593 13H9L7 16H5L1 7ZM10 9C10.5523 9 11 8.55229 11 8C11 7.44772 10.5523 7 10 7C9.44771 7 9 7.44772 9 8C9 8.55229 9.44771 9 10 9Z" fill="#ff9500"/> <path d="M10 0.465878V2.43845L12 2.93845V0H11.8735C11.2125 0 10.5704 0.163501 10 0.465878Z" fill="#ff9500"/> </g>
+</svg>

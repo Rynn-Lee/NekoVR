@@ -9,16 +9,16 @@
 
 websocket-connecting = Laster...
 websocket-connection_lost = Mistet server-tilkobling. Vennligst vent mens koblingen gjenopprettes...
-websocket-connection_lost-desc = Det ser ut som at SlimeVR serveren har krasjet. Sjekk loggene og restart programmet.
+websocket-connection_lost-desc = Det ser ut som at NekoVR serveren har krasjet. Sjekk loggene og restart programmet.
 websocket-timedout = Klarte ikke å koble til serveren.
-websocket-timedout-desc = Det ser ut som at SlimeVR serveren har krasjet eller har brukt for lang til på å koble til. Sjekk loggene og restart programmet.
-websocket-error-close = Avslutt SlimeVR
+websocket-timedout-desc = Det ser ut som at NekoVR serveren har krasjet eller har brukt for lang til på å koble til. Sjekk loggene og restart programmet.
+websocket-error-close = Avslutt NekoVR
 websocket-error-logs = Åpne opp "logs" mappen.
 
 ## Update notification
 
 version_update-title = Ny versjon tilgjengelig: { $version }
-version_update-description = Å klikke "{ version_update-update }" laster ned SlimeVR installatøren for deg.
+version_update-description = Å klikke "{ version_update-update }" laster ned NekoVR installatøren for deg.
 version_update-update = Oppdater
 version_update-close = Lukk
 
@@ -28,7 +28,7 @@ tips-find_tracker = Usikker på hvilken tracker som er hvilken? Rist en av dem! 
 tips-do_not_move_heels = Sørg for at dine heler ikke beveger under opptaket!
 tips-file_select = Dra og slipp filene for å enten bruke eller <u>gå igjennom</u>.
 tips-tap_setup = Du kan forsiktig trykke på din tracker 2 ganger sammenhengende istedenfor å velge den fra menyen.
-tips-turn_on_tracker = Bruker du offisielle SlimeVR trackere? Husk å <b><em>skru dem på</em></b> etter å ha koblet dem til PCen din!
+tips-turn_on_tracker = Bruker du offisielle NekoVR trackere? Husk å <b><em>skru dem på</em></b> etter å ha koblet dem til PCen din!
 tips-failed_webgl = Feil ved initialisering av WebGL.
 
 ## Units
@@ -75,7 +75,7 @@ board_type-NODEMCU = NodeMCU
 board_type-CUSTOM = Egendefinert brett
 board_type-WROOM32 = WROOM32
 board_type-WEMOSD1MINI = Wemos D1 Mini
-board_type-SLIMEVR = SlimeVR
+board_type-SLIMEVR = NekoVR
 board_type-OWOTRACK = owoTrack
 board_type-XIAO_ESP32C3 = Seeed Studio XIAO ESP32C3
 board_type-HARITORA = Haritora
@@ -400,9 +400,9 @@ settings-general-interface-serial_detection-label = Seriell enhets gjenkjenning
 settings-interface-behavior-error_tracking-description_v2 =
     <h1>Samtykker du til innsamling av anonymiserte feildata?</h1>
     
-    <b>Vi samler ikke inn personlig informasjon</b> slik som din IP-adresse eller trådløs-legitimasjon. SlimeVR verdsetter ditt personvern!
+    <b>Vi samler ikke inn personlig informasjon</b> slik som din IP-adresse eller trådløs-legitimasjon. NekoVR verdsetter ditt personvern!
     
-    For å gi deg den beste brukeropplevelsen, samler vi inn anonymiserte feilrapporter, ytelsesmålinger og informasjon om operativsystemet. Dette hjelper oss med å oppdage feil og problemer med SlimeVR. Disse beregningene samles inn via Sentry.io.
+    For å gi deg den beste brukeropplevelsen, samler vi inn anonymiserte feilrapporter, ytelsesmålinger og informasjon om operativsystemet. Dette hjelper oss med å oppdage feil og problemer med NekoVR. Disse beregningene samles inn via Sentry.io.
 settings-interface-behavior-error_tracking-label = Send feilmeldinger til utviklere
 
 ## Serial settings
@@ -439,7 +439,7 @@ settings-osc-router-network = Nettverks-porter
 # This cares about multilines
 settings-osc-router-network-description =
     Still inn portene som skal motta eller sende data.
-    Disse kan være lik som andre porter brukt i SlimeVR serveren.
+    Disse kan være lik som andre porter brukt i NekoVR serveren.
 settings-osc-router-network-port_in =
     .label = Port inn
     .placeholder = Port inn (normalverdi:9002)
@@ -519,7 +519,7 @@ onboarding-reset_tutorial-skip = Hopp over trinn
 
 ## Setup start
 
-onboarding-home = Velkommen til SlimeVR
+onboarding-home = Velkommen til NekoVR
 onboarding-home-start = La oss sette i gang!
 
 ## Setup done
@@ -589,7 +589,7 @@ onboarding-manual_mounting-next = Neste steg
 
 onboarding-automatic_mounting-back = Gå tilbake for å tre inn i VR
 onboarding-automatic_mounting-title = Monterings Kalibrering
-onboarding-automatic_mounting-description = For at SlimeVR trackere skal funke, må vi tildele en monterings-rotasjon til dine trackere for at de skal samstemme med din fysiske tracker-montering.
+onboarding-automatic_mounting-description = For at NekoVR trackere skal funke, må vi tildele en monterings-rotasjon til dine trackere for at de skal samstemme med din fysiske tracker-montering.
 onboarding-automatic_mounting-manual_mounting = Sett opp montering manuelt
 onboarding-automatic_mounting-next = Neste steg
 onboarding-automatic_mounting-prev_step = Forrige steg
@@ -612,7 +612,7 @@ onboarding-manual_proportions-title = Manuelle kropps-proporsjoner
 
 onboarding-automatic_proportions-back = Gå tilbake til Nullstillings opplæring
 onboarding-automatic_proportions-title = Mål opp kroppen din
-onboarding-automatic_proportions-description = For at SlimeVR trackere skal funke, må vi vite lengden på beinene dine. Denne korte kalibreringen kan måle det opp for deg.
+onboarding-automatic_proportions-description = For at NekoVR trackere skal funke, må vi vite lengden på beinene dine. Denne korte kalibreringen kan måle det opp for deg.
 onboarding-automatic_proportions-manual = Manuell kalibrering
 onboarding-automatic_proportions-prev_step = Forrige steg
 onboarding-automatic_proportions-put_trackers_on-title = Ta på deg alle dine trackere

@@ -9,16 +9,16 @@
 
 websocket-connecting = Sunucuya bağlanılıyor...
 websocket-connection_lost = Sunucuyla bağlantı kesildi. Tekrar bağlanılmaya çalışılıyor...
-websocket-connection_lost-desc = SlimeVR sunucusu çöktü. Kayıtları kontrol edip programı yeniden başlat.
+websocket-connection_lost-desc = NekoVR sunucusu çöktü. Kayıtları kontrol edip programı yeniden başlat.
 websocket-timedout = Sunucuya bağlanılamadı
-websocket-timedout-desc = SlimeVR sunucusu çöktü veya zaman aşımına uğradı. Kayıtları kontrol et ve programı yeniden başlat.
-websocket-error-close = SlimeVR'ı kapat
+websocket-timedout-desc = NekoVR sunucusu çöktü veya zaman aşımına uğradı. Kayıtları kontrol et ve programı yeniden başlat.
+websocket-error-close = NekoVR'ı kapat
 websocket-error-logs = Kayıtlar klasörünü aç
 
 ## Update notification
 
 version_update-title = Yeni sürüm mevcut: { $version }
-version_update-description = "{ version_update-update }" seçeneğine tıklamak SlimeVR kurulum uygulamasını indirir.
+version_update-description = "{ version_update-update }" seçeneğine tıklamak NekoVR kurulum uygulamasını indirir.
 version_update-update = Güncelle
 version_update-close = Kapat
 
@@ -28,7 +28,7 @@ tips-find_tracker = Hangi takipçi hangisi emin değil misin? Takipçilerden bir
 tips-do_not_move_heels = Kayıt sırasında ayaklarının hareket etmediğinden emin ol!
 tips-file_select = Dosyaları sürükleyip bırak veya dosyalarından <u>seç</u>.
 tips-tap_setup = Menüden seçmek yerine takipçine 2 kez yavaşça dokunarak da seçebilirsin.
-tips-turn_on_tracker = Resmi SlimeVR takipçisi mi kullanıyorsun? Takipçilerini bilgisayara bağladıktan sonra onları <b><em>açmayı</em></b> unutma!
+tips-turn_on_tracker = Resmi NekoVR takipçisi mi kullanıyorsun? Takipçilerini bilgisayara bağladıktan sonra onları <b><em>açmayı</em></b> unutma!
 tips-failed_webgl = WebGL başlatılamadı.
 
 ## Units
@@ -100,9 +100,9 @@ board_type-WROOM32 = WROOM32
 board_type-WEMOSD1MINI = Wemos D1 Mini
 board_type-TTGO_TBASE = TTGO T-Base
 board_type-ESP01 = ESP-01
-board_type-SLIMEVR = SlimeVR
-board_type-SLIMEVR_DEV = SlimeVR Dev Board
-board_type-SLIMEVR_V1_2 = SlimeVR v1.2
+board_type-SLIMEVR = NekoVR
+board_type-SLIMEVR_DEV = NekoVR Dev Board
+board_type-SLIMEVR_V1_2 = NekoVR v1.2
 board_type-LOLIN_C3_MINI = Lolin C3 Mini
 board_type-BEETLE32C3 = Beetle ESP32-C3
 board_type-ESP32C3DEVKITM1 = Espressif ESP32-C3 DevKitM-1
@@ -113,12 +113,12 @@ board_type-WEMOSWROOM02 = Wemos Wroom-02 D1 Mini
 board_type-XIAO_ESP32C3 = Seeed Studio XIAO ESP32C3
 board_type-HARITORA = Haritora
 board_type-ESP32C6DEVKITC1 = Espressif ESP32-C6 DevKitC-1
-board_type-GLOVE_IMU_SLIMEVR_DEV = SlimeVR Dev IMU Eldiveni
+board_type-GLOVE_IMU_SLIMEVR_DEV = NekoVR Dev IMU Eldiveni
 board_type-GESTURES = Hareketler
 board_type-ESP32S3_SUPERMINI = ESP32-S3 Supermini
 board_type-GENERIC_NRF = Jenerik nRF
-board_type-SLIMEVR_BUTTERFLY_DEV = SlimeVR Dev Butterfly
-board_type-SLIMEVR_BUTTERFLY = SlimeVR Butterfly
+board_type-SLIMEVR_BUTTERFLY_DEV = NekoVR Dev Butterfly
+board_type-SLIMEVR_BUTTERFLY = NekoVR Butterfly
 
 ## Proportions
 

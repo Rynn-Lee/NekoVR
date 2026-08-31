@@ -9,16 +9,16 @@
 
 websocket-connecting = Įkeliama...
 websocket-connection_lost = Įvyko techninė klaida!
-websocket-connection_lost-desc = Panašu, kad įvyko techninė klaida SlimeVR serveryje. Patikrinkite log'us ir bandykite jį perkrauti.
+websocket-connection_lost-desc = Panašu, kad įvyko techninė klaida NekoVR serveryje. Patikrinkite log'us ir bandykite jį perkrauti.
 websocket-timedout = Nepavyko susisiekti su serveriu
-websocket-timedout-desc = Panašu, kad SlimeVR serveris užstrigo. Patikrinkite log'us ir bandykite jį perkrauti.
-websocket-error-close = Uždaryti SlimeVR
+websocket-timedout-desc = Panašu, kad NekoVR serveris užstrigo. Patikrinkite log'us ir bandykite jį perkrauti.
+websocket-error-close = Uždaryti NekoVR
 websocket-error-logs = Atidaryti log'ų aplanką
 
 ## Update notification
 
 version_update-title = Yra nauja versija: { $version }
-version_update-description = Paspaudus „{ version_update-update }“, bus atsiųstas SlimeVR diegiklis.
+version_update-description = Paspaudus „{ version_update-update }“, bus atsiųstas NekoVR diegiklis.
 version_update-update = Atnaujinti
 version_update-close = Atmesti
 
@@ -28,7 +28,7 @@ tips-find_tracker = Neaiškų, kuris sekiklis yra kuris? Pakratykite vieną - at
 tips-do_not_move_heels = Įrašymo metu pasirūpinkite, kad kulnai nejudėtų!
 tips-file_select = Tempkite failus čia, arba <u>pasirinkite</u> rankiniu būdu.
 tips-tap_setup = Vietoj pasirinkimo iš meniu, galite du kartus švelniai bakstelėti sekiklį, kad jį pasirinkti.
-tips-turn_on_tracker = Naudojate oficialius SlimeVR sekiklius? Nepamirškite <b><em>įjungti juos</em></b> po prijungimo prie kompiuterio!
+tips-turn_on_tracker = Naudojate oficialius NekoVR sekiklius? Nepamirškite <b><em>įjungti juos</em></b> po prijungimo prie kompiuterio!
 tips-failed_webgl = Įvyko techninė klaida inicijuojant WebGL.
 
 ## Units
@@ -97,7 +97,7 @@ board_type-WROOM32 = WROOM32
 board_type-WEMOSD1MINI = Wemos D1 Mini
 board_type-TTGO_TBASE = TTGO T-Base
 board_type-ESP01 = ESP-01
-board_type-SLIMEVR = SlimeVR
+board_type-SLIMEVR = NekoVR
 board_type-LOLIN_C3_MINI = Lolin C3 Mini
 board_type-BEETLE32C3 = Beetle ESP32-C3
 board_type-ESP32C3DEVKITM1 = Espressif ESP32-C3 DevKitM-1
@@ -108,7 +108,7 @@ board_type-WEMOSWROOM02 = Wemos Wroom-02 D1 Mini
 board_type-XIAO_ESP32C3 = Seeed Studio XIAO ESP32C3
 board_type-HARITORA = Haritora
 board_type-ESP32C6DEVKITC1 = Espressif ESP32-C6 DevKitC-1
-board_type-GLOVE_IMU_SLIMEVR_DEV = SlimeVR Dev IMU Glove
+board_type-GLOVE_IMU_SLIMEVR_DEV = NekoVR Dev IMU Glove
 
 ## Proportions
 
@@ -356,7 +356,7 @@ tracker-settings-name_section-description = Sugalvokite jam mielą vardą :)
 tracker-settings-name_section-placeholder = NightyBeast kairė koja
 tracker-settings-name_section-label = Sekiklio pavadinimas
 tracker-settings-forget = Pamiršti sekiklį
-tracker-settings-forget-description = Tai pašalins sekiklį iš SlimeVR serverio ir nebeleis jam prisijungti, kol neperkrausite serverį. Sekiklio nustatymai nebus prarasti.
+tracker-settings-forget-description = Tai pašalins sekiklį iš NekoVR serverio ir nebeleis jam prisijungti, kol neperkrausite serverį. Sekiklio nustatymai nebus prarasti.
 tracker-settings-forget-label = Pamiršti sekiklį
 tracker-settings-update-low-battery = Negalima atnaujinti, baterijos lygis žemesnis nei 50%
 tracker-settings-update-up_to_date = Atnaujinta

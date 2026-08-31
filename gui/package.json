@@ -1,7 +1,7 @@
 {
-  "name": "slimevr",
+  "name": "nekovr",
   "version": "0.0.0",
-  "author": "SlimeVR Team <contact@slimevr.dev>",
+  "author": "NekoVR Team",
   "homepage": "https://slimevr.dev",
   "type": "module",
   "dependencies": {

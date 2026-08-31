@@ -84,7 +84,7 @@ fun main(args: Array<String>) {
 		exitProcess(0)
 	}
 	if (cmd.hasOption("version")) {
-		LogManager.info("SlimeVR Server $VERSION")
+		LogManager.info("NekoVR Server $VERSION")
 		exitProcess(0)
 	}
 	if (cmd.hasOption("install")) {
@@ -116,12 +116,12 @@ fun main(args: Array<String>) {
 	LogManager.info("Using log folder: $dir")
 	LogManager.info("Running version $VERSION")
 	if (!SystemUtils.isJavaVersionAtLeast(org.apache.commons.lang3.JavaVersion.JAVA_17)) {
-		LogManager.severe("SlimeVR start-up error! A minimum of Java 17 is required.")
+		LogManager.severe("NekoVR start-up error! A minimum of Java 17 is required.")
 		JOptionPane
 			.showMessageDialog(
 				null,
-				"SlimeVR start-up error! A minimum of Java 17 is required.",
-				"SlimeVR: Java Runtime Mismatch",
+				"NekoVR start-up error! A minimum of Java 17 is required.",
+				"NekoVR: Java Runtime Mismatch",
 				JOptionPane.ERROR_MESSAGE,
 			)
 		LogManager.closeLogger()
@@ -144,15 +144,15 @@ fun main(args: Array<String>) {
 		DatagramSocket(configManager.vrConfig.server.trackerPort).close()
 		ServerSocket(21110).close()
 	} catch (e: IOException) {
-		val message = "SlimeVR start-up error! A required port (${configManager.vrConfig.server.trackerPort} and 21110) is busy. " +
-			"Make sure there is no other instance of SlimeVR Server running."
+		val message = "NekoVR start-up error! A required port (${configManager.vrConfig.server.trackerPort} and 21110) is busy. " +
+			"Make sure there is no other instance of NekoVR Server running."
 		LogManager
 			.severe(message)
 		JOptionPane
 			.showMessageDialog(
 				null,
 				message,
-				"SlimeVR: Ports are busy",
+				"NekoVR: Ports are busy",
 				JOptionPane.ERROR_MESSAGE,
 			)
 		LogManager.closeLogger()

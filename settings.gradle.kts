@@ -30,6 +30,10 @@ pluginManagement {
 	}
 }
 
+plugins {
+	id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
+}
+
 include(":solarxr-protocol")
 project(":solarxr-protocol").projectDir = File("solarxr-protocol/protocol/java")
 

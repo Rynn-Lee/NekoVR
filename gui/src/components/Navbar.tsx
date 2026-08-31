@@ -9,6 +9,7 @@ import { useBreakpoint } from '@/hooks/breakpoint';
 import { HomeIcon } from './commons/icon/HomeIcon';
 import { SkiIcon } from './commons/icon/SkiIcon';
 import { WifiIcon } from './commons/icon/WifiIcon';
+import { AIDriftIcon } from './commons/icon/BrainIcon';
 
 export function NavButton({
   to,
@@ -36,7 +37,7 @@ export function NavButton({
         'mobile:w-[65px] mobile:h-[65px]',
         'xs:py-3 mobile:py-4 rounded-md mobile:rounded-b-none group',
         {
-          'bg-accent-background-50 fill-accent-background-20': doesMatch,
+          'bg-accent-background-50': doesMatch,
           'hover:bg-background-70': !doesMatch,
         }
       )}
@@ -44,17 +45,18 @@ export function NavButton({
       <div className="flex justify-around">
         <div
           className={classnames('scale-[150%]', {
-            'fill-accent-lighter': doesMatch,
-            'fill-background-40': !doesMatch,
+            'fill-background-10 text-background-10': doesMatch,
+            'fill-background-30 text-background-30 group-hover:fill-background-10 group-hover:text-background-10':
+              !doesMatch,
           })}
         >
           {icon}
         </div>
       </div>
       <div
-        className={classnames('text-center mobile:hidden', {
-          'text-accent-background-10': doesMatch,
-          'text-background-10': !doesMatch,
+        className={classnames('text-center mobile:hidden text-xs font-semibold', {
+          'text-background-10': doesMatch,
+          'text-background-30 group-hover:text-background-10': !doesMatch,
         })}
       >
         {children}
@@ -100,6 +102,9 @@ export function MainLinks() {
         state={{ alonePage: true }}
       >
         {l10n.getString('navbar-connect_trackers')}
+      </NavButton>
+      <NavButton to="/ai-drift" icon={<AIDriftIcon />}>
+        {l10n.getString('navbar-ai_drift') || 'AI Drift'}
       </NavButton>
     </>
   );

@@ -1,7 +1,7 @@
 {
-  "name": "SlimeVR GUI",
-  "short_name": "SlimeVR GUI",
-  "description": "A web interface for controlling the SlimeVR Server software",
+  "name": "NekoVR GUI",
+  "short_name": "NekoVR GUI",
+  "description": "A web interface for controlling the NekoVR Server software",
   "display": "standalone",
   "theme_color": "#663499",
   "background_color": "#663499",

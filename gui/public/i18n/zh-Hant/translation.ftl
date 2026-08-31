@@ -9,16 +9,16 @@
 
 websocket-connecting = 載入中…
 websocket-connection_lost = 伺服器當機了！
-websocket-connection_lost-desc = SlimeVR 伺服器程式似乎當機了。請檢查日誌並重新啟動程式
+websocket-connection_lost-desc = NekoVR 伺服器程式似乎當機了。請檢查日誌並重新啟動程式
 websocket-timedout = 無法連接到伺服器
-websocket-timedout-desc = SlimeVR 伺服器程式似乎已當機或逾時。請檢查日誌並重新啟動程式
-websocket-error-close = 退出 SlimeVR
+websocket-timedout-desc = NekoVR 伺服器程式似乎已當機或逾時。請檢查日誌並重新啟動程式
+websocket-error-close = 退出 NekoVR
 websocket-error-logs = 開啟日誌資料夾
 
 ## Update notification
 
 version_update-title = 有可用的新版本：{ $version }
-version_update-description = 按下「{ version_update-update }」將為你下載 SlimeVR 安裝程式。
+version_update-description = 按下「{ version_update-update }」將為你下載 NekoVR 安裝程式。
 version_update-update = 更新
 version_update-close = 關閉
 
@@ -28,7 +28,7 @@ tips-find_tracker = 若你不確定手上的追蹤器是哪一個，搖一搖它
 tips-do_not_move_heels = 測量過程中，請勿移動腳跟！
 tips-file_select = 拖曳檔案或 <u>瀏覽檔案</u> 以使用。
 tips-tap_setup = 除了從列表挑選追蹤器以外，你也可以慢慢敲擊 2 次追蹤器來選擇它。
-tips-turn_on_tracker = 你使用的是官方的 SlimeVR 追蹤器嗎？記得要在連接到電腦以後<b><em>打開追蹤器的電源</em></b>喔！
+tips-turn_on_tracker = 你使用的是官方的 NekoVR 追蹤器嗎？記得要在連接到電腦以後<b><em>打開追蹤器的電源</em></b>喔！
 tips-failed_webgl = 初始化 WebGL 失敗。
 
 ## Units
@@ -101,9 +101,9 @@ board_type-WROOM32 = WROOM32
 board_type-WEMOSD1MINI = Wemos D1 Mini
 board_type-TTGO_TBASE = TTGO T-Base
 board_type-ESP01 = ESP-01
-board_type-SLIMEVR = SlimeVR
-board_type-SLIMEVR_DEV = SlimeVR 開發板
-board_type-SLIMEVR_V1_2 = SlimeVR v1.2
+board_type-SLIMEVR = NekoVR
+board_type-SLIMEVR_DEV = NekoVR 開發板
+board_type-SLIMEVR_V1_2 = NekoVR v1.2
 board_type-LOLIN_C3_MINI = Lolin C3 Mini
 board_type-BEETLE32C3 = Beetle ESP32-C3
 board_type-ESP32C3DEVKITM1 = Espressif ESP32-C3 DevKitM-1
@@ -114,12 +114,12 @@ board_type-WEMOSWROOM02 = WeMos WROOM-02 D1 Mini
 board_type-XIAO_ESP32C3 = Seeed Studio XIAO ESP32C3
 board_type-HARITORA = Haritora
 board_type-ESP32C6DEVKITC1 = Espressif ESP32-C6 DevKitC-1
-board_type-GLOVE_IMU_SLIMEVR_DEV = SlimeVR Dev IMU 手套
+board_type-GLOVE_IMU_SLIMEVR_DEV = NekoVR Dev IMU 手套
 board_type-GESTURES = litten Yº by Gestures
 board_type-ESP32S3_SUPERMINI = ESP32-S3 Supermini
 board_type-GENERIC_NRF = 通用 nRF
-board_type-SLIMEVR_BUTTERFLY_DEV = SlimeVR Dev Butterfly
-board_type-SLIMEVR_BUTTERFLY = SlimeVR Butterfly
+board_type-SLIMEVR_BUTTERFLY_DEV = NekoVR Dev Butterfly
+board_type-SLIMEVR_BUTTERFLY = NekoVR Butterfly
 
 ## Proportions
 
@@ -313,7 +313,7 @@ widget-developer_mode = 開發者選項
 widget-developer_mode-high_contrast = 高對比 UI
 widget-developer_mode-precise_rotation = 顯示精確旋轉
 widget-developer_mode-fast_data_feed = 快速資料更新
-widget-developer_mode-filter_slimes_and_hmd = 只顯示 SlimeVR 追蹤器與頭戴顯示器
+widget-developer_mode-filter_slimes_and_hmd = 只顯示 NekoVR 追蹤器與頭戴顯示器
 widget-developer_mode-sort_by_name = 依名稱排序
 widget-developer_mode-raw_slime_rotation = 顯示原始旋轉
 widget-developer_mode-more_info = 更多資訊
@@ -423,7 +423,7 @@ tracker-settings-name_section-description = 給它起一個可愛的名字吧 ^^
 tracker-settings-name_section-placeholder = ↖★煞氣a黑貓☆↘的美味右腿
 tracker-settings-name_section-label = 追蹤器名稱
 tracker-settings-forget = 忘記追蹤器
-tracker-settings-forget-description = 從 SlimeVR 伺服器程式中移除該追蹤器，且直到重新啟動伺服器前不會再次連接。該追蹤器的設定不會遺失。
+tracker-settings-forget-description = 從 NekoVR 伺服器程式中移除該追蹤器，且直到重新啟動伺服器前不會再次連接。該追蹤器的設定不會遺失。
 tracker-settings-forget-label = 忘記追蹤器
 tracker-settings-update-unavailable-v2 = 未找到可用版本
 tracker-settings-update-incompatible = 電路板不相容，無法更新。
@@ -591,7 +591,7 @@ settings-general-tracker_mechanics-drift_compensation-amount-label = 補償量
 settings-general-tracker_mechanics-drift_compensation-max_resets-label = 使用幾次的重置結果？
 settings-general-tracker_mechanics-save_mounting_reset = 儲存自動配戴重置的校正
 settings-general-tracker_mechanics-save_mounting_reset-description =
-    儲存自動配戴重置的校正，重新啟動 SlimeVR 後不需要再進行校正。
+    儲存自動配戴重置的校正，重新啟動 NekoVR 後不需要再進行校正。
     本設定適用於動捕服，因為多次穿戴後追蹤器的位置不會變化。<b>不建議一般使用者使用！</b>
 settings-general-tracker_mechanics-save_mounting_reset-enabled-label = 儲存自動配戴重置的校正
 settings-general-tracker_mechanics-use_mag_on_all_trackers = 在有磁力計支援的 IMU 追蹤器上啟用磁力計
@@ -747,17 +747,17 @@ settings-general-interface-feedback_sound-description = 啟用本選項後，觸
 settings-general-interface-feedback_sound-label = 聲音回饋
 settings-general-interface-feedback_sound-volume = 聲音回饋音量
 settings-general-interface-connected_trackers_warning = 已連接追蹤器警告
-settings-general-interface-connected_trackers_warning-description = 啟用本選項後，每次當退出 SlimeVR 時仍有追蹤器連接著會顯示通知，提醒你在使用完畢時關閉追蹤器電源來節省電池電量。
+settings-general-interface-connected_trackers_warning-description = 啟用本選項後，每次當退出 NekoVR 時仍有追蹤器連接著會顯示通知，提醒你在使用完畢時關閉追蹤器電源來節省電池電量。
 settings-general-interface-connected_trackers_warning-label = 當退出程式時，有追蹤器連接中則顯示警告
 
 ## Behavior settings
 
 settings-interface-behavior = 行為
 settings-general-interface-use_tray = 最小化到系統列
-settings-general-interface-use_tray-description = 本選項可以讓你在關閉視窗時不會關閉 SlimeVR 的伺服器程式，讓你在不受圖形介面的打擾下繼續使用追蹤器。
+settings-general-interface-use_tray-description = 本選項可以讓你在關閉視窗時不會關閉 NekoVR 的伺服器程式，讓你在不受圖形介面的打擾下繼續使用追蹤器。
 settings-general-interface-use_tray-label = 最小化到系統列
 settings-general-interface-discord_presence = 在 Discord 上分享活動
-settings-general-interface-discord_presence-description = 在 Discord 上顯示你正在使用 SlimeVR，以及使用中的追蹤器的數量。
+settings-general-interface-discord_presence-description = 在 Discord 上顯示你正在使用 NekoVR，以及使用中的追蹤器的數量。
 settings-general-interface-discord_presence-label = 在 Discord 上分享活動
 settings-general-interface-discord_presence-message =
     { $amount ->
@@ -768,9 +768,9 @@ settings-interface-behavior-error_tracking = 透過 Sentry.io 收集錯誤資訊
 settings-interface-behavior-error_tracking-description_v2 =
     <h1>你是否同意我們蒐集匿名化的錯誤資料？</h1>
     
-    <b>我們不會收集個人資訊</b> ，例如你的 IP 位址或無線網路認證資訊。SlimeVR 重視你的隱私！
+    <b>我們不會收集個人資訊</b> ，例如你的 IP 位址或無線網路認證資訊。NekoVR 重視你的隱私！
     
-    為了提供最佳的使用者體驗，我們會蒐集匿名化的錯誤報告、性能指標和作業系統資訊，這會對我們檢測 SlimeVR 的錯誤和問題有所幫助。我們會透過 Sentry.io 來蒐集這些指標。
+    為了提供最佳的使用者體驗，我們會蒐集匿名化的錯誤報告、性能指標和作業系統資訊，這會對我們檢測 NekoVR 的錯誤和問題有所幫助。我們會透過 Sentry.io 來蒐集這些指標。
 settings-interface-behavior-error_tracking-label = 向開發者傳送錯誤資訊
 settings-interface-behavior-bvh_directory = BVH 紀錄儲存目錄
 settings-interface-behavior-bvh_directory-description = 選擇儲存 BVH 紀錄文件的目錄，如此每次錄製 BVH 時不需要選擇儲存位置。
@@ -816,7 +816,7 @@ settings-osc-router-network = 連接埠
 # This cares about multilines
 settings-osc-router-network-description =
     設定用於監聽和傳送資料的連接埠，
-    可以與 SlimeVR 伺服器中使用的其他埠號相同。
+    可以與 NekoVR 伺服器中使用的其他埠號相同。
 settings-osc-router-network-port_in =
     .label = 輸入埠
     .placeholder = 輸入埠（預設：9002）
@@ -869,7 +869,7 @@ settings-osc-vmc = Virtual Motion Capture
 # This cares about multilines
 settings-osc-vmc-description =
     修改 VMC (Virtual Motion Capture) 協定的相關設定，
-    以傳送 SlimeVR 的骨骼資料，並接收來自其他應用程式的骨骼資料。
+    以傳送 NekoVR 的骨骼資料，並接收來自其他應用程式的骨骼資料。
 settings-osc-vmc-enable = 啟用
 settings-osc-vmc-enable-description = 切換資料的傳送和接收。
 settings-osc-vmc-enable-label = 啟用
@@ -927,10 +927,10 @@ settings-utils-advanced-reset_warning =
 settings-utils-advanced-reset_warning-reset = 重置設定
 settings-utils-advanced-reset_warning-cancel = 取消
 settings-utils-advanced-open_data-v1 = 設定資料夾
-settings-utils-advanced-open_data-description-v1 = 在檔案管理器中開啟 SlimeVR 的設定資料夾，該資料夾包含程式的設定。
+settings-utils-advanced-open_data-description-v1 = 在檔案管理器中開啟 NekoVR 的設定資料夾，該資料夾包含程式的設定。
 settings-utils-advanced-open_data-label = 打開資料夾
 settings-utils-advanced-open_logs = 紀錄檔資料夾
-settings-utils-advanced-open_logs-description = 在檔案管理器中開啟 SlimeVR 的紀錄檔資料夾，該資料夾包含程式的紀錄檔。
+settings-utils-advanced-open_logs-description = 在檔案管理器中開啟 NekoVR 的紀錄檔資料夾，該資料夾包含程式的紀錄檔。
 settings-utils-advanced-open_logs-label = 打開資料夾
 
 ## Home Screen
@@ -953,7 +953,7 @@ onboarding-wip = 施工中
 onboarding-previous_step = 上一步
 onboarding-setup_warning =
     <b>警告：</b>若要有良好的追蹤效果，必須進行初始設定，
-    若是第一次使用 SlimeVR，請繼續進行設定。
+    若是第一次使用 NekoVR，請繼續進行設定。
 onboarding-setup_warning-skip = 跳過設定
 onboarding-setup_warning-cancel = 繼續設定
 
@@ -965,7 +965,7 @@ onboarding-setup_warning-cancel = 繼續設定
 onboarding-wifi_creds-v2 = 透過 Wi-Fi 連接
 # This cares about multilines
 onboarding-wifi_creds-description-v2 =
-    大多數的追蹤器（例如官方的 SlimeVR 追蹤器）使用 Wi-Fi 連接伺服器程式。
+    大多數的追蹤器（例如官方的 NekoVR 追蹤器）使用 Wi-Fi 連接伺服器程式。
     請輸入目前設備連接的網路的 Wi-Fi 憑證。
     
     請確保輸入的是 2.4 GHz 頻道的 Wi-Fi 憑證。
@@ -1013,7 +1013,7 @@ onboarding-reset_tutorial-2 =
 
 ## Setup start
 
-onboarding-home = 歡迎來到 SlimeVR
+onboarding-home = 歡迎來到 NekoVR
 onboarding-home-start = 來開始設定吧！
 
 ## Setup done
@@ -1049,7 +1049,7 @@ onboarding-connect_serial-error-modal-no_serial_device_found-desc =
     如果還是不行，請嘗試以下操作：
       - 使用另一條 USB 傳輸線
       - 使用另一個 USB 插座
-      - 重新安裝 SlimeVR 伺服器程式，然後在安裝元件部分將「USB drivers」打勾
+      - 重新安裝 NekoVR 伺服器程式，然後在安裝元件部分將「USB drivers」打勾
 # $amount (Number) - Amount of trackers connected (this is a number, but you can use CLDR plural rules for your language)
 # More info on https://www.unicode.org/cldr/cldr-aux/charts/22/supplemental/language_plural_rules.html
 # English in this case only has 2 plural rules, which are "one" and "other",
@@ -1214,7 +1214,7 @@ onboarding-manual_mounting-next = 下一步
 
 onboarding-automatic_mounting-back = 返回到進入 VR
 onboarding-automatic_mounting-title = 配戴校正
-onboarding-automatic_mounting-description = 為了讓 SlimeVR 追蹤器正常運作，我們需要為每個追蹤器設定配戴方向，以符合你實際的追蹤器配戴方式。
+onboarding-automatic_mounting-description = 為了讓 NekoVR 追蹤器正常運作，我們需要為每個追蹤器設定配戴方向，以符合你實際的追蹤器配戴方式。
 onboarding-automatic_mounting-manual_mounting = 進行手動設定
 onboarding-automatic_mounting-next = 下一步
 onboarding-automatic_mounting-prev_step = 上一步
@@ -1254,7 +1254,7 @@ onboarding-manual_proportions-estimated_height = 預估的使用者身高
 
 onboarding-automatic_proportions-back = 返回重置教學
 onboarding-automatic_proportions-title = 測量你的身體比例
-onboarding-automatic_proportions-description = 為了讓 SlimeVR 追蹤器正常使用，我們需要知道你的骨頭長度。這個簡短的流程將會進行這方面的測量。
+onboarding-automatic_proportions-description = 為了讓 NekoVR 追蹤器正常使用，我們需要知道你的骨頭長度。這個簡短的流程將會進行這方面的測量。
 onboarding-automatic_proportions-manual = 手動調整軀幹比例
 onboarding-automatic_proportions-prev_step = 上一步
 onboarding-automatic_proportions-put_trackers_on-title = 請戴好追蹤器
@@ -1266,9 +1266,9 @@ onboarding-automatic_proportions-requirements-descriptionv2 =
     你需要足夠的追蹤器以進行足部追蹤（通常為 5 個）。
     追蹤器的電源已經打開並已經穿著在身上。
     你需要穿戴上追蹤器與頭戴顯示器。
-    追蹤器與頭戴顯示器都已經連接到 SlimeVR 伺服器，並且正常運作（亦即沒有卡頓或斷線等狀況）。
-    追蹤器與頭戴顯示器在 SlimeVR 伺服器中運作正常。
-    頭戴顯示器會回報定位資料給 SlimeVR 伺服器（通常為執行 SteamVR 並透過 SlimeVR 的 SteamVR 驅動程式來連接 SlimeVR）。
+    追蹤器與頭戴顯示器都已經連接到 NekoVR 伺服器，並且正常運作（亦即沒有卡頓或斷線等狀況）。
+    追蹤器與頭戴顯示器在 NekoVR 伺服器中運作正常。
+    頭戴顯示器會回報定位資料給 NekoVR 伺服器（通常為執行 SteamVR 並透過 NekoVR 的 SteamVR 驅動程式來連接 NekoVR）。
     追蹤狀態正常且能反映你的移動姿態（例如，進行完全重置後，踢腿、彎曲、坐下時的肢體方向是正確的）。
 onboarding-automatic_proportions-requirements-next = 我已閱讀使用需求
 onboarding-automatic_proportions-check_height-title-v3 = 測量頭戴顯示器高度
@@ -1334,7 +1334,7 @@ onboarding-automatic_proportions-smol_warning-cancel = 返回
 ## User height calibration
 
 onboarding-user_height-title = 你的身高是多少？
-onboarding-user_height-description = 我們需要使用你的身高來計算軀幹比例，以準確呈現你的動作。你可以讓 SlimeVR 自動求得身高，也可以手動輸入。
+onboarding-user_height-description = 我們需要使用你的身高來計算軀幹比例，以準確呈現你的動作。你可以讓 NekoVR 自動求得身高，也可以手動輸入。
 onboarding-user_height-need_head_tracker = 進行校正需要具備定位功能的頭戴顯示器與控制器。
 onboarding-user_height-calculate = 自動計算我的身高
 onboarding-user_height-next_step = 繼續並儲存
@@ -1404,8 +1404,8 @@ home-settings-close = 關閉
 trackers_still_on-modal-title = 有追蹤器的電源還開著
 trackers_still_on-modal-description =
     至少有一個追蹤器的電源還開著。
-    確定要退出 SlimeVR 嗎？
-trackers_still_on-modal-confirm = 退出 SlimeVR
+    確定要退出 NekoVR 嗎？
+trackers_still_on-modal-confirm = 退出 NekoVR
 trackers_still_on-modal-cancel = 先不要…
 
 ## Status system
@@ -1413,12 +1413,12 @@ trackers_still_on-modal-cancel = 先不要…
 status_system-StatusTrackerReset = 有至少一個追蹤器尚未進行調整，建議執行完整重置。
 status_system-StatusSteamVRDisconnected =
     { $type ->
-        [steamvr_feeder] 尚未連接 SlimeVR 資料迴送程式。
-       *[other] 尚未透過 SlimeVR 驅動程式連接到 SteamVR。
+        [steamvr_feeder] 尚未連接 NekoVR 資料迴送程式。
+       *[other] 尚未透過 NekoVR 驅動程式連接到 SteamVR。
     }
 status_system-StatusTrackerError = 追蹤器{ $trackerName }發生錯誤
 status_system-StatusUnassignedHMD = VR 頭戴顯示器應被分配為頭部追蹤器。
-status_system-StatusPublicNetwork = 你的網路設定檔目前設為「公開」，SlimeVR 為了能正常運作，不建議如此設定。 <PublicFixLink>此處提供修正的方法。</PublicFixLink>
+status_system-StatusPublicNetwork = 你的網路設定檔目前設為「公開」，NekoVR 為了能正常運作，不建議如此設定。 <PublicFixLink>此處提供修正的方法。</PublicFixLink>
 
 ## Firmware tool globals
 
@@ -1465,7 +1465,7 @@ firmware_tool-flash_method_step-serial-v2 =
     .description = 使用 USB 來更新追蹤器。
 firmware_tool-flashbtn_step = 進入燒錄模式
 firmware_tool-flashbtn_step-description = 在進入下一步前，請先進行以下操作
-firmware_tool-flashbtn_step-board_SLIMEVR = 關閉追蹤器電源，移除外殼（若有的話），並用 USB 線連接到這台電腦上，然後根據你持有的 SlimeVR 追蹤器主板的版本，進行下述操作：
+firmware_tool-flashbtn_step-board_SLIMEVR = 關閉追蹤器電源，移除外殼（若有的話），並用 USB 線連接到這台電腦上，然後根據你持有的 NekoVR 追蹤器主板的版本，進行下述操作：
 firmware_tool-flashbtn_step-board_SLIMEVR-r11-v2 = 將追蹤器上方第二個 FLASH 方形接點與微控制器的金屬遮罩短路，同時開啟追蹤器開關。追蹤器指示燈應該會短暫閃爍並熄滅。
 firmware_tool-flashbtn_step-board_SLIMEVR-r12-v2 = 將追蹤器上方的 FLASH 圓形接點與微控制器的金屬遮罩短路，同時開啟追蹤器開關。追蹤器指示燈應該會短暫閃爍並熄滅。
 firmware_tool-flashbtn_step-board_SLIMEVR-r14-v2 = 按住追蹤器上方的 FLASH 按鈕，同時開啟追蹤器開關。追蹤器指示燈應該會短暫閃爍並熄滅。
@@ -1524,7 +1524,7 @@ firmware_update-status-ERROR_UNKNOWN = 發生不明錯誤
 
 firmware_update-title = 韌體更新
 firmware_update-devices = 可用裝置
-firmware_update-devices-description = 請選擇要更新到最新版本 SlimeVR 韌體的追蹤器
+firmware_update-devices-description = 請選擇要更新到最新版本 NekoVR 韌體的追蹤器
 firmware_update-no_devices = 請確認要更新的追蹤器電源已開啟並連接到 Wi-Fi
 firmware_update-changelog-title = 更新到 { $version }
 firmware_update-looking_for_devices = 正在尋找要更新的裝置…
@@ -1546,7 +1546,7 @@ tray_or_exit_modal-description =
     你可以選擇在關閉視窗時，一併退出伺服器程式，或是將視窗最小化到系統列圖示中。
     
     本設定之後也可以在使用者介面設定中更改。
-tray_or_exit_modal-radio-exit = 退出 SlimeVR
+tray_or_exit_modal-radio-exit = 退出 NekoVR
 tray_or_exit_modal-radio-tray = 最小化到系統列
 tray_or_exit_modal-submit = 儲存
 tray_or_exit_modal-cancel = 取消
@@ -1556,12 +1556,12 @@ tray_or_exit_modal-cancel = 取消
 unknown_device-modal-title = 找到了新的追蹤器！
 unknown_device-modal-description =
     偵測到新的追蹤器，其 MAC 位址為 <b>{ $deviceId }</b>。
-    要將它連接到 SlimeVR 嗎？
+    要將它連接到 NekoVR 嗎？
 unknown_device-modal-confirm = 好喔！
 unknown_device-modal-forget = 別管它
 # VRChat config warnings
 vrc_config-page-title = VRChat 設定警告
-vrc_config-page-desc = 本頁會顯示 VRChat 的設定並顯示哪些設定與 SlimeVR 不相容。非常建議您根據這裡顯示的警告來修改設定，以獲得最佳的 SlimeVR 使用體驗。
+vrc_config-page-desc = 本頁會顯示 VRChat 的設定並顯示哪些設定與 NekoVR 不相容。非常建議您根據這裡顯示的警告來修改設定，以獲得最佳的 NekoVR 使用體驗。
 vrc_config-page-help = 找不到設定在哪裡嗎？
 vrc_config-page-help-desc = 請查閱<a>本主題的相關文件</a>
 vrc_config-page-big_menu = 追蹤 & IK（主選單）
@@ -1615,9 +1615,9 @@ error_collection_modal-cancel = 我不想要
 tracking_checklist = 追蹤清單
 tracking_checklist-settings = 追蹤清單設定
 tracking_checklist-settings-close = 關閉
-tracking_checklist-status-incomplete = 還沒做完 SlimeVR 使用前的準備！
+tracking_checklist-status-incomplete = 還沒做完 NekoVR 使用前的準備！
 tracking_checklist-status-partial = 你有 { $count } 項警告！
-tracking_checklist-status-complete = 已經準備好使用 SlimeVR 了！
+tracking_checklist-status-complete = 已經準備好使用 NekoVR 了！
 tracking_checklist-MOUNTING_CALIBRATION = 進行配戴校正
 tracking_checklist-FEET_MOUNTING_CALIBRATION = 進行腳部的配戴校正
 tracking_checklist-FULL_RESET = 進行完整重置
@@ -1630,12 +1630,12 @@ tracking_checklist-TRACKERS_REST_CALIBRATION-desc = 追蹤器尚未進行校正�
 tracking_checklist-TRACKER_ERROR = 追蹤器出現錯誤
 tracking_checklist-TRACKER_ERROR-desc = 有追蹤器發生錯誤，請重啟黃色標記的追蹤器。
 tracking_checklist-VRCHAT_SETTINGS = 調整 VRChat 設定
-tracking_checklist-VRCHAT_SETTINGS-desc = VRChat 的設定有問題，這會影響到在 VRChat 使用 SlimeVR 的體驗。
+tracking_checklist-VRCHAT_SETTINGS-desc = VRChat 的設定有問題，這會影響到在 VRChat 使用 NekoVR 的體驗。
 tracking_checklist-VRCHAT_SETTINGS-open = 前往 VRChat 警告
 tracking_checklist-UNASSIGNED_HMD = VR 頭戴裝置尚未分配給頭部
 tracking_checklist-UNASSIGNED_HMD-desc = VR 頭戴顯示器應被分配為頭部追蹤器。
 tracking_checklist-NETWORK_PROFILE_PUBLIC = 變更網路設定檔
-tracking_checklist-NETWORK_PROFILE_PUBLIC-desc = 你的網路設定檔目前設為「公開」，SlimeVR 為了能正常運作，不建議如此設定。 <PublicFixLink>此處提供修正的方法。</PublicFixLink>
+tracking_checklist-NETWORK_PROFILE_PUBLIC-desc = 你的網路設定檔目前設為「公開」，NekoVR 為了能正常運作，不建議如此設定。 <PublicFixLink>此處提供修正的方法。</PublicFixLink>
 tracking_checklist-NETWORK_PROFILE_PUBLIC-open = 開啟控制台
 tracking_checklist-STAY_ALIGNED_CONFIGURED = 調整持續校正設定
 tracking_checklist-STAY_ALIGNED_CONFIGURED-desc = 記錄持續校正所使用的姿勢以減緩飄移現象

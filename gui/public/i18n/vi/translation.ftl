@@ -9,16 +9,16 @@
 
 websocket-connecting = Đang kết nối với máy chủ
 websocket-connection_lost = Kết nối với máy chủ đã mất. Đang kết nối lại...
-websocket-connection_lost-desc = Máy chủ SlimeVR bị dừng. Hãy kiểm tra nhật ký logs và khởi động lại chương trình.
+websocket-connection_lost-desc = Máy chủ NekoVR bị dừng. Hãy kiểm tra nhật ký logs và khởi động lại chương trình.
 websocket-timedout = Không thể tìm thấy máy chủ
-websocket-timedout-desc = Có vẻ như máy chủ SlimeVR đã bị sập hoặc hết thời gian chờ. Vui lòng kiểm tra nhật ký logs và khởi động lại chương trình.
-websocket-error-close = Thoát SlimeVR
+websocket-timedout-desc = Có vẻ như máy chủ NekoVR đã bị sập hoặc hết thời gian chờ. Vui lòng kiểm tra nhật ký logs và khởi động lại chương trình.
+websocket-error-close = Thoát NekoVR
 websocket-error-logs = Mở thư mục nhật ký logs
 
 ## Update notification
 
 version_update-title = Phiên bản mới có thể cập nhật:
-version_update-description = Nhấp vào "{ version_update-update }" sẽ tải xuống trình cài đặt SlimeVR cho bạn.
+version_update-description = Nhấp vào "{ version_update-update }" sẽ tải xuống trình cài đặt NekoVR cho bạn.
 version_update-update = Cập nhật
 version_update-close = Đóng
 
@@ -28,7 +28,7 @@ tips-find_tracker = Không rõ tracker nào đang được chọn? Di chuyển n
 tips-do_not_move_heels = Không di chuyển gót chân trong khi đo
 tips-file_select = Kéo và thả tệp để sử dụng hoặc <u>duyệt</u>.
 tips-tap_setup = Bạn có thể từ từ nhấn vào 2 lần trình theo dõi của mình để chọn nó thay vì chọn nó từ menu.
-tips-turn_on_tracker = Sử dụng thiết bị SlimeVR chính thức? Hãy nhớ <b><em>bật trình theo dõi của bạn</em></b> sau khi kết nối thiết bị với máy tính!
+tips-turn_on_tracker = Sử dụng thiết bị NekoVR chính thức? Hãy nhớ <b><em>bật trình theo dõi của bạn</em></b> sau khi kết nối thiết bị với máy tính!
 tips-failed_webgl = Không thể khởi tạo WebGL.
 
 ## Units
@@ -237,7 +237,7 @@ tracker-settings-name_section = Tên tracker
 tracker-settings-name_section-description = Đặt cho nó một cái tên đẹp :3
 tracker-settings-name_section-placeholder = Chân trái của JINODK
 tracker-settings-forget = Quên thiết bị
-tracker-settings-forget-description = Xóa thiết bị khỏi phần mềm SlimeVR và ngăn nó kết nối với nó cho đến khi máy chủ được khởi động lại. Cấu hình của trình theo dõi sẽ không bị mất.
+tracker-settings-forget-description = Xóa thiết bị khỏi phần mềm NekoVR và ngăn nó kết nối với nó cho đến khi máy chủ được khởi động lại. Cấu hình của trình theo dõi sẽ không bị mất.
 tracker-settings-forget-label = Quên thiết bị
 
 ## Tracker part card info
@@ -378,7 +378,7 @@ settings-general-tracker_mechanics-drift_compensation-max_resets-label = Số l�
 settings-general-tracker_mechanics-save_mounting_reset = Lưu thiết bị đã giao tự động
 settings-general-tracker_mechanics-save_mounting_reset-description =
     Lưu thiết bị đã giao tự động cho các thiết bị giữa các lần khởi động lại. Có ích
-    khi mặc một bộ đồ SlimeVR mà trình theo dõi không di chuyển giữa các phiên. <b>Không được khuyến khích cho người dùng bình thường!</b>
+    khi mặc một bộ đồ NekoVR mà trình theo dõi không di chuyển giữa các phiên. <b>Không được khuyến khích cho người dùng bình thường!</b>
 settings-general-tracker_mechanics-save_mounting_reset-enabled-label = Đặt lại hướng gắn thiết bị
 
 ## FK/Tracking settings
@@ -491,16 +491,16 @@ settings-general-interface-feedback_sound-description = Tùy chọn này sẽ ph
 settings-general-interface-feedback_sound-label = Âm thanh phản hồi
 settings-general-interface-feedback_sound-volume = Âm lượng phản hồi
 settings-general-interface-connected_trackers_warning = Cảnh báo với thiết bị đã kết nối
-settings-general-interface-connected_trackers_warning-description = Tùy chọn này sẽ hiển thị cửa sổ bật lên mỗi khi bạn thử thoát khỏi SlimeVR trong khi có một hoặc nhiều thiết bị theo dõi được kết nối. Nó nhắc nhở bạn tắt trình theo dõi khi bạn hoàn tất để duy trì tuổi thọ pin.
+settings-general-interface-connected_trackers_warning-description = Tùy chọn này sẽ hiển thị cửa sổ bật lên mỗi khi bạn thử thoát khỏi NekoVR trong khi có một hoặc nhiều thiết bị theo dõi được kết nối. Nó nhắc nhở bạn tắt trình theo dõi khi bạn hoàn tất để duy trì tuổi thọ pin.
 settings-general-interface-connected_trackers_warning-label = Cảnh báo thiết bị đã kết nối khi thoát chương trình
 
 ## Behavior settings
 
 settings-general-interface-use_tray = Thu nhỏ vào khay hệ thống
-settings-general-interface-use_tray-description = Cho phép bạn đóng cửa sổ mà không cần đóng máy chủ SlimeVR để bạn có thể tiếp tục sử dụng nó mà không bị GUI làm phiền.
+settings-general-interface-use_tray-description = Cho phép bạn đóng cửa sổ mà không cần đóng máy chủ NekoVR để bạn có thể tiếp tục sử dụng nó mà không bị GUI làm phiền.
 settings-general-interface-use_tray-label = Thu nhỏ vào khay hệ thống
 settings-general-interface-discord_presence = Chia sẻ hoạt động trên Discord
-settings-general-interface-discord_presence-description = Cho Discord của bạn biết rằng bạn đang sử dụng SlimeVR cùng với số lượng trình theo dõi IMU bạn đang sử dụng.
+settings-general-interface-discord_presence-description = Cho Discord của bạn biết rằng bạn đang sử dụng NekoVR cùng với số lượng trình theo dõi IMU bạn đang sử dụng.
 settings-general-interface-discord_presence-label = Chia sẻ hoạt động trên Discord
 settings-general-interface-discord_presence-message =
     { $amount ->
@@ -545,7 +545,7 @@ settings-osc-router-network = Cổng mạng
 # This cares about multilines
 settings-osc-router-network-description =
     Đặt cổng nhận và gửi dữ liệu OSC
-    Có thể dùng chung cổng với server SlimeVR
+    Có thể dùng chung cổng với server NekoVR
 settings-osc-router-network-port_in =
     .label = Cổng vào
     .placeholder = Cổng vào (Mặc định: 9002)
@@ -553,7 +553,7 @@ settings-osc-router-network-port_out =
     .label = Cổng ra
     .placeholder = Cổng ra (Mặc định: 9000)
 settings-osc-router-network-address = Địa chỉ mạng
-settings-osc-router-network-address-description = Địa chỉ mạng mà SlimeVR sẽ gửi dữ liệu OSC đến
+settings-osc-router-network-address-description = Địa chỉ mạng mà NekoVR sẽ gửi dữ liệu OSC đến
 settings-osc-router-network-address-placeholder = Địa chỉ IPv4
 
 ## OSC VRChat settings
@@ -581,7 +581,7 @@ settings-osc-vrchat-network-address = Địa chỉ mạng
 settings-osc-vrchat-network-address-description-v1 = Chọn địa chỉ để gửi dữ liệu đến. Có thể giữ nguyên cho VRChat.
 settings-osc-vrchat-network-address-placeholder = Địa chỉ IP của thiết bị chơi VRChat
 settings-osc-vrchat-network-trackers = Cấu hình Tracker
-settings-osc-vrchat-network-trackers-description = Chọn các tracker mà SlimeVR sẽ gửi dữ liệu OSC đến VRChat
+settings-osc-vrchat-network-trackers-description = Chọn các tracker mà NekoVR sẽ gửi dữ liệu OSC đến VRChat
 settings-osc-vrchat-network-trackers-chest = Ngực
 settings-osc-vrchat-network-trackers-hip = Hông
 settings-osc-vrchat-network-trackers-knees = Đầu gối
@@ -594,7 +594,7 @@ settings-osc-vmc = Virtual Motion Capture
 # This cares about multilines
 settings-osc-vmc-description =
     Thay đổi cài đặt cụ thể cho giao thức VMC (Virtual Motion Capture)
-        để gửi dữ liệu thân của SlimeVR và nhận dữ liệu thân từ các ứng dụng khác.
+        để gửi dữ liệu thân của NekoVR và nhận dữ liệu thân từ các ứng dụng khác.
 settings-osc-vmc-enable = Bật
 settings-osc-vmc-enable-description = Cho phép nhận và gửi dữ liệu OSC
 settings-osc-vmc-enable-label = Chuyển tiếp dữ liệu OSC
@@ -645,7 +645,7 @@ onboarding-wip = Chưa hoàn thiện
 onboarding-previous_step = Quay lại
 onboarding-setup_warning =
     <b>Lưu ý:</b> Trình thiết lập ban đầu là cần thiết để theo dõi tốt,
-    bước này cần thiết nếu đây là lần đầu tiên bạn sử dụng SlimeVR.
+    bước này cần thiết nếu đây là lần đầu tiên bạn sử dụng NekoVR.
 onboarding-setup_warning-skip = Bỏ qua cài đặt
 onboarding-setup_warning-cancel = Tiếp tục thiết lập
 
@@ -693,7 +693,7 @@ onboarding-reset_tutorial-2 =
 
 ## Setup start
 
-onboarding-home = Chào mừng bạn đến với SlimeVR!
+onboarding-home = Chào mừng bạn đến với NekoVR!
 onboarding-home-start = Bắt đầu thiết lập!
 
 ## Setup done
@@ -717,7 +717,7 @@ onboarding-connect_tracker-connection_status-connecting = Đang gửi thông tin
 onboarding-connect_tracker-connection_status-looking_for_server = Đang tìm máy chủ
 onboarding-connect_tracker-connection_status-connection_error = Không thể kết nối đến Wi-Fi
 onboarding-connect_tracker-connection_status-could_not_find_server = Không thể tìm thấy máy chủ
-onboarding-connect_tracker-connection_status-done = Đã kết nối đến máy chủ SlimeVR
+onboarding-connect_tracker-connection_status-done = Đã kết nối đến máy chủ NekoVR
 # $amount (Number) - Amount of trackers connected (this is a number, but you can use CLDR plural rules for your language)
 # More info on https://www.unicode.org/cldr/cldr-aux/charts/22/supplemental/language_plural_rules.html
 # English in this case only has 2 plural rules, which are "one" and "other",
@@ -887,7 +887,7 @@ onboarding-manual_mounting-next = Tiếp tục
 
 onboarding-automatic_mounting-back = Quay lại chuẩn bị cân chỉnh
 onboarding-automatic_mounting-title = Cân chỉnh hướng gắn
-onboarding-automatic_mounting-description = SlimeVR cần biết hướng gắn thực của tracker để hoạt động đúng, làm theo hướng dẫn để cân chỉnh hướng gắn tự động
+onboarding-automatic_mounting-description = NekoVR cần biết hướng gắn thực của tracker để hoạt động đúng, làm theo hướng dẫn để cân chỉnh hướng gắn tự động
 onboarding-automatic_mounting-manual_mounting = Cân chỉnh thủ công
 onboarding-automatic_mounting-next = Tiếp tục
 onboarding-automatic_mounting-prev_step = Quay lại
@@ -899,7 +899,7 @@ onboarding-automatic_mounting-mounting_reset-step-0 = 1. Đứng khom người n
 onboarding-automatic_mounting-mounting_reset-step-1 = 2. Nhấn nút đặt lại và chờ 3 giây trước khi hệ thống cân chỉnh hướng gắn tracker
 onboarding-automatic_mounting-preparation-title = Chuẩn bị tư thế
 onboarding-automatic_mounting-put_trackers_on-title = Đeo tracker lên người
-onboarding-automatic_mounting-put_trackers_on-description = Để cân chỉnh hướng gắn của tracker, SlimeVR sẽ tiến hành đo góc nghiêng của tracker khi đang đeo để cân chỉnh hướng gắn, hãy đeo tracker theo đúng vị trí đã thiết lập
+onboarding-automatic_mounting-put_trackers_on-description = Để cân chỉnh hướng gắn của tracker, NekoVR sẽ tiến hành đo góc nghiêng của tracker khi đang đeo để cân chỉnh hướng gắn, hãy đeo tracker theo đúng vị trí đã thiết lập
 onboarding-automatic_mounting-put_trackers_on-next = Tiếp tục
 
 ## Tracker manual proportions setupa
@@ -910,19 +910,19 @@ onboarding-manual_proportions-title = Đo kích thước cơ thể thủ công
 
 onboarding-automatic_proportions-back = Quay lại cân chỉnh hướng gắn
 onboarding-automatic_proportions-title = Đo kích thước cơ thể
-onboarding-automatic_proportions-description = Để tracker có vị trí chính xác, SlimeVR cần biết các chỉ số kích thước cơ thể, làm theo hướng dẫn để đo kích thước cơ thể tự động
+onboarding-automatic_proportions-description = Để tracker có vị trí chính xác, NekoVR cần biết các chỉ số kích thước cơ thể, làm theo hướng dẫn để đo kích thước cơ thể tự động
 onboarding-automatic_proportions-manual = Đo kích thước cơ thể thủ công
 onboarding-automatic_proportions-prev_step = Quay lại
 onboarding-automatic_proportions-put_trackers_on-title = Đeo tracker lên người
-onboarding-automatic_proportions-put_trackers_on-description = Để đo kích thước cơ thể, SlimeVR sẽ sử dụng một thuật toán để dự đoán kích thước của các bộ phận, hãy đeo tracker theo đúng vị trí đã thiết lập như hình bên
+onboarding-automatic_proportions-put_trackers_on-description = Để đo kích thước cơ thể, NekoVR sẽ sử dụng một thuật toán để dự đoán kích thước của các bộ phận, hãy đeo tracker theo đúng vị trí đã thiết lập như hình bên
 onboarding-automatic_proportions-put_trackers_on-next = Tiếp tục
 onboarding-automatic_proportions-requirements-title = Yêu cầu
 # Each line of text is a different list item
 onboarding-automatic_proportions-requirements-descriptionv2 =
     Bạn có ít nhất đủ tracker để theo dõi bàn chân của mình (thường là 5 tracker).
     Bạn đã bật tracker và headset và đang đeo chúng.
-    Tracker và headset của bạn được kết nối với máy chủ SlimeVR và đang hoạt động bình thường (ví dụ: không bị lag, ngắt kết nối, v.v.).
-    Headset của bạn đang báo cáo dữ liệu vị trí cho máy chủ SlimeVR (điều này thường có nghĩa là SteamVR đang chạy và kết nối với SlimeVR bằng driver SteamVR của SlimeVR).
+    Tracker và headset của bạn được kết nối với máy chủ NekoVR và đang hoạt động bình thường (ví dụ: không bị lag, ngắt kết nối, v.v.).
+    Headset của bạn đang báo cáo dữ liệu vị trí cho máy chủ NekoVR (điều này thường có nghĩa là SteamVR đang chạy và kết nối với NekoVR bằng driver SteamVR của NekoVR).
     Tracking của bạn đang hoạt động và thể hiện chính xác các chuyển động của bạn (ví dụ: bạn đã thực hiện thiết đặt lại hoàn toàn và chúng di chuyển đúng hướng khi đá, cúi xuống, ngồi, v.v.).
 onboarding-automatic_proportions-requirements-next = Tôi đã đọc các yêu cầu
 onboarding-automatic_proportions-check_height-guardian_tip =
@@ -977,8 +977,8 @@ home-no_trackers = Chưa có thiết bị nào được phát hiện hoặc đi�
 trackers_still_on-modal-title = Tracker vẫn còn bật
 trackers_still_on-modal-description =
     Vẫn còn một hoặc nhiều tracker vẫn đang bật.
-    Bạn vẫn muốn thoát khỏi SlimeVR?
-trackers_still_on-modal-confirm = Thoát SlimeVR
+    Bạn vẫn muốn thoát khỏi NekoVR?
+trackers_still_on-modal-confirm = Thoát NekoVR
 trackers_still_on-modal-cancel = Vui lòng đợi...
 
 ## Status system
@@ -986,8 +986,8 @@ trackers_still_on-modal-cancel = Vui lòng đợi...
 status_system-StatusTrackerReset = Bạn nên thực hiện thiết lập lại toàn bộ vì một hoặc nhiều trình theo dõi không được điều chỉnh.
 status_system-StatusSteamVRDisconnected =
     { $type ->
-        [steamvr_feeder] Chưa kết nối với SteamVR thông qua trình điều khiển SlimeVR Feeder App.
-       *[other] Chưa kết nối với SteamVR thông qua driver SlimeVR.
+        [steamvr_feeder] Chưa kết nối với SteamVR thông qua trình điều khiển NekoVR Feeder App.
+       *[other] Chưa kết nối với SteamVR thông qua driver NekoVR.
     }
 status_system-StatusTrackerError = Tracker { $trackerName } có lỗi.
 status_system-StatusUnassignedHMD = Kính thực tế ảo VR này nên được giao là bộ theo dõi đầu.
@@ -1031,7 +1031,7 @@ tray_or_exit_modal-cancel = Hủy
 unknown_device-modal-title = Thiết bị mới đã được tìm thấy!
 unknown_device-modal-description =
     Có thiết bị mới với địa chỉ MAC <b>{ $deviceId }</b>.
-    Bạn có muốn kết nối nó với SlimeVR không?
+    Bạn có muốn kết nối nó với NekoVR không?
 unknown_device-modal-confirm = Chắc!
 unknown_device-modal-forget = Bỏ qua
 
