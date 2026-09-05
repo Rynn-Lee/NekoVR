@@ -16,10 +16,9 @@ export function useProvideHeightContext(): HeightContext {
   const [floorHeight, setFloorHeight] = useState<number | null>(null);
   const { sendRPCPacket, useRPCPacket } = useWebsocketAPI();
 
-  useEffect(
-    () => sendRPCPacket(RpcMessage.SettingsRequest, new SettingsRequestT()),
-    []
-  );
+  useEffect(() => {
+    sendRPCPacket(RpcMessage.SettingsRequest, new SettingsRequestT());
+  }, []);
   useRPCPacket(RpcMessage.SettingsResponse, (res: SettingsResponseT) => {
     const hmd = res.modelSettings?.skeletonHeight?.hmdHeight;
     const floor = res.modelSettings?.skeletonHeight?.floorHeight;

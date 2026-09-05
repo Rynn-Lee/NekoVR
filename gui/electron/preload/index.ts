@@ -43,6 +43,15 @@ contextBridge.exposeInMainWorld('electronAPI', {
       IPC_CHANNELS.OPEN_FILE,
       await ipcRenderer.invoke(IPC_CHANNELS.GET_FOLDER, 'logs')
     ),
+  openDatasetsFolder: async () =>
+    ipcRenderer.invoke(
+      IPC_CHANNELS.OPEN_FILE,
+      await ipcRenderer.invoke(IPC_CHANNELS.GET_FOLDER, 'datasets')
+    ),
+  revealDataset: (sessionId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.REVEAL_DATASET, sessionId),
+  exportDataset: (sessionId: string) =>
+    ipcRenderer.invoke(IPC_CHANNELS.EXPORT_DATASET, sessionId),
   openFile: (path) => ipcRenderer.invoke(IPC_CHANNELS.OPEN_FILE, path),
   ghGet: (req) => ipcRenderer.invoke(IPC_CHANNELS.GH_FETCH, req),
   setPresence: (options) => ipcRenderer.invoke(IPC_CHANNELS.DISCORD_PRESENCE, options),

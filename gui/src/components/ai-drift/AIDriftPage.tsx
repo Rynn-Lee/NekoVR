@@ -1,18 +1,12 @@
-import { useState } from 'react';
 import { AIDriftIcon } from '@/components/commons/icon/BrainIcon';
 import { WrenchIcon } from '@/components/commons/icon/WrenchIcons';
 import { RecordIcon } from '@/components/commons/icon/RecordIcon';
 import { DownloadIcon } from '@/components/commons/icon/DownloadIcon';
-import { GPUStatusBadge } from './GPUStatusBadge';
-import { ModelFilePicker } from './ModelFilePicker';
-import { DatasetRecorderWidget } from './DatasetRecorderWidget';
 import { AutoUpdaterWidget } from '@/components/updater/AutoUpdaterWidget';
 import { Typography } from '@/components/commons/Typography';
+import { DatasetRecorderWidget } from './DatasetRecorderWidget';
 
 export function AIDriftPage() {
-  const [aiEnabled, setAiEnabled] = useState(true);
-  const [loadedModelFile, setLoadedModelFile] = useState<File | null>(null);
-
   return (
     <div className="flex flex-col gap-4 p-4 md:p-6 max-w-4xl mx-auto w-full h-full overflow-y-auto">
       {/* 1. ИИ-коррекция дрифта */}
@@ -36,23 +30,15 @@ export function AIDriftPage() {
             </div>
           </div>
 
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <span className="text-xs font-semibold text-background-20">
-              {aiEnabled ? 'Включено' : 'Выключено'}
-            </span>
-            <input
-              type="checkbox"
-              checked={aiEnabled}
-              onChange={(e) => setAiEnabled(e.target.checked)}
-              className="w-5 h-5 rounded accent-accent-background-30 cursor-pointer"
-            />
-          </label>
+          <span className="rounded-full border border-background-40 bg-background-60 px-3 py-1 text-xs font-semibold text-background-30">
+            Недоступно
+          </span>
         </div>
 
-        <GPUStatusBadge
-          isModelLoaded={!!loadedModelFile}
-          isAiEnabled={aiEnabled}
-        />
+        <p className="rounded-lg border border-background-50 bg-background-60 p-3 text-xs text-background-30">
+          Коррекция отключена до прохождения проверки inference-ready. Обычный
+          трекинг продолжает работать без изменений.
+        </p>
       </div>
 
       {/* 2. Файл модели */}
@@ -74,7 +60,10 @@ export function AIDriftPage() {
           </div>
         </div>
 
-        <ModelFilePicker onModelChange={setLoadedModelFile} />
+        <p className="rounded-lg border border-background-50 bg-background-60 p-3 text-xs text-background-30">
+          Загрузка модели появится после внедрения проверяемого серверного каталога
+          и безопасной активации ONNX.
+        </p>
       </div>
 
       {/* 3. Сбор датасетов */}

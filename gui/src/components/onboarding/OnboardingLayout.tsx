@@ -1,4 +1,5 @@
 import { ReactNode, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useOnboarding } from '@/hooks/onboarding';
 import { MainLayout } from '@/components/MainLayout';
 import { TopBar } from '@/components/TopBar';
@@ -8,6 +9,7 @@ import { SkipSetupWarningModal } from './SkipSetupWarningModal';
 import './OnboardingLayout.scss';
 
 export function OnboardingLayout({ children }: { children: ReactNode }) {
+  const navigate = useNavigate();
   const { isMobile } = useBreakpoint('mobile');
   const { state, skipSetup } = useOnboarding();
   const [showWarning, setShowWarning] = useState(false);
@@ -27,7 +29,10 @@ export function OnboardingLayout({ children }: { children: ReactNode }) {
         </div>
         <div className="h-full w-full overflow-y-auto">{children}</div>
         <SkipSetupWarningModal
-          accept={skipSetup}
+          accept={() => {
+            skipSetup();
+            navigate('/');
+          }}
           onClose={() => setShowWarning(false)}
           isOpen={showWarning}
         />

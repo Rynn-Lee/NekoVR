@@ -21,6 +21,7 @@ import dev.slimevr.protocol.rpc.TransactionInfo
 import dev.slimevr.protocol.rpc.settings.RPCSettingsHandler
 import dev.slimevr.reset.ResetHandler
 import dev.slimevr.reset.ResetTimerManager
+import dev.slimevr.reset.event
 import dev.slimevr.reset.resetTimer
 import dev.slimevr.serial.ProvisioningHandler
 import dev.slimevr.serial.SerialHandler
@@ -122,6 +123,9 @@ class VRServer @JvmOverloads constructor(
 	val resetHandler: ResetHandler
 
 	@JvmField
+	val resetEventPublisher = dev.slimevr.reset.DefaultResetEventPublisher()
+
+	@JvmField
 	val statusSystem = StatusSystem()
 
 	@JvmField
@@ -131,7 +135,7 @@ class VRServer @JvmOverloads constructor(
 	val aiDriftEngine = dev.slimevr.ai.AIDriftEngine()
 
 	@JvmField
-	val datasetRecorder = dev.slimevr.dataset.DatasetRecorder()
+	val datasetRecorder = dev.slimevr.dataset.DatasetRecordingService()
 
 	@JvmField
 	val autoUpdater = dev.slimevr.updater.AutoUpdater()
@@ -149,7 +153,8 @@ class VRServer @JvmOverloads constructor(
 		provisioningHandler = ProvisioningHandler(this)
 		resetHandler = ResetHandler()
 		tapSetupHandler = TapSetupHandler()
-		humanPoseManager = HumanPoseManager(this)
+		humanPoseManager = HumanPoseManager(this, resetEventPublisher)
+		datasetRecorder.bindResetPublisher(resetEventPublisher)
 		// AutoBone requires HumanPoseManager first
 		autoBoneHandler = AutoBoneHandler(this)
 		firmwareUpdateHandler = FirmwareUpdateHandler(this)
@@ -271,20 +276,7 @@ class VRServer @JvmOverloads constructor(
 				tracker.tick(fpsTimer.timePerFrame)
 			}
 			humanPoseManager.update()
-			if (datasetRecorder.isRecording) {
-				val headTracker = dev.slimevr.tracking.trackers.TrackerUtils.getTrackerForSkeleton(trackers, dev.slimevr.tracking.trackers.TrackerPosition.HEAD)
-				val hmdRot = headTracker?.getRotation() ?: io.github.axisangles.ktmath.Quaternion.IDENTITY
-				val hmdPos = headTracker?.position ?: io.github.axisangles.ktmath.Vector3.NULL
-				val trackerRots = mutableMapOf<Int, io.github.axisangles.ktmath.Quaternion>()
-				val trackerAccs = mutableMapOf<Int, io.github.axisangles.ktmath.Vector3>()
-				for (t in trackers) {
-					if (t.isImu()) {
-						trackerRots[t.id] = t.getRotation()
-						trackerAccs[t.id] = t.getAcceleration() ?: io.github.axisangles.ktmath.Vector3.NULL
-					}
-				}
-				datasetRecorder.recordFrame(hmdRot, hmdPos, trackerRots, trackerAccs)
-			}
+			datasetRecorder.sampleIfDue(trackers)
 			for (bridge in bridges) {
 				bridge.dataWrite()
 			}
@@ -298,6 +290,7 @@ class VRServer @JvmOverloads constructor(
 				break
 			}
 		}
+		datasetRecorder.close()
 	}
 
 	@ThreadSafe
@@ -317,6 +310,7 @@ class VRServer @JvmOverloads constructor(
 
 	@ThreadSecure
 	fun registerTracker(tracker: Tracker) {
+		tracker.resetsHandler.setDriftCorrectionSource(aiDriftEngine)
 		configManager.vrConfig.readTrackerConfig(tracker)
 		queueTask {
 			trackers.add(tracker)
@@ -342,15 +336,45 @@ class VRServer @JvmOverloads constructor(
 	}
 
 	fun resetTrackersFull(resetSourceName: String?, bodyParts: List<Int> = ArrayList()) {
-		queueTask { humanPoseManager.resetTrackersFull(resetSourceName, bodyParts) }
+		val request = dev.slimevr.reset.ResetRequest(
+			kind = dev.slimevr.reset.ResetKind.FULL,
+			source = resetSourceName ?: "unknown",
+			requestMonotonicNs = System.nanoTime(),
+			bodyParts = bodyParts,
+		)
+		resetEventPublisher.publish(request.event(dev.slimevr.reset.ResetOutcome.REQUESTED))
+		queueTask { humanPoseManager.resetTrackersFull(resetSourceName, bodyParts, request) }
 	}
 
 	fun resetTrackersYaw(resetSourceName: String?, bodyParts: List<Int> = TrackerUtils.allBodyPartsButFingers) {
-		queueTask { humanPoseManager.resetTrackersYaw(resetSourceName, bodyParts) }
+		val request = dev.slimevr.reset.ResetRequest(
+			kind = dev.slimevr.reset.ResetKind.YAW,
+			source = resetSourceName ?: "unknown",
+			requestMonotonicNs = System.nanoTime(),
+			bodyParts = bodyParts,
+		)
+		resetEventPublisher.publish(request.event(dev.slimevr.reset.ResetOutcome.REQUESTED))
+		queueTask { humanPoseManager.resetTrackersYaw(resetSourceName, bodyParts, request) }
 	}
 
 	fun resetTrackersMounting(resetSourceName: String?, bodyParts: List<Int>? = null) {
-		queueTask { humanPoseManager.resetTrackersMounting(resetSourceName, bodyParts) }
+		val parts = resolveMountingResetBodyParts(bodyParts)
+		val request = dev.slimevr.reset.ResetRequest(
+			kind = dev.slimevr.reset.ResetKind.MOUNTING,
+			source = resetSourceName ?: "unknown",
+			requestMonotonicNs = System.nanoTime(),
+			bodyParts = parts,
+		)
+		resetEventPublisher.publish(request.event(dev.slimevr.reset.ResetOutcome.REQUESTED))
+		queueTask { humanPoseManager.resetTrackersMounting(resetSourceName, parts, request) }
+	}
+
+	private fun resolveMountingResetBodyParts(bodyParts: List<Int>?): List<Int> = bodyParts ?: if (
+		configManager.vrConfig.resetsConfig.resetMountingFeet
+	) TrackerUtils.allBodyPartsButFingers else TrackerUtils.allBodyPartsButFingersAndFeets
+
+	fun cancelScheduledReset() {
+		resetTimerManager.cancelTimers()
 	}
 
 	fun clearTrackersMounting(resetSourceName: String?) {
@@ -384,6 +408,11 @@ class VRServer @JvmOverloads constructor(
 	}
 
 	fun scheduleResetTrackersFull(resetSourceName: String?, delay: Long, bodyParts: List<Int> = ArrayList(), tx: TransactionInfo? = null) {
+		val request = dev.slimevr.reset.ResetRequest(
+			kind = dev.slimevr.reset.ResetKind.FULL, source = resetSourceName ?: "unknown",
+			requestMonotonicNs = System.nanoTime(), scheduledDelayMs = delay, bodyParts = bodyParts,
+		)
+		resetEventPublisher.publish(request.event(dev.slimevr.reset.ResetOutcome.REQUESTED))
 		resetTimer(
 			resetTimerManager,
 			delay,
@@ -392,14 +421,22 @@ class VRServer @JvmOverloads constructor(
 			},
 			onComplete = {
 				queueTask {
-					humanPoseManager.resetTrackersFull(resetSourceName, bodyParts)
+					humanPoseManager.resetTrackersFull(resetSourceName, bodyParts, request)
 					resetHandler.sendFinished(ResetType.Full, tx, bodyParts, delay.toInt())
 				}
+			},
+			onCancel = {
+				resetEventPublisher.publish(request.event(dev.slimevr.reset.ResetOutcome.CANCELLED))
 			},
 		)
 	}
 
 	fun scheduleResetTrackersYaw(resetSourceName: String?, delay: Long, bodyParts: List<Int> = TrackerUtils.allBodyPartsButFingers, tx: TransactionInfo? = null) {
+		val request = dev.slimevr.reset.ResetRequest(
+			kind = dev.slimevr.reset.ResetKind.YAW, source = resetSourceName ?: "unknown",
+			requestMonotonicNs = System.nanoTime(), scheduledDelayMs = delay, bodyParts = bodyParts,
+		)
+		resetEventPublisher.publish(request.event(dev.slimevr.reset.ResetOutcome.REQUESTED))
 		resetTimer(
 			resetTimerManager,
 			delay,
@@ -408,25 +445,37 @@ class VRServer @JvmOverloads constructor(
 			},
 			onComplete = {
 				queueTask {
-					humanPoseManager.resetTrackersYaw(resetSourceName, bodyParts)
+					humanPoseManager.resetTrackersYaw(resetSourceName, bodyParts, request)
 					resetHandler.sendFinished(ResetType.Yaw, tx, bodyParts, delay.toInt())
 				}
+			},
+			onCancel = {
+				resetEventPublisher.publish(request.event(dev.slimevr.reset.ResetOutcome.CANCELLED))
 			},
 		)
 	}
 
 	fun scheduleResetTrackersMounting(resetSourceName: String?, delay: Long, bodyParts: List<Int>? = null, tx: TransactionInfo? = null) {
+		val targetParts = resolveMountingResetBodyParts(bodyParts)
+		val request = dev.slimevr.reset.ResetRequest(
+			kind = dev.slimevr.reset.ResetKind.MOUNTING, source = resetSourceName ?: "unknown",
+			requestMonotonicNs = System.nanoTime(), scheduledDelayMs = delay, bodyParts = targetParts,
+		)
+		resetEventPublisher.publish(request.event(dev.slimevr.reset.ResetOutcome.REQUESTED))
 		resetTimer(
 			resetTimerManager,
 			delay,
 			onTick = { progress ->
-				resetHandler.sendStarted(ResetType.Mounting, tx, bodyParts, progress, delay.toInt())
+				resetHandler.sendStarted(ResetType.Mounting, tx, targetParts, progress, delay.toInt())
 			},
 			onComplete = {
 				queueTask {
-					humanPoseManager.resetTrackersMounting(resetSourceName, bodyParts)
-					resetHandler.sendFinished(ResetType.Mounting, tx, bodyParts, delay.toInt())
+					humanPoseManager.resetTrackersMounting(resetSourceName, targetParts, request)
+					resetHandler.sendFinished(ResetType.Mounting, tx, targetParts, delay.toInt())
 				}
+			},
+			onCancel = {
+				resetEventPublisher.publish(request.event(dev.slimevr.reset.ResetOutcome.CANCELLED))
 			},
 		)
 	}

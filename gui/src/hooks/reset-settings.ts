@@ -39,9 +39,9 @@ export function useResetSettings() {
   const { sendRPCPacket, useRPCPacket } = useWebsocketAPI();
   const [settings, setSettings] = useState<ResetSettingsForm>(defaultResetSettings);
 
-  useEffect(() =>
-    sendRPCPacket(RpcMessage.SettingsRequest, new SettingsResetRequestT())
-  );
+  useEffect(() => {
+    sendRPCPacket(RpcMessage.SettingsRequest, new SettingsResetRequestT());
+  }, []);
 
   useRPCPacket(RpcMessage.SettingsResponse, (settings: SettingsResponseT) => {
     if (settings.resetsSettings) setSettings(settings.resetsSettings);

@@ -5,38 +5,84 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 
 @Serializable
-data class TrackerMetadata(
-	val id: Int,
-	val name: String,
-	val bodyPosition: String,
-	val imuType: String,
-	val firmwareVersion: String = "1.0",
-	val manufacturer: String = "NekoVR",
+data class DatasetPrivacy(
+	val consent: Boolean,
+	val subjectPseudonym: String? = null,
+	val identifierPolicy: String = "OMIT",
+	val perSessionSaltBase64: String? = null,
 )
 
 @Serializable
-data class ResetEventMetadata(
-	val timestampMs: Long,
-	val resetType: String, // "YAW_RESET", "FULL_RESET", "MOUNTING_RESET"
-	val trackerId: Int,
-	val yawDeltaDegrees: Float,
+data class DatasetQualityCounters(
+	val sampledFrames: Long = 0,
+	val writtenFrames: Long = 0,
+	val droppedFrames: Long = 0,
+	val gapEvents: Long = 0,
+	val invalidSamples: Long = 0,
+	val queueHighWatermark: Int = 0,
+	val packetGaps: Long = 0,
+	val packetReordered: Long = 0,
+	val packetDuplicates: Long = 0,
+	val packetCorrupt: Long = 0,
 )
+
+@Serializable
+enum class ArchiveState { RECORDING, FINALIZING, COMPLETE, RECOVERABLE, RECOVERED, QUARANTINED, FAILED }
 
 @Serializable
 data class DatasetManifest(
-	val version: String = "1.0.0",
-	val recordedAtIso: String,
-	val durationSeconds: Float,
-	val sampleRateHz: Int = 50,
-	val frameCount: Long,
-	val compression: String = "Zstandard (FP16)",
-	val hmdGroundTruthAvailable: Boolean = true,
-	val trackers: List<TrackerMetadata>,
-	val resetEvents: List<ResetEventMetadata>,
-	val systemInfo: String = "NekoVR Game Session",
+	val schemaMajor: Int = DATASET_SCHEMA_MAJOR,
+	val schemaMinor: Int = DATASET_SCHEMA_MINOR,
+	val format: String = "NekoVR FlatBuffers/Zstandard session",
+	val sessionId: String,
+	val createdUtc: String,
+	val endedUtc: String? = null,
+	val monotonicStartNs: Long,
+	val durationNs: Long = 0,
+	val canonicalSampleRateHz: Int = CANONICAL_SAMPLE_RATE_HZ,
+	val profile: CollectionProfile,
+	val applicationVersion: String,
+	val applicationCommit: String,
+	val privacy: DatasetPrivacy,
+	val trackers: List<SessionTrackerMetadata>,
+	val channelRegistryVersion: Int = 1,
+	val channelIds: Set<Int> = TelemetryChannelRegistry.channels.mapTo(linkedSetOf()) { it.id },
+	val quality: DatasetQualityCounters = DatasetQualityCounters(),
+	val telemetrySha256: String? = null,
+	val telemetryBytes: Long = 0,
+	val state: ArchiveState = ArchiveState.RECORDING,
+	val recovered: Boolean = false,
 ) {
-	fun toJsonString(): String {
-		val json = Json { prettyPrint = true }
-		return json.encodeToString(this)
+	fun toJsonString(): String = json.encodeToString(this)
+
+	companion object {
+		val json = Json {
+			prettyPrint = true
+			ignoreUnknownKeys = true
+			encodeDefaults = true
+		}
+
+		fun fromJsonString(value: String): DatasetManifest = json.decodeFromString(value)
 	}
+}
+
+enum class FindingSeverity { INFO, WARNING, FATAL }
+
+data class ValidationFinding(
+	val code: String,
+	val severity: FindingSeverity,
+	val message: String,
+	val missingFields: List<String> = emptyList(),
+)
+
+data class DatasetValidationReport(
+	val archive: String,
+	val schemaMajor: Int?,
+	val schemaMinor: Int?,
+	val frames: Long,
+	val resetLabels: Long,
+	val findings: List<ValidationFinding>,
+) {
+	val valid: Boolean
+		get() = findings.none { it.severity == FindingSeverity.FATAL }
 }

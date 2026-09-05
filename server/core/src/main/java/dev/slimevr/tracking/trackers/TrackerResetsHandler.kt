@@ -1,7 +1,8 @@
 package dev.slimevr.tracking.trackers
 
 import com.jme3.math.FastMath
-import dev.slimevr.VRServer
+import dev.slimevr.ai.DriftCorrectionResult
+import dev.slimevr.ai.DriftCorrectionSource
 import dev.slimevr.config.ArmsResetModes
 import dev.slimevr.config.DriftCompensationConfig
 import dev.slimevr.config.ResetsConfig
@@ -16,7 +17,39 @@ import kotlin.math.*
 private const val DRIFT_COOLDOWN_MS = 50000L
 
 /** Class taking care of full reset, yaw reset, mounting reset, and drift compensation logic. */
-class TrackerResetsHandler(val tracker: Tracker) {
+class TrackerResetsHandler(
+	val tracker: Tracker,
+	private var driftCorrectionSource: DriftCorrectionSource = DriftCorrectionSource.IDENTITY,
+) {
+
+	@Volatile
+	var lastAiCorrection: DriftCorrectionResult = DriftCorrectionResult()
+		private set
+	var lastPreAiRotation: Quaternion = Quaternion.IDENTITY
+		private set
+
+	@Volatile
+	var resetEpoch: Long = 0L
+		private set
+
+	@Volatile
+	var calibrationEpoch: Long = 0L
+		private set
+
+	fun setDriftCorrectionSource(source: DriftCorrectionSource?) {
+		driftCorrectionSource = source ?: DriftCorrectionSource.IDENTITY
+		if (source == null) lastAiCorrection = DriftCorrectionResult()
+	}
+
+	fun snapshotAdjustments() = dev.slimevr.reset.TrackerAdjustmentSnapshot(
+		mountingOrientation = mountingOrientation,
+		gyroFix = gyroFix,
+		attachmentFix = attachmentFix,
+		mountRotFix = mountRotFix,
+		tposeDownFix = tposeDownFix,
+		yawFix = yawFix,
+		constraintFix = constraintFix,
+	)
 
 	private val HalfHorizontal = EulerAngles(
 		EulerOrder.YZX,
@@ -41,6 +74,7 @@ class TrackerResetsHandler(val tracker: Tracker) {
 	var resetHmdPitch = false
 	var allowDriftCompensation = false
 	var lastResetQuaternion: Quaternion? = null
+	var headTrackerSupplier: (() -> Tracker?)? = null
 
 	// Manual mounting orientation
 	var mountingOrientation = HalfHorizontal
@@ -149,12 +183,10 @@ class TrackerResetsHandler(val tracker: Tracker) {
 	 * a computed head tracker exists.
 	 */
 	fun refreshDriftCompensationEnabled() {
+		val hasHeadTracker = headTrackerSupplier?.invoke() != null
 		driftCompensationEnabled = compensateDrift &&
 			allowDriftCompensation &&
-			TrackerUtils.getNonInternalNonImuTrackerForBodyPosition(
-				VRServer.instance.allTrackers,
-				TrackerPosition.HEAD,
-			) != null
+			hasHeadTracker
 	}
 
 	/**
@@ -239,6 +271,24 @@ class TrackerResetsHandler(val tracker: Tracker) {
 	}
 
 	/**
+	 * Deterministically computes the calibrated pre-AI orientation from current raw rotation
+	 * and reference/drift adjustments, updating [lastPreAiRotation].
+	 */
+	fun getCalibratedPreAiRotation(): Quaternion {
+		val raw = tracker.getRawRotation()
+		var rot = adjustToReference(raw)
+		if (driftCompensationEnabled && totalDriftTime > 0) {
+			var driftTimeRatio = ((System.currentTimeMillis() - driftSince).toFloat() / totalDriftTime)
+			if (!driftPrediction) {
+				driftTimeRatio = min(1.0f, driftTimeRatio)
+			}
+			rot = averagedDriftQuat.pow(driftAmount * driftTimeRatio) * rot
+		}
+		lastPreAiRotation = rot
+		return rot
+	}
+
+	/**
 	 * Adjust the given rotation for drift compensation if enabled,
 	 * and returns it
 	 */
@@ -252,14 +302,18 @@ class TrackerResetsHandler(val tracker: Tracker) {
 			rot = averagedDriftQuat.pow(driftAmount * driftTimeRatio) * rot
 		}
 
-		// NekoVR Real-Time AI Drift Correction Engine
-		val aiEngine = VRServer.instance?.aiDriftEngine
-		if (aiEngine != null && aiEngine.config.enabled) {
-			rot = aiEngine.correctRotation(
-				trackerId = tracker.id,
-				rawRotation = rot,
-				acceleration = tracker.getAcceleration() ?: Vector3.NULL,
-			)
+		lastPreAiRotation = rot
+		val correctionResult = driftCorrectionSource.correctionFor(
+			trackerId = tracker.id,
+			preAiRotation = rot,
+			acceleration = tracker.getAcceleration() ?: Vector3.NULL,
+			epoch = resetEpoch,
+		)
+		if (correctionResult.epoch != resetEpoch) {
+			lastAiCorrection = DriftCorrectionResult(rejectionReason = "STALE_EPOCH", epoch = resetEpoch)
+		} else {
+			lastAiCorrection = correctionResult
+			rot *= lastAiCorrection.correction
 		}
 		return rot
 	}
@@ -269,6 +323,12 @@ class TrackerResetsHandler(val tracker: Tracker) {
 	 * 0). This allows the tracker to be strapped to body at any pitch and roll.
 	 */
 	fun resetFull(reference: Quaternion) {
+		resetEpoch++
+		calibrationEpoch++
+		clearDriftCompensation()
+		driftCorrectionSource.resetHistory(tracker.id, resetEpoch)
+		lastAiCorrection = DriftCorrectionResult(rejectionReason = "RESET", epoch = resetEpoch)
+		lastPreAiRotation = Quaternion.IDENTITY
 		constraintFix = Quaternion.IDENTITY
 
 		if (tracker.trackerDataType == TrackerDataType.FLEX_RESISTANCE) {
@@ -367,6 +427,11 @@ class TrackerResetsHandler(val tracker: Tracker) {
 	fun resetYaw(reference: Quaternion) {
 		// TODO HMD doesn't get yaw reset, which makes it so tracker.resetFilteringQuats() doesn't get called
 
+		resetEpoch++
+		clearDriftCompensation()
+		driftCorrectionSource.resetHistory(tracker.id, resetEpoch)
+		lastAiCorrection = DriftCorrectionResult(rejectionReason = "RESET", epoch = resetEpoch)
+		lastPreAiRotation = Quaternion.IDENTITY
 		constraintFix = Quaternion.IDENTITY
 
 		if (tracker.trackerDataType == TrackerDataType.FLEX_RESISTANCE ||
@@ -417,10 +482,16 @@ class TrackerResetsHandler(val tracker: Tracker) {
 			return
 		}
 
+		resetEpoch++
+		calibrationEpoch++
+		clearDriftCompensation()
+		driftCorrectionSource.resetHistory(tracker.id, resetEpoch)
+		lastAiCorrection = DriftCorrectionResult(rejectionReason = "RESET", epoch = resetEpoch)
+		lastPreAiRotation = Quaternion.IDENTITY
 		constraintFix = Quaternion.IDENTITY
 
 		// Get the current calibrated rotation
-		var rotBuf = adjustToDrift(tracker.getRawRotation() * mountingOrientation)
+		var rotBuf = tracker.getRawRotation() * mountingOrientation
 		rotBuf = gyroFix * rotBuf
 		rotBuf *= attachmentFix
 		rotBuf = yawFix * rotBuf
@@ -460,6 +531,7 @@ class TrackerResetsHandler(val tracker: Tracker) {
 
 		// Make an adjustment quaternion from the angle
 		mountRotFix = EulerAngles(EulerOrder.YZX, 0f, yawAngle, 0f).toQuaternion()
+		clearDriftCompensation()
 
 		// save mounting reset
 		if (saveMountingReset) tracker.saveMountingResetOrientation(mountRotFix)
@@ -475,7 +547,13 @@ class TrackerResetsHandler(val tracker: Tracker) {
 	}
 
 	fun clearMounting() {
+		resetEpoch++
+		calibrationEpoch++
 		mountRotFix = Quaternion.IDENTITY
+		clearDriftCompensation()
+		driftCorrectionSource.resetHistory(tracker.id, resetEpoch)
+		lastAiCorrection = DriftCorrectionResult(rejectionReason = "RESET", epoch = resetEpoch)
+		lastPreAiRotation = Quaternion.IDENTITY
 	}
 
 	private fun fixGyroscope(sensorRotation: Quaternion): Quaternion = getYawQuaternion(sensorRotation).inv()

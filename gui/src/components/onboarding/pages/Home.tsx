@@ -5,17 +5,24 @@ import { SlimeVRIcon } from '@/components/commons/icon/SimevrIcon';
 import { LangSelector } from '@/components/commons/LangSelector';
 import { Typography } from '@/components/commons/Typography';
 import { useNavigate } from 'react-router-dom';
+import { useConfig } from '@/hooks/config';
 
 export function HomePage() {
   const nav = useNavigate();
   const { l10n } = useLocalization();
-  const { applyProgress, onboardingStarted, skipSetup } = useOnboarding();
+  const { applyProgress, onboardingStarted } = useOnboarding();
+  const { setConfig } = useConfig();
 
   applyProgress(0.1);
 
   const start = () => {
     onboardingStarted();
     nav('/onboarding/quiz/slime-set');
+  };
+
+  const handleSkip = async () => {
+    await setConfig({ doneOnboarding: true });
+    nav('/');
   };
 
   return (
@@ -35,7 +42,7 @@ export function HomePage() {
         </div>
 
         {/* Title & Tagline */}
-        <div className="flex flex-col items-center text-center gap-2 mb-6">
+        <div className="flex flex-col items-center text-center gap-2 mb-8">
           <Typography
             variant="main-title"
             className="!text-2xl md:!text-3xl font-extrabold tracking-tight text-background-10"
@@ -46,28 +53,6 @@ export function HomePage() {
             {l10n.getString('onboarding-home-description') ||
               'Система отслеживания движений всего тела нового поколения'}
           </Typography>
-        </div>
-
-        {/* Feature Highlights */}
-        <div className="grid grid-cols-3 gap-2.5 w-full mb-8">
-          <div className="flex flex-col items-center text-center p-3 rounded-xl bg-background-60/70 border border-background-50/80 shadow-sm">
-            <span className="text-xl mb-1">⚡</span>
-            <span className="text-xs font-semibold text-background-20">
-              {l10n.getString('onboarding-feature-quick') || 'Быстрый старт'}
-            </span>
-          </div>
-          <div className="flex flex-col items-center text-center p-3 rounded-xl bg-background-60/70 border border-background-50/80 shadow-sm">
-            <span className="text-xl mb-1">🎯</span>
-            <span className="text-xs font-semibold text-background-20">
-              {l10n.getString('onboarding-feature-precise') || 'Точный трекинг'}
-            </span>
-          </div>
-          <div className="flex flex-col items-center text-center p-3 rounded-xl bg-background-60/70 border border-background-50/80 shadow-sm">
-            <span className="text-xl mb-1">✨</span>
-            <span className="text-xs font-semibold text-background-20">
-              {l10n.getString('onboarding-feature-freedom') || 'Свобода'}
-            </span>
-          </div>
         </div>
 
         {/* Action Buttons */}
@@ -81,7 +66,7 @@ export function HomePage() {
           </Button>
           <Button
             variant="tertiary"
-            onClick={skipSetup}
+            onClick={handleSkip}
             className="w-full sm:w-auto h-12 text-xs md:text-sm font-semibold rounded-xl text-background-20 hover:text-background-10"
           >
             {l10n.getString('onboarding-skip') || 'Пропустить настройку'}

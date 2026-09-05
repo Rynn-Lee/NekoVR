@@ -6,6 +6,8 @@ import {
 } from 'electron';
 import { DiscordPresence, GHGet, GHReturn, OSStats } from './preload/interface';
 
+export type { ServerStatusEvent } from './preload/interface';
+
 export const IPC_CHANNELS = {
   SERVER_STATUS: 'server-status',
   OPEN_URL: 'open-url',
@@ -21,6 +23,8 @@ export const IPC_CHANNELS = {
   GH_FETCH: 'gh-fetch',
   DISCORD_PRESENCE: 'discord-presence',
   IS_STEAM: 'is-steam',
+  REVEAL_DATASET: 'reveal-dataset',
+  EXPORT_DATASET: 'export-dataset',
 } as const;
 
 export interface IpcInvokeMap {
@@ -44,10 +48,14 @@ export interface IpcInvokeMap {
     value?: unknown;
   }) => Promise<unknown>;
   [IPC_CHANNELS.OPEN_FILE]: (path: string) => void;
-  [IPC_CHANNELS.GET_FOLDER]: (folder: 'config' | 'logs' | 'exe') => string;
+  [IPC_CHANNELS.GET_FOLDER]: (folder: 'config' | 'logs' | 'exe' | 'datasets') => string;
   [IPC_CHANNELS.GH_FETCH]: <T extends GHGet>(
     options: T
   ) => Promise<GHReturn[T['type']]>;
   [IPC_CHANNELS.DISCORD_PRESENCE]: (options: DiscordPresence) => void;
   [IPC_CHANNELS.IS_STEAM]: () => boolean;
+  [IPC_CHANNELS.REVEAL_DATASET]: (sessionId: string) => Promise<boolean>;
+  [IPC_CHANNELS.EXPORT_DATASET]: (
+    sessionId: string
+  ) => Promise<{ success: boolean; path?: string; error?: string }>;
 }

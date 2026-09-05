@@ -133,7 +133,10 @@ export function createZipArchive(files: ZipEntry[]): Blob {
   eocdView.setUint32(16, centralDirStartOffset, true); // CD offset
   eocdView.setUint16(20, 0, true); // Comment length
 
-  return new Blob([...localChunks, ...centralChunks, eocd], {
+  const blobParts = [...localChunks, ...centralChunks, eocd].map((chunk) =>
+    chunk.buffer.slice(chunk.byteOffset, chunk.byteOffset + chunk.byteLength)
+  ) as ArrayBuffer[];
+  return new Blob(blobParts, {
     type: 'application/zip',
   });
 }

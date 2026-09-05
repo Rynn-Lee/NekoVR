@@ -13,7 +13,7 @@ import java.util.concurrent.ConcurrentHashMap
 class AIDriftEngine(
 	val config: AIModelConfig = AIModelConfig(),
 	private val modelsDir: File = File("models/ai"),
-) {
+) : DriftCorrectionSource {
 
 	val modelManager = RemoteModelManager(modelsDir)
 	private var ortEnv: OrtEnvironment? = null
@@ -86,24 +86,47 @@ class AIDriftEngine(
 		hmdRotation: Quaternion? = null,
 		deltaTimeSeconds: Float = 0.02f,
 	): Quaternion {
-		if (!config.enabled) {
-			return rawRotation
-		}
+		val result = correctionFor(trackerId, rawRotation, acceleration)
+		return rawRotation * result.correction
+	}
+
+	override fun correctionFor(
+		trackerId: Int,
+		preAiRotation: Quaternion,
+		acceleration: Vector3,
+		epoch: Long,
+	): DriftCorrectionResult {
+		if (!config.enabled || ortEnv == null) return DriftCorrectionResult(
+			rejectionReason = if (config.enabled) "RUNTIME_UNAVAILABLE" else "DISABLED",
+			epoch = epoch,
+		)
 
 		val buffer = trackerFeatureBuffers.computeIfAbsent(trackerId) {
 			TrackerFeatureRingBuffer(30)
 		}
 
-		buffer.push(rawRotation, acceleration, deltaTimeSeconds)
+		buffer.push(preAiRotation, acceleration, 0.02f)
 
 		// Calculate drift correction offset
 		val correctionQuat = buffer.computeStabilizationQuaternion(
 			intensity = config.intensity,
 			smoothing = config.smoothing,
-			hmdReference = hmdRotation,
+			hmdReference = null,
 		)
 
-		return rawRotation * correctionQuat
+		return DriftCorrectionResult(
+			correction = correctionQuat,
+			prediction = correctionQuat,
+			applied = correctionQuat != Quaternion.IDENTITY,
+			rejectionReason = null,
+			provider = currentProvider.name,
+			historyValid = buffer.size >= 2,
+			epoch = epoch,
+		)
+	}
+
+	override fun resetHistory(trackerId: Int, epoch: Long) {
+		trackerFeatureBuffers.remove(trackerId)
 	}
 
 	fun close() {
@@ -125,6 +148,8 @@ class TrackerFeatureRingBuffer(private val capacity: Int = 30) {
 	private val deltaTimes = FloatArray(capacity) { 0.02f }
 	private var head = 0
 	private var count = 0
+	val size: Int
+		get() = count
 	private var smoothedCorrection = Quaternion.IDENTITY
 
 	fun push(rot: Quaternion, accel: Vector3, dt: Float) {

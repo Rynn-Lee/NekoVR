@@ -106,7 +106,7 @@ board_type-WROOM32 = WROOM32
 board_type-WEMOSD1MINI = Wemos D1 Mini
 board_type-TTGO_TBASE = TTGO T-Base
 board_type-ESP01 = ESP-01
-board_type-SLIMEVR = NekoVR
+board_type-SLIMEVR = SlimeVR
 board_type-LOLIN_C3_MINI = Lolin C3 Mini
 board_type-BEETLE32C3 = Beetle ESP32-C3
 board_type-ESP32C3DEVKITM1 = Espressif ESP32-C3 DevKitM-1
@@ -989,7 +989,19 @@ onboarding-reset_tutorial-2 =
 ## Setup start
 
 onboarding-home = Добро пожаловать в NekoVR
-onboarding-home-start = Давайте все настроим!
+onboarding-home-description = Система отслеживания движений всего тела нового поколения
+onboarding-home-start = Начать настройку
+onboarding-skip = Пропустить настройку
+
+## Quiz
+onboarding-quiz-slimeset-title = Какие трекеры вы подключаете?
+onboarding-quiz-slimeset-description = Если у вас несколько наборов, вы сможете настроить остальные позже
+onboarding-quiz-slimeset-official-sets = Официальные трекеры SlimeVR
+onboarding-quiz-slimeset-thirdparty-sets = Сторонние или самодельные (DIY) трекеры
+onboarding-quiz-slimeset-answer-regular = SlimeVR V1.0 & V1.2
+onboarding-quiz-slimeset-answer-butterfly = Butterfly
+onboarding-quiz-slimeset-answer-wifi = Slime через Wi-Fi
+onboarding-quiz-slimeset-answer-dongle = Slime через USB-донгл
 
 ## Setup done
 
@@ -1534,5 +1546,83 @@ error_collection_modal-description_v2 =
 error_collection_modal-confirm = Я согласен
 error_collection_modal-cancel = Я не согласен
 
-## Tracking checklist section
+## AI Drift & Dataset Recorder
+dataset_recorder-title = Сбор датасетов движений
+dataset_recorder-description = Авторитетная запись телеметрии 50 Гц для обучения моделей компенсации дрифта
+dataset_recorder-status-idle = Запись остановлена
+dataset_recorder-status-starting = Запуск записи...
+dataset_recorder-status-recoverable = Требуется восстановление
+dataset_recorder-status-recording = Идёт запись сессии (50 Гц)
+dataset_recorder-status-finalizing = Финализация архива...
+dataset_recorder-status-completed = Запись завершена
+dataset_recorder-status-cancelled = Запись отменена
+dataset_recorder-status-failed = Ошибка записи
+dataset_recorder-status-quarantined = Помещено в карантин
+dataset_recorder-action-start = Начать запись
+dataset_recorder-action-stop = Остановить запись
+dataset_recorder-action-stopping = Остановка...
+dataset_recorder-action-cancel = Отменить
+dataset_recorder-action-cancelling = Отмена...
+dataset_recorder-action-confirm_cancel = Отменить запись? Частично записанные данные будут удалены.
+dataset_recorder-action-export = Экспорт архива
+dataset_recorder-action-recover = Восстановить
+dataset_recorder-action-refresh = Обновить
+dataset_recorder-action-open_folder = Открыть папку датасетов
+dataset_recorder-action-reveal = Показать в папке
+dataset_recorder-action-validate = Проверить
+dataset_recorder-action-delete = Удалить
+dataset_recorder-action-quarantine = В карантин
+dataset_recorder-action-confirm_delete = Вы уверены, что хотите удалить этот датасет?
+dataset_recorder-consent-label = Даю согласие на локальную запись датасета для обучения ИИ-компенсации дрифта без передачи телеметрии в сеть
+dataset_recorder-hash-identifiers-label = Включить одноразовые хеши аппаратных идентификаторов
+dataset_recorder-consent-required = Для начала записи требуется явное согласие
+dataset_recorder-pseudonym-label = Псевдоним субъекта (необязательно)
+dataset_recorder-pseudonym-placeholder = напр. subject-01
+dataset_recorder-profile-label = Профиль записи
+dataset_recorder-profile-custom = Пилотный / Минимальный (активен)
+dataset_recorder-profile-production = Продакшн (заблокирован: ожидает этап 6)
+dataset_recorder-metrics-time = Время сессии
+dataset_recorder-metrics-sampled_frames = Зафиксировано кадров
+dataset_recorder-metrics-written_frames = Записано кадров
+dataset_recorder-metrics-dropped_frames = Пропущено кадров
+dataset_recorder-metrics-queue_depth = Очередь / Пик
+dataset_recorder-metrics-resets = Сбросов зафиксировано
+dataset_recorder-metrics-trackers = Активных трекеров
+dataset_recorder-metrics-size = Объём на диске
+dataset_recorder-metrics-disk_free = Свободно на диске
+dataset_recorder-metrics-disk_used = Занято / Всего
+dataset_recorder-metrics-roster = Активный состав
+dataset_recorder-metrics-finalizing_progress = Прогресс
+dataset_recorder-readiness-ready = Готово к записи
+dataset_recorder-readiness-warnings = Предупреждения оборудования
+dataset_recorder-readiness-errors = Блокирующие проблемы готовности
+dataset_recorder-finding-HMD_UNAVAILABLE = Шлем (HMD) отсутствует или не передаёт данные позиционирования
+dataset_recorder-finding-NO_ASSIGNED_IMUS = Необходим хотя бы один назначенный физический IMU-трекер
+dataset_recorder-finding-LOW_DISK_SPACE = Недостаточно свободного места на диске (требуется не менее 250 МБ)
+dataset_recorder-finding-STORAGE_ERROR = Директория для хранения датасетов недоступна
+dataset_recorder-finding-UNKNOWN_HARDWARE = Трекер(ы) содержат некалиброванные или неизвестные метаданные оборудования
+dataset_recorder-finding-UNSUPPORTED_LAYOUT = Расположение трекеров не соответствует требованиям записи
+dataset_recorder-finding-RECORDING_ALREADY_ACTIVE = Запись уже выполняется
+dataset_recorder-finding-SESSION_NOT_FOUND = Сессия записи не найдена
+dataset_recorder-sessions-title = Сохранённые датасеты
+dataset_recorder-sessions-empty = Датасеты пока не записаны. Нажмите «Начать запись», чтобы сохранить сессию.
+dataset_recorder-sessions-valid = Проверен
+dataset_recorder-sessions-invalid = Ошибка
+dataset_recorder-recoverable-title = Обнаружены незавершённые сессии
+dataset_recorder-recoverable-description = Обнаружены прерванные или нефинализированные сессии. Вы можете восстановить их, поместить в карантин или удалить.
+dataset_recorder-recoverable-quarantine = Поместить в карантин
+dataset_recorder-validation-findings = Результаты проверки
+dataset_recorder-severity-fatal = Критично
+dataset_recorder-severity-warning = Предупреждение
+dataset_recorder-severity-error = Ошибка
+dataset_recorder-session-id = ID сессии
+dataset_recorder-action-confirm_cancel_button = Подтвердить отмену
+dataset_recorder-action-dismiss_cancel_button = Продолжить запись
+dataset_recorder-action-confirm_delete_button = Подтвердить удаление
+dataset_recorder-action-dismiss_delete_button = Оставить датасет
+dataset_recorder-unit-frames = кадров
+dataset_recorder-unit-trackers = трекеров
 
+
+
+## Tracking checklist section

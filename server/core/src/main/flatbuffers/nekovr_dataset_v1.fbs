@@ -1,0 +1,254 @@
+// Canonical NekoVR motion dataset schema. Append fields; never renumber them.
+namespace nekovr.dataset.v1;
+
+file_identifier "NVRD";
+file_extension "nvrfb";
+
+enum RecordType:ubyte { FILE_HEADER, TRACKER_ROSTER, FRAME_BATCH, EVENT_BATCH, FOOTER }
+enum Validity:ubyte { UNAVAILABLE, INVALID, STALE, VALID }
+enum Provenance:ubyte {
+  UNAVAILABLE,
+  MEASURED,
+  FIRMWARE_REPORTED,
+  SERVER_DERIVED,
+  MODEL_DERIVED,
+  USER_ANNOTATED,
+  LEGACY_ESTIMATE,
+  RESET_DERIVED
+}
+enum EventType:ubyte {
+  CONNECT,
+  DISCONNECT,
+  ASSIGNMENT,
+  CALIBRATION,
+  CAPABILITY_CHANGE,
+  GAP,
+  RECORDING_MARKER,
+  RESET,
+  MODEL_CHANGE
+}
+enum CollectionProfile:ubyte { MINIMUM, STANDARD, FULL_FIDELITY }
+enum ActivityType:ubyte {
+  UNKNOWN,
+  STANDING,
+  SEATED,
+  LYING,
+  CROUCHING,
+  TRANSITION,
+  DANCE,
+  LOCOMOTION,
+  STATIONARY
+}
+
+table Vec3f { x:float; y:float; z:float; }
+table Quatf { x:float; y:float; z:float; w:float = 1.0; }
+table HalfVec3 { x:ushort; y:ushort; z:ushort; }
+table HalfQuat { x:ushort; y:ushort; z:ushort; w:ushort; }
+
+table ChannelDescriptor {
+  id:uint;
+  name:string;
+  unit:string;
+  coordinate_frame:string;
+  cadence:string;
+  precision:string;
+  required_profile:CollectionProfile;
+  allowed_provenance:[Provenance];
+}
+
+table FileHeader {
+  schema_major:ushort = 1;
+  schema_minor:ushort = 2;
+  session_id:string;
+  created_utc:string;
+  application_version:string;
+  application_commit:string;
+  profile:CollectionProfile;
+  canonical_rate_hz:ushort = 50;
+  channels:[ChannelDescriptor];
+}
+
+table TrackerRosterEntry {
+  session_tracker_id:string;
+  device_local_tracker_number:int;
+  body_role:string;
+  imu_type:string;
+  transport:string;
+  board_type:string;
+  mcu_type:string;
+  firmware_version:string;
+  manufacturer:string;
+  capabilities:[uint];
+  initial_calibration:string;
+  pseudonymous_device_id:string;
+}
+
+table TrackerRoster { revision:uint; trackers:[TrackerRosterEntry]; }
+
+table ReferenceSample {
+  orientation:Quatf;
+  position:Vec3f;
+  validity:Validity;
+  sample_age_ns:ulong;
+}
+
+table CorrectionState {
+  prediction:Quatf;
+  applied_correction:Quatf;
+  applied:bool;
+  rejection_reason:string;
+  model_hash:string;
+  provider:string;
+  slot:int = -1;
+  history_valid:bool;
+  latency_us:ulong;
+  provenance:Provenance;
+}
+
+table TrackerSample {
+  session_tracker_id:string;
+  raw_orientation:HalfQuat;
+  calibrated_pre_ai_orientation:HalfQuat;
+  final_orientation:HalfQuat;
+  raw_acceleration:HalfVec3;
+  linear_acceleration:HalfVec3;
+  angular_velocity:HalfVec3;
+  magnetic_vector:HalfVec3;
+  orientation_validity:Validity;
+  acceleration_validity:Validity;
+  angular_velocity_validity:Validity;
+  angular_velocity_provenance:Provenance;
+  drift_provenance:Provenance;
+  tracker_status:string;
+  sample_sequence:ulong;
+  sample_age_ns:ulong;
+  correction:CorrectionState;
+  native_channels:[ChannelValue];
+}
+
+table ChannelValue {
+  channel_id:uint;
+  monotonic_ns:ulong;
+  values:[float];
+  integer_value:long;
+  text_value:string;
+  validity:Validity;
+  provenance:Provenance;
+}
+
+table ActivityInterval {
+  activity:ActivityType;
+  confidence:float;
+  start_frame:ulong;
+  end_frame:ulong;
+  provenance:Provenance;
+}
+
+table Frame {
+  frame_index:ulong;
+  monotonic_ns:ulong;
+  delta_ns:ulong;
+  hmd:ReferenceSample;
+  trackers:[TrackerSample];
+  context_samples:[TrackerSample];
+  activity:ActivityInterval;
+}
+
+table FrameBatch { first_frame:ulong; frames:[Frame]; }
+
+table DatasetEvent {
+  event_type:EventType;
+  monotonic_ns:ulong;
+  frame_index:ulong;
+  session_tracker_id:string;
+  old_value:string;
+  new_value:string;
+  detail:string;
+  request_id:string;
+  request_monotonic_ns:ulong;
+  applied_monotonic_ns:ulong;
+  event_index:ulong;
+  reset_outcome:string;
+  reset_source:string;
+  reset_kind:string;
+  affected_body_parts:[string];
+}
+
+table ResetLabel {
+  event_index:ulong;
+  session_tracker_id:string;
+  correction:Quatf;
+  diagnostic_yaw_radians:float;
+  axis_mask:ubyte;
+  pre_start_frame:ulong;
+  pre_end_frame:ulong;
+  post_start_frame:ulong;
+  post_end_frame:ulong;
+  quality_flags:uint;
+  request_id:string;
+  request_monotonic_ns:ulong;
+  applied_monotonic_ns:ulong;
+  reset_domain:string;
+  raw_orientation_before:Quatf;
+  raw_orientation_after:Quatf;
+  calibrated_pre_ai_before:Quatf;
+  calibrated_pre_ai_after:Quatf;
+  attachment_rot_before:Quatf;
+  attachment_rot_after:Quatf;
+  mounting_rot_before:Quatf;
+  mounting_rot_after:Quatf;
+  yaw_rot_before:Quatf;
+  yaw_rot_after:Quatf;
+  hmd_reference_before:Quatf;
+  hmd_reference_after:Quatf;
+  hmd_valid:bool;
+  reset_epoch:uint;
+  training_policy:string;
+  gyro_fix_before:Quatf;
+  gyro_fix_after:Quatf;
+  mount_rot_fix_before:Quatf;
+  mount_rot_fix_after:Quatf;
+  tpose_down_fix_before:Quatf;
+  tpose_down_fix_after:Quatf;
+  constraint_fix_before:Quatf;
+  constraint_fix_after:Quatf;
+  calibration_epoch:ulong;
+  body_role:string;
+  hmd_sample_age_before_ns:ulong;
+  hmd_sample_age_after_ns:ulong;
+}
+
+table EventBatch { events:[DatasetEvent]; reset_labels:[ResetLabel]; }
+
+table QualityCounters {
+  sampled_frames:ulong;
+  written_frames:ulong;
+  dropped_frames:ulong;
+  gap_events:ulong;
+  invalid_samples:ulong;
+  queue_high_watermark:uint;
+  packet_gaps:ulong;
+  packet_reordered:ulong;
+  packet_duplicates:ulong;
+  packet_corrupt:ulong;
+}
+
+table Footer {
+  ended_monotonic_ns:ulong;
+  duration_ns:ulong;
+  counters:QualityCounters;
+  telemetry_sha256:string;
+  complete:bool;
+}
+
+table DatasetRecord {
+  record_type:RecordType;
+  sequence:ulong;
+  header:FileHeader;
+  roster:TrackerRoster;
+  frames:FrameBatch;
+  events:EventBatch;
+  footer:Footer;
+}
+
+root_type DatasetRecord;

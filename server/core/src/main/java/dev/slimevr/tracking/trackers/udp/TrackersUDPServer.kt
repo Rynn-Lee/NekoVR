@@ -621,6 +621,36 @@ class TrackersUDPServer(private val port: Int, name: String, private val tracker
 				// dont call dataTick here as this is just position update
 			}
 
+			is UDPPacket28TelemetryCapabilities -> {
+				val tracker = connection?.getTracker(packet.sensorId) ?: return
+				val channelIds = mapOf(
+					UDPPacket29SensorTelemetry.SEQUENCE to 9,
+					UDPPacket29SensorTelemetry.DEVICE_TIMESTAMP to 15,
+					UDPPacket29SensorTelemetry.RAW_GYRO to 16,
+					UDPPacket29SensorTelemetry.MAGNETIC to 7,
+					UDPPacket29SensorTelemetry.CALIBRATION_QUALITY to 8,
+					UDPPacket29SensorTelemetry.CHARGING to 14,
+				)
+				for ((flag, channel) in channelIds) if (packet.channelMask and flag != 0L) tracker.telemetryCapabilities += channel
+			}
+
+			is UDPPacket29SensorTelemetry -> {
+				val tracker = connection?.getTracker(packet.sensorId) ?: return
+				packet.sequence?.let { tracker.sampleSequence = it }
+				packet.deviceTimestamp?.let { tracker.deviceTimestamp = it }
+				packet.gyro?.let { tracker.rawAngularVelocity = it }
+				packet.magnetic?.let(tracker::setMagVector)
+				packet.uptimeMs?.let { tracker.deviceUptimeMs = it }
+				packet.packetGaps?.let { tracker.packetGaps = it }
+				packet.packetReordered?.let { tracker.packetReordered = it }
+				packet.packetDuplicates?.let { tracker.packetDuplicates = it }
+				packet.packetCorrupt?.let { tracker.packetCorrupt = it }
+				packet.calibrationQuality?.let { tracker.calibrationQuality = it }
+				packet.charging?.let { tracker.charging = it }
+				packet.powerMode?.let { tracker.powerMode = it.toString() }
+				packet.resetReason?.let { tracker.resetReason = it.toString() }
+			}
+
 			is UDPPacket200ProtocolChange -> {}
 		}
 	}

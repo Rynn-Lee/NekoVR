@@ -409,6 +409,71 @@ data class UDPPacket27Position(
 	}
 }
 
+/** Optional telemetry capability negotiation (protocol v23+). */
+data class UDPPacket28TelemetryCapabilities(
+	override var sensorId: Int = 0,
+	var channelMask: Long = 0,
+) : UDPPacket(28), SensorSpecificPacket {
+	override fun readData(buf: ByteBuffer) {
+		sensorId = buf.get().toInt() and 0xff
+		channelMask = buf.long
+	}
+}
+
+/** Native-cadence values; [presentMask] prevents absent values becoming zero measurements. */
+data class UDPPacket29SensorTelemetry(
+	override var sensorId: Int = 0,
+	var presentMask: Long = 0,
+	var sequence: Long? = null,
+	var deviceTimestamp: Long? = null,
+	var gyro: Vector3? = null,
+	var magnetic: Vector3? = null,
+	var uptimeMs: Long? = null,
+	var packetGaps: Long? = null,
+	var packetReordered: Long? = null,
+	var packetDuplicates: Long? = null,
+	var packetCorrupt: Long? = null,
+	var calibrationQuality: Float? = null,
+	var charging: Boolean? = null,
+	var powerMode: Int? = null,
+	var resetReason: Int? = null,
+) : UDPPacket(29), SensorSpecificPacket {
+	override fun readData(buf: ByteBuffer) {
+		sensorId = buf.get().toInt() and 0xff
+		presentMask = buf.long
+		if (has(SEQUENCE)) sequence = buf.long
+		if (has(DEVICE_TIMESTAMP)) deviceTimestamp = buf.long
+		if (has(RAW_GYRO)) gyro = Vector3(buf.float, buf.float, buf.float)
+		if (has(MAGNETIC)) magnetic = Vector3(buf.float, buf.float, buf.float)
+		if (has(UPTIME)) uptimeMs = buf.long
+		if (has(PACKET_COUNTERS)) {
+			packetGaps = buf.int.toUInt().toLong()
+			packetReordered = buf.int.toUInt().toLong()
+			packetDuplicates = buf.int.toUInt().toLong()
+			packetCorrupt = buf.int.toUInt().toLong()
+		}
+		if (has(CALIBRATION_QUALITY)) calibrationQuality = buf.float
+		if (has(CHARGING)) charging = buf.get().toInt() != 0
+		if (has(POWER_MODE)) powerMode = buf.get().toInt() and 0xff
+		if (has(RESET_REASON)) resetReason = buf.get().toInt() and 0xff
+	}
+
+	private fun has(flag: Long) = presentMask and flag != 0L
+
+	companion object {
+		const val SEQUENCE = 1L shl 0
+		const val DEVICE_TIMESTAMP = 1L shl 1
+		const val RAW_GYRO = 1L shl 2
+		const val MAGNETIC = 1L shl 3
+		const val UPTIME = 1L shl 4
+		const val PACKET_COUNTERS = 1L shl 5
+		const val CALIBRATION_QUALITY = 1L shl 6
+		const val CHARGING = 1L shl 7
+		const val POWER_MODE = 1L shl 8
+		const val RESET_REASON = 1L shl 9
+	}
+}
+
 data class UDPPacket200ProtocolChange(
 	var targetProtocol: Int = 0,
 	var targetProtocolVersion: Int = 0,

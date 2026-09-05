@@ -5,6 +5,12 @@ import dev.slimevr.VRServer
 import dev.slimevr.VRServer.Companion.getNextLocalTrackerId
 import dev.slimevr.autobone.errors.BodyProportionError
 import dev.slimevr.config.ConfigManager
+import dev.slimevr.reset.NoopResetEventPublisher
+import dev.slimevr.reset.ResetKind
+import dev.slimevr.reset.ResetOutcome
+import dev.slimevr.reset.ResetEventPublisher
+import dev.slimevr.reset.ResetRequest
+import dev.slimevr.reset.event
 import dev.slimevr.tracking.processor.config.SkeletonConfigManager
 import dev.slimevr.tracking.processor.config.SkeletonConfigOffsets
 import dev.slimevr.tracking.processor.config.SkeletonConfigToggles
@@ -27,7 +33,10 @@ import kotlin.math.*
  * Class to handle communicate between classes in "skeleton" package and outside
  * @param server the used VRServer
  */
-class HumanPoseManager(val server: VRServer?) {
+class HumanPoseManager(
+	val server: VRServer?,
+	var resetEventPublisher: ResetEventPublisher = NoopResetEventPublisher,
+) {
 	val computedTrackers: MutableList<Tracker> = FastList()
 	private val onSkeletonUpdated: MutableList<Consumer<HumanSkeleton>> = FastList()
 	private val skeletonConfigManager = SkeletonConfigManager(true, this)
@@ -59,7 +68,10 @@ class HumanPoseManager(val server: VRServer?) {
 	 *
 	 * @param trackers a list of all trackers
 	 */
-	constructor(trackers: List<Tracker>?) : this(server = null) {
+	constructor(
+		trackers: List<Tracker>?,
+		resetEventPublisher: ResetEventPublisher = NoopResetEventPublisher,
+	) : this(server = null, resetEventPublisher = resetEventPublisher) {
 		skeleton = HumanSkeleton(this, trackers)
 		// Set default node offsets on the new skeleton
 		skeletonConfigManager.computeAllNodeOffsets()
@@ -476,8 +488,18 @@ class HumanPoseManager(val server: VRServer?) {
 	}
 
 	@JvmOverloads
-	fun resetTrackersFull(resetSourceName: String?, bodyParts: List<Int> = ArrayList()) {
-		skeleton.resetTrackersFull(resetSourceName, bodyParts)
+        fun resetTrackersFull(
+                resetSourceName: String?,
+                bodyParts: List<Int> = ArrayList(),
+                resetRequest: ResetRequest? = null,
+        ) {
+		val request = resetRequest?.copy(bodyParts = bodyParts) ?: ResetRequest(
+                        kind = ResetKind.FULL,
+                        source = resetSourceName ?: "unknown",
+                        requestMonotonicNs = System.nanoTime(),
+                        bodyParts = bodyParts,
+                ).also { resetEventPublisher.publish(it.event(ResetOutcome.REQUESTED)) }
+		performReset(request) { skeleton.resetTrackersFull(request) }
 		if (server != null) {
 			if (skeleton.headTracker == null && skeleton.neckTracker == null) {
 				server.vrcOSCHandler.yawAlign(IDENTITY)
@@ -493,8 +515,18 @@ class HumanPoseManager(val server: VRServer?) {
 	}
 
 	@JvmOverloads
-	fun resetTrackersYaw(resetSourceName: String?, bodyParts: List<Int> = TrackerUtils.allBodyPartsButFingers) {
-		skeleton.resetTrackersYaw(resetSourceName, bodyParts)
+        fun resetTrackersYaw(
+                resetSourceName: String?,
+                bodyParts: List<Int> = TrackerUtils.allBodyPartsButFingers,
+                resetRequest: ResetRequest? = null,
+        ) {
+		val request = resetRequest?.copy(bodyParts = bodyParts) ?: ResetRequest(
+                        kind = ResetKind.YAW,
+                        source = resetSourceName ?: "unknown",
+                        requestMonotonicNs = System.nanoTime(),
+                        bodyParts = bodyParts,
+                ).also { resetEventPublisher.publish(it.event(ResetOutcome.REQUESTED)) }
+		performReset(request) { skeleton.resetTrackersYaw(request) }
 		if (server != null) {
 			if (skeleton.headTracker == null && skeleton.neckTracker == null) {
 				server.vrcOSCHandler.yawAlign(IDENTITY)
@@ -569,7 +601,11 @@ class HumanPoseManager(val server: VRServer?) {
 	}
 
 	@JvmOverloads
-	fun resetTrackersMounting(resetSourceName: String?, bodyParts: List<Int>? = null) {
+        fun resetTrackersMounting(
+                resetSourceName: String?,
+                bodyParts: List<Int>? = null,
+                resetRequest: ResetRequest? = null,
+	) {
 		val finalBodyParts = bodyParts
 			?: if (server?.configManager?.vrConfig?.resetsConfig?.resetMountingFeet == true) {
 				TrackerUtils.allBodyPartsButFingers
@@ -577,7 +613,27 @@ class HumanPoseManager(val server: VRServer?) {
 				TrackerUtils.allBodyPartsButFingersAndFeets
 			}
 
-		skeleton.resetTrackersMounting(resetSourceName, finalBodyParts)
+		val request = resetRequest?.copy(bodyParts = finalBodyParts) ?: ResetRequest(
+                        kind = ResetKind.MOUNTING,
+                        source = resetSourceName ?: "unknown",
+                        requestMonotonicNs = System.nanoTime(),
+                        bodyParts = finalBodyParts,
+                ).also { resetEventPublisher.publish(it.event(ResetOutcome.REQUESTED)) }
+		performReset(request) { skeleton.resetTrackersMounting(request) }
+	}
+
+	private inline fun performReset(request: ResetRequest, action: () -> Unit) {
+		try {
+			action()
+		} catch (error: Throwable) {
+			resetEventPublisher.publish(
+				request.event(
+					outcome = ResetOutcome.FAILED,
+					failureReason = error.message ?: error.javaClass.simpleName,
+				),
+			)
+			throw error
+		}
 	}
 
 	fun clearTrackersMounting(resetSourceName: String?) {

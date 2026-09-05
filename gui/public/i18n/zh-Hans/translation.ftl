@@ -101,9 +101,9 @@ board_type-WROOM32 = WROOM32
 board_type-WEMOSD1MINI = Wemos D1 Mini
 board_type-TTGO_TBASE = TTGO T-Base
 board_type-ESP01 = ESP-01
-board_type-SLIMEVR = NekoVR
-board_type-SLIMEVR_DEV = NekoVR 开发板
-board_type-SLIMEVR_V1_2 = NekoVR v1.2
+board_type-SLIMEVR = SlimeVR
+board_type-SLIMEVR_DEV = SlimeVR 开发板
+board_type-SLIMEVR_V1_2 = SlimeVR v1.2
 board_type-LOLIN_C3_MINI = Lolin C3 Mini
 board_type-BEETLE32C3 = Beetle ESP32-C3
 board_type-ESP32C3DEVKITM1 = Espressif ESP32-C3 DevKitM-1
@@ -118,8 +118,8 @@ board_type-GLOVE_IMU_SLIMEVR_DEV = NekoVR开发版IMU手套
 board_type-GESTURES = 手势
 board_type-ESP32S3_SUPERMINI = ESP32-S3 Supermini
 board_type-GENERIC_NRF = nRF系列
-board_type-SLIMEVR_BUTTERFLY_DEV = NekoVR蝴蝶 开发版
-board_type-SLIMEVR_BUTTERFLY = NekoVR蝴蝶
+board_type-SLIMEVR_BUTTERFLY_DEV = SlimeVR蝴蝶 开发版
+board_type-SLIMEVR_BUTTERFLY = SlimeVR蝴蝶
 
 ## Proportions
 
@@ -967,7 +967,7 @@ onboarding-quiz-slimeset-title = 将要连接什么类型的追踪器？
 onboarding-quiz-slimeset-description = 如果有多组不同类型的追踪器，稍后将会继续连接其余类型
 onboarding-quiz-slimeset-official-sets = 官方NekoVR追踪器
 onboarding-quiz-slimeset-thirdparty-sets = 第三方或DIY追踪器
-onboarding-quiz-slimeset-answer-regular = NekoVR V1.0 和 V1.2
+onboarding-quiz-slimeset-answer-regular = SlimeVR V1.0 和 V1.2
 onboarding-quiz-slimeset-answer-butterfly = Butterfly (蝴蝶)
 onboarding-quiz-slimeset-answer-wifi = 通过ESP/WiFi连接的追踪器
 onboarding-quiz-slimeset-answer-dongle = 通过USB接收器连接的追踪器

@@ -3,6 +3,7 @@ package dev.slimevr.unit
 import dev.slimevr.tracking.trackers.Tracker
 import dev.slimevr.tracking.trackers.TrackerPosition
 import dev.slimevr.tracking.trackers.TrackerStatus
+import dev.slimevr.tracking.trackers.udp.IMUType
 
 class TestTrackerSet(
 	val computed: Boolean = false,
@@ -61,6 +62,7 @@ class TestTrackerSet(
 			allowReset = resetHead || !isHmd,
 			allowMounting = resetHead || !isHmd,
 			isHmd = isHmd,
+			imuType = if (isHmd) null else IMUType.BNO085,
 			trackRotDirection = false,
 		)
 		tracker.status = TrackerStatus.OK

@@ -1,5 +1,5 @@
-appId: dev.slimevr.SlimeVR
-productName: SlimeVR
+appId: dev.nekovr.NekoVR
+productName: NekoVR
 # Global naming pattern
 artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
 
@@ -12,6 +12,7 @@ asarUnpack:
 
 electronLanguages:
   - en-US
+  - ru-RU
 
 files:
   - out/**/*
@@ -24,6 +25,28 @@ files:
   - "!node_modules/**/*.{map,ts,tsx,d.ts}"
   - "!**/.DS_Store"
 
+win:
+  artifactName: "NekoVR-Setup-${version}.${ext}"
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: "./electron/resources/icons/icon.ico"
+  extraFiles:
+    - from: "../server/desktop/build/libs/slimevr.jar"
+      to: "."
+    - from: "C:/MyApps/SlimeVR Server/jre"
+      to: "./jre"
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: "NekoVR"
+  uninstallDisplayName: "NekoVR"
+  installerIcon: "./electron/resources/icons/icon.ico"
+  uninstallerIcon: "./electron/resources/icons/icon.ico"
 
 linux:
   category: Game
@@ -35,44 +58,4 @@ linux:
   extraFiles:
     - from: "../server/desktop/build/libs/slimevr.jar"
       to: "."
-    - from: "../bindings-provider/build/linux-${arch}/slimevr-bindings-provider"
-      to: "."
-    - from: "../bindings-provider/build/linux-${arch}/libopenvr_api.so"
-      to: "."
-    - from: "./electron/resources/69-slimevr-devices.rules"
-      to: "."
   icon: "./electron/resources/icons"
-
-deb:
-  depends: [openjdk-17-jre-headless, udev]
-  afterInstall: "./electron/resources/scripts/postinstall.sh"
-  afterRemove: "./electron/resources/scripts/postremove.sh"
-
-rpm:
-  depends: [java-latest-openjdk, udev]
-  afterInstall: "./electron/resources/scripts/postinstall.sh"
-  afterRemove: "./electron/resources/scripts/postremove.sh"
-
-win:
-  artifactName: "${productName}-${os}-${arch}.${ext}"
-  target: zip
-  icon: "./electron/resources/icons/icon.ico"
-  extraFiles:
-    - from: "../server/desktop/build/libs/slimevr.jar"
-      to: "."
-    - from: "../server/core/resources"
-      to: "."
-      filter: ["**/*"]
-    - from: "../bindings-provider/build/${os}-${arch}/Release/SlimeVR-Bindings-Provider.exe"
-      to: "."
-    - from: "../bindings-provider/build/${os}-${arch}/openvr_api.dll"
-      to: "."
-
-mac:
-  target: dmg
-  artifactName: "SlimeVR-mac.${ext}"
-  x64ArchFiles: "**/register-protocol-handler.node"
-  icon: "./electron/resources/icons/icon.icns"
-  extraFiles:
-    - from: "../server/desktop/build/libs/slimevr.jar"
-      to: "Resources/slimevr.jar"

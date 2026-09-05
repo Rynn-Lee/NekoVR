@@ -17,6 +17,7 @@ export function Typography({
   attrs,
   elems,
   vars,
+  className,
 }: {
   variant?:
     | 'main-title'
@@ -45,6 +46,7 @@ export function Typography({
   children?: ReactNode;
   sentryMask?: boolean;
   id?: string;
+  className?: string;
 } & Omit<LocalizedProps, 'id'>) {
   const tag = useMemo(() => {
     const tags = {
@@ -81,6 +83,7 @@ export function Typography({
         truncate && (config?.textSize ?? 12) > 12 && 'line-clamp-1',
         truncate && (config?.textSize ?? 12) <= 12 && 'line-clamp-2',
         sentryMask && 'sentry-mask',
+        className,
       ]),
     },
     children || id || []

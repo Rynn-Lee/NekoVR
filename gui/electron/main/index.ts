@@ -3,6 +3,7 @@ import {
   BrowserWindow,
   dialog,
   Menu,
+  MenuItem,
   nativeImage,
   net,
   protocol,
@@ -10,17 +11,18 @@ import {
   shell,
   Tray,
 } from 'electron';
-import { IPC_CHANNELS } from '../shared';
+import { IPC_CHANNELS, ServerStatusEvent } from '../shared';
 import path, { dirname, join } from 'path';
 import open from 'open';
-import trayIcon from '../resources/icons/icon.png?asset';
-import appleTrayIcon from '../resources/icons/Square30x30Logo.png?asset';
-import { readFile, stat } from 'fs/promises';
+import trayIcon from '../../../assets/img/ico.png?asset';
+import { readFile, stat, mkdir, writeFile } from 'fs/promises';
+import { copyFileSync, existsSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { getPlatform, handleIpc, isPortAvailable } from './utils';
 import {
   findServerJar,
   findSystemJRE,
+  getDatasetsFolder,
   getExeFolder,
   getGuiDataFolder,
   getLogsFolder,
@@ -29,19 +31,14 @@ import {
 } from './paths';
 import { initStores } from './store';
 import { closeLogger, logger } from './logger';
+import { resolveManagedDatasetArchive } from './dataset-paths';
 
 import { spawn } from 'node:child_process';
 import { discordPresence } from './presence';
 import { options } from './cli';
-import { ServerStatusEvent } from 'electron/preload/interface';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { MenuItem } from 'electron/main';
 
-type Stores = Awaited<ReturnType<typeof initStores>>;
-let stores: Stores;
+let stores: Awaited<ReturnType<typeof initStores>>;
 
-// Fixes colors looking washed on linux
-// Might affect hdr
 if (process.platform === 'linux') {
   app.commandLine.appendSwitch('disable-features', 'WaylandWpColorManagerV1');
   app.commandLine.appendSwitch('force-color-profile', 'srgb');
@@ -71,15 +68,109 @@ handleIpc(IPC_CHANNELS.GH_FETCH, async (e, options) => {
       'https://api.github.com/repos/SlimeVR/SlimeVR-Tracker-ESP/releases'
     ).then((res) => res.json());
   }
-  if (options.type === 'asset') {
-    if (
-      !options.url.startsWith(
-        'https://github.com/SlimeVR/SlimeVR-Tracker-ESP/releases/download'
-      )
+  if (
+    options.type === 'asset' &&
+    options.url.startsWith(
+      'https://github.com/SlimeVR/SlimeVR-Tracker-ESP/releases/download/'
     )
-      return null;
+  ) {
     return fetch(options.url).then((res) => res.json());
   }
+  logger.error({ options }, 'attempted to fetch a non-allowlisted URL');
+  return null as never;
+});
+
+handleIpc(IPC_CHANNELS.DISCORD_PRESENCE, async (e, status) => {
+  if (status.enable) {
+    if (!discordPresence.state.ready) await discordPresence.connect();
+    discordPresence.updateActivity(status.activity, status.iconText);
+  } else if (discordPresence.state.ready) {
+    discordPresence.destroy();
+  }
+});
+
+handleIpc(IPC_CHANNELS.GET_FOLDER, (e, folder) => {
+  switch (folder) {
+    case 'config':
+      return getGuiDataFolder();
+    case 'logs':
+      return getLogsFolder();
+    case 'exe':
+      return getExeFolder();
+    case 'datasets':
+      return getDatasetsFolder();
+  }
+});
+
+handleIpc(IPC_CHANNELS.OPEN_FILE, (e, requestedFile) => {
+  const requestedPath = path.resolve(requestedFile);
+  const allowedRoots = [
+    getServerDataFolder(),
+    getGuiDataFolder(),
+    getLogsFolder(),
+    getDatasetsFolder(),
+  ];
+  const isAllowed = allowedRoots.some((root) => {
+    const relative = path.relative(path.resolve(root), requestedPath);
+    return (
+      relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+    );
+  });
+  if (!isAllowed) {
+    logger.error({ path: requestedPath }, 'blocked unauthorized path');
+    return;
+  }
+  void shell.openPath(requestedPath);
+});
+
+handleIpc(IPC_CHANNELS.REVEAL_DATASET, async (e, sessionId) => {
+  const safePath = resolveManagedDatasetArchive(getDatasetsFolder(), sessionId);
+  if (!safePath || !existsSync(safePath)) {
+    logger.error(
+      { sessionId },
+      'blocked unauthorized or missing dataset reveal request'
+    );
+    return false;
+  }
+  shell.showItemInFolder(safePath);
+  return true;
+});
+
+handleIpc(IPC_CHANNELS.EXPORT_DATASET, async (e, sessionId) => {
+  const safePath = resolveManagedDatasetArchive(getDatasetsFolder(), sessionId);
+  if (!safePath || !existsSync(safePath)) {
+    logger.error({ sessionId }, 'dataset file not found or unauthorized for export');
+    return { success: false, error: 'Dataset file not found or unauthorized' };
+  }
+  const defaultFilename = path.basename(safePath);
+  const result = await dialog.showSaveDialog(mainWindow!, {
+    title: 'Export Dataset Archive',
+    defaultPath: defaultFilename,
+    filters: [{ name: 'NekoVR Dataset (*.nvrdata)', extensions: ['nvrdata'] }],
+  });
+  if (result.canceled || !result.filePath) {
+    return { success: false, error: 'Export cancelled by user' };
+  }
+  try {
+    copyFileSync(safePath, result.filePath);
+    return { success: true, path: result.filePath };
+  } catch (err: unknown) {
+    logger.error(err, 'Failed to copy exported dataset');
+    const msg = err instanceof Error ? err.message : 'Failed to export dataset';
+    return { success: false, error: msg };
+  }
+});
+
+handleIpc(IPC_CHANNELS.OPEN_URL, (e, url) => {
+  const allowedUrls = [
+    /^steam:\/\//,
+    /^ms-settings:network$/,
+    /^https:\/\/(?:.+\.)?slimevr\.dev(?:\/.*)?$/,
+    /^https:\/\/github\.com\/SlimeVR(?:\/.*)?$/,
+    /^https:\/\/discord\.gg\/slimevr$/,
+  ];
+  if (allowedUrls.some((allowed) => allowed.test(url))) void open(url);
+  else logger.error({ url }, 'attempted to open non-allowlisted URL');
 });
 
 handleIpc(IPC_CHANNELS.OS_STATS, async () => {
@@ -88,60 +179,16 @@ handleIpc(IPC_CHANNELS.OS_STATS, async () => {
   };
 });
 
-handleIpc(IPC_CHANNELS.I18N_OVERRIDE, async () => {
-  const overridefile = join(getServerDataFolder(), 'override.ftl');
-  const exists = await stat(overridefile)
-    .then(() => true)
-    .catch(() => false);
-
-  if (!exists) return false;
-  return readFile(overridefile, { encoding: 'utf-8' });
-});
-
 handleIpc(IPC_CHANNELS.LOG, (e, type, ...args) => {
-  let payload: Record<string, unknown> = {};
-  const messageParts: unknown[] = [];
-
-  args.forEach((arg) => {
-    if (arg instanceof Error) {
-      payload.err = arg;
-    } else if (typeof arg === 'object' && arg !== null) {
-      payload = { ...payload, ...arg };
-    } else {
-      messageParts.push(arg);
-    }
-  });
-
-  const msg = messageParts.join(' ');
-
-  switch (type) {
-    case 'error':
-      logger.error(payload, msg);
-      break;
-    case 'warn':
-      logger.warn(payload, msg);
-      break;
-    default:
-      logger.info(payload, msg);
-  }
-});
-
-handleIpc(IPC_CHANNELS.OPEN_URL, (e, url) => {
-  const allowedUrls = [
-    /^steam:\/\//,
-    /^ms-settings:network$/,
-    /^https:\/\/(?:.+\.)?slimevr\.dev(?:\/.+)?$/,
-    /^https:\/\/github\.com\/SlimeVR(?:\/.+)?$/,
-    /^https:\/\/discord\.gg\/slimevr$/,
-  ];
-  if (allowedUrls.find((a) => url.match(a))) open(url);
-  else logger.error({ url }, 'attempted to open non-whitelisted URL');
+  const message = args.map(String).join(' ');
+  if (type === 'error') logger.error(message);
+  else if (type === 'warn') logger.warn(message);
+  else logger.info(message);
 });
 
 handleIpc(IPC_CHANNELS.STORAGE, async (e, { type, method, key, value }) => {
   const store = stores[type];
   if (!store) throw new Error(`Storage type ${type} not found`);
-
   switch (method) {
     case 'get':
       return store.get(key!);
@@ -154,47 +201,16 @@ handleIpc(IPC_CHANNELS.STORAGE, async (e, { type, method, key, value }) => {
   }
 });
 
-handleIpc(IPC_CHANNELS.DISCORD_PRESENCE, async (e, options) => {
-  if (options.enable) {
-    if (!discordPresence.state.ready) await discordPresence.connect();
-    discordPresence.updateActivity(options.activity, options.iconText);
-  } else if (discordPresence.state.ready) {
-    discordPresence.destroy();
-  }
+handleIpc(IPC_CHANNELS.I18N_OVERRIDE, async () => {
+  const overrideFile = join(getServerDataFolder(), 'override.ftl');
+  const exists = await stat(overrideFile)
+    .then(() => true)
+    .catch(() => false);
+  if (!exists) return false;
+  return readFile(overrideFile, { encoding: 'utf-8' });
 });
 
-handleIpc(IPC_CHANNELS.OPEN_FILE, (e, folder) => {
-  const requestedPath = path.resolve(folder);
-
-  const isAllowed = [getServerDataFolder(), getGuiDataFolder(), getLogsFolder()].some(
-    (parent) => {
-      const absoluteParent = path.resolve(parent);
-      const relative = path.relative(absoluteParent, requestedPath);
-      return !relative.includes('..') && !path.isAbsolute(relative);
-    }
-  );
-
-  if (isAllowed) {
-    shell.openPath(requestedPath);
-  } else {
-    logger.error({ path: requestedPath }, 'Blocked unauthorized path');
-  }
-});
-
-handleIpc(IPC_CHANNELS.GET_FOLDER, (e, folder) => {
-  switch (folder) {
-    case 'config':
-      return getGuiDataFolder();
-    case 'logs':
-      return getLogsFolder();
-    case 'exe':
-      return getExeFolder();
-  }
-});
-
-handleIpc(IPC_CHANNELS.IS_STEAM, () => {
-  return options.steam;
-});
+handleIpc(IPC_CHANNELS.IS_STEAM, () => options.steam);
 
 const defaultWindowState: {
   width: number;
@@ -232,14 +248,11 @@ function validateWindowState(state: typeof defaultWindowState) {
       state.x! >= display.bounds.x &&
       state.y! >= display.bounds.y &&
       state.x! + state.width <= display.bounds.x + display.bounds.width &&
-      state.y! + state.height <= display.bounds.y + display.bounds.height
+      state.y! + state.height <= display.bounds.height
     );
   });
 
-  const minWidth = MIN_WIDTH;
-  const minHeight = MIN_HEIGHT;
-
-  if (!isVisible || state.width < minWidth || state.height < minHeight) {
+  if (!isVisible || state.width < MIN_WIDTH || state.height < MIN_HEIGHT) {
     return defaultWindowState;
   }
 
@@ -256,6 +269,8 @@ const saveWindowState = async () => {
 function createWindow() {
   const validatedState = validateWindowState(windowState);
 
+  const icon = nativeImage.createFromPath(trayIcon);
+
   mainWindow = new BrowserWindow({
     width: validatedState.width,
     height: validatedState.height,
@@ -266,12 +281,20 @@ function createWindow() {
     movable: true,
     frame: false,
     roundedCorners: true,
+    icon,
+    backgroundColor: '#141417',
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       nodeIntegration: false,
       contextIsolation: true,
       devTools: true,
     },
+  });
+
+  mainWindow.webContents.on('before-input-event', (event, input) => {
+    if (input.key === 'F12' || (input.control && input.shift && input.key === 'I')) {
+      mainWindow?.webContents.toggleDevTools();
+    }
   });
 
   if (process.env.ELECTRON_RENDERER_URL) {
@@ -307,9 +330,6 @@ function createWindow() {
   handleIpc('open-dialog', (e, options) => dialog.showOpenDialog(options));
   handleIpc('save-dialog', (e, options) => dialog.showSaveDialog(options));
 
-  const icon = nativeImage.createFromPath(
-    getPlatform() === 'macos' ? appleTrayIcon : trayIcon
-  );
   const tray = new Tray(icon);
   tray.setToolTip('NekoVR');
   tray.on('click', () => {
@@ -334,19 +354,15 @@ function createWindow() {
 
   const updateWindowState = () => {
     if (!mainWindow) return;
-
-    windowState.minimized = mainWindow.isMinimized();
-    if (!mainWindow.isMinimized() && !mainWindow.isMaximized()) {
-      const bounds = mainWindow.getBounds();
-      windowState.width = bounds.width;
-      windowState.height = bounds.height;
-      windowState.x = bounds.x;
-      windowState.y = bounds.y;
-    }
+    const bounds = mainWindow.getBounds();
+    windowState.width = bounds.width;
+    windowState.height = bounds.height;
+    windowState.x = bounds.x;
+    windowState.y = bounds.y;
   };
 
-  mainWindow.on('move', updateWindowState);
   mainWindow.on('resize', updateWindowState);
+  mainWindow.on('move', updateWindowState);
   mainWindow.on('minimize', updateWindowState);
   mainWindow.on('maximize', updateWindowState);
 
@@ -423,16 +439,18 @@ const spawnServer = async () => {
   const serverProcess = spawn(javaBin, serverArgs, {
     cwd: sharedDir,
     shell: false,
-    env:
-      platform === 'windows'
+    env: {
+      ...process.env,
+      NEKOVR_DATASETS_DIR: getDatasetsFolder(),
+      ...(platform === 'windows'
         ? {
-            ...process.env,
             APPDATA: app.getPath('appData'),
             LOCALAPPDATA: process.env['USERPROFILE']
               ? path.join(process.env['USERPROFILE'], 'AppData', 'Local')
               : undefined,
           }
-        : undefined,
+        : {}),
+    },
   });
 
   const sendToWindow = (event: ServerStatusEvent) => {
@@ -450,35 +468,52 @@ const spawnServer = async () => {
   });
 
   serverProcess.on('error', (err) => {
-    logger.info({ err }, 'Error launching the java server');
-    if (!isQuitting) app.quit();
+    logger.error(err, 'Failed to spawn server process');
   });
 
   serverProcess.on('exit', () => {
     logger.info('Server process exiting');
   });
 
-  const exited = new Promise<void>((resolve) => serverProcess.once('exit', resolve));
-
   return {
-    process: serverProcess,
-    close: () => serverProcess.kill(),
-    waitForExit: () => exited,
+    close: () => {
+      serverProcess.kill('SIGINT');
+    },
+    waitForExit: () =>
+      new Promise<void>((resolve) => {
+        if (serverProcess.exitCode !== null) return resolve();
+        serverProcess.on('exit', () => resolve());
+      }),
   };
 };
 
 const createFolders = async () => {
   await mkdir(getServerDataFolder(), { recursive: true });
   await mkdir(getGuiDataFolder(), { recursive: true });
+  await mkdir(getDatasetsFolder(), { recursive: true });
 };
 
 let isQuitting = false;
 
 app.whenReady().then(async () => {
   protocol.handle('app', (request) => {
-    const { pathname } = new URL(request.url);
-    const filePath = path.normalize(join(__dirname, '../renderer', pathname));
-    return net.fetch(pathToFileURL(filePath).toString(), { headers: request.headers });
+    try {
+      const url = new URL(request.url);
+      const rendererRoot = path.resolve(__dirname, '../renderer');
+      const requested = decodeURIComponent(url.pathname).replace(/^[/\\]+/, '');
+      const filePath = path.resolve(rendererRoot, requested || 'index.html');
+      const relative = path.relative(rendererRoot, filePath);
+      if (relative.startsWith('..') || path.isAbsolute(relative)) {
+        logger.error({ url: request.url }, 'blocked app protocol path traversal');
+        return new Response('Forbidden', { status: 403 });
+      }
+      return net.fetch(pathToFileURL(filePath).toString(), {
+        headers: request.headers,
+      });
+    } catch (err) {
+      logger.error({ url: request.url, err }, 'Failed to serve app protocol file');
+      return new Response('Not Found', { status: 404 });
+    }
   });
 
   try {

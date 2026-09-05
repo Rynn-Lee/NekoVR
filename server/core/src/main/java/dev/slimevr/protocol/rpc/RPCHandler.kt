@@ -58,6 +58,7 @@ class RPCHandler(private val api: ProtocolAPI) : ProtocolHandler<RpcMessageHeade
 		RPCTrackingChecklistHandler(this, api)
 		RPCUserHeightCalibration(this, api)
 		RPCInstallInfoHandler(this, api)
+		dev.slimevr.protocol.rpc.dataset.RPCDatasetHandler(this, api)
 
 		registerPacketListener(
 			RpcMessage.AssignTrackerRequest,

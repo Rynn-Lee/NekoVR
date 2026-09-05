@@ -9,6 +9,7 @@ import {
   PubSubUnion,
   RpcMessage,
   RpcMessageHeaderT,
+  TransactionIdT,
 } from 'solarxr-protocol';
 
 import { Builder, ByteBuffer } from 'flatbuffers';
@@ -20,9 +21,12 @@ export interface WebSocketApi {
   isFirstConnection: boolean;
   timedOut: boolean;
   reconnect: () => void;
-  useRPCPacket: <T>(type: RpcMessage, callback: (packet: T) => void) => void;
+  useRPCPacket: <T>(
+    type: RpcMessage,
+    callback: (packet: T, transactionId?: number) => void
+  ) => void;
   useDataFeedPacket: <T>(type: DataFeedMessage, callback: (packet: T) => void) => void;
-  sendRPCPacket: (type: RpcMessage, data: RPCPacketType) => void;
+  sendRPCPacket: (type: RpcMessage, data: RPCPacketType) => number | null;
   sendDataFeedPacket: (type: DataFeedMessage, data: DataFeedPacketType) => void;
   usePubSubPacket: <T>(type: PubSubUnion, callback: (packet: T) => void) => void;
   sendPubSubPacket: (type: PubSubUnion, data: PubSubPacketType) => void;
@@ -65,7 +69,6 @@ export function useProvideWebsocketApi(): WebSocketApi {
 
   const onConnectionClose = () => {
     setConnected(false);
-    rpcPacketCounterRef.current = 0;
   };
 
   const onMessage = async (event: { data: Blob }) => {
@@ -79,7 +82,7 @@ export function useProvideWebsocketApi(): WebSocketApi {
     message.rpcMsgs.forEach((rpcHeader) => {
       rpclistenerRef.current?.dispatchEvent(
         new CustomEvent(RpcMessage[rpcHeader.messageType], {
-          detail: rpcHeader.message,
+          detail: { packet: rpcHeader.message, transactionId: rpcHeader.txId?.id },
         })
       );
     });
@@ -101,8 +104,8 @@ export function useProvideWebsocketApi(): WebSocketApi {
     });
   };
 
-  const sendRPCPacket = (type: RpcMessage, data: RPCPacketType): void => {
-    if (webSocketRef?.current?.readyState !== WebSocket.OPEN) return;
+  const sendRPCPacket = (type: RpcMessage, data: RPCPacketType): number | null => {
+    if (webSocketRef?.current?.readyState !== WebSocket.OPEN) return null;
     const fbb = new Builder(1);
 
     const message = new MessageBundleT();
@@ -110,13 +113,15 @@ export function useProvideWebsocketApi(): WebSocketApi {
     const rpcHeader = new RpcMessageHeaderT();
     rpcHeader.messageType = type;
     rpcHeader.message = data;
+    const transactionId = ++rpcPacketCounterRef.current;
+    rpcHeader.txId = new TransactionIdT(transactionId);
 
     message.rpcMsgs = [rpcHeader];
     fbb.finish(message.pack(fbb));
 
     webSocketRef.current.send(fbb.asUint8Array());
 
-    rpcPacketCounterRef.current++;
+    return transactionId;
   };
 
   const sendDataFeedPacket = (
@@ -211,10 +216,13 @@ export function useProvideWebsocketApi(): WebSocketApi {
         };
       }, [callback, type]);
     },
-    useRPCPacket: <T>(type: RpcMessage, callback: (packet: T) => void) => {
+    useRPCPacket: <T>(
+      type: RpcMessage,
+      callback: (packet: T, transactionId?: number) => void
+    ) => {
       useEffect(() => {
         const onEvent = (event: CustomEventInit) => {
-          callback(event.detail);
+          callback(event.detail.packet, event.detail.transactionId);
         };
         rpclistenerRef.current.addEventListener(RpcMessage[type], onEvent);
         return () => {

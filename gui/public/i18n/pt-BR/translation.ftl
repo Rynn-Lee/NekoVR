@@ -101,9 +101,9 @@ board_type-WROOM32 = WROOM32
 board_type-WEMOSD1MINI = Wemos D1 Mini
 board_type-TTGO_TBASE = TTGO T-Base
 board_type-ESP01 = ESP-01
-board_type-SLIMEVR = NekoVR
+board_type-SLIMEVR = SlimeVR
 board_type-SLIMEVR_DEV = Placa do NekoVR Dev
-board_type-SLIMEVR_V1_2 = NekoVR v1.2
+board_type-SLIMEVR_V1_2 = SlimeVR v1.2
 board_type-LOLIN_C3_MINI = Lolin C3 Mini
 board_type-BEETLE32C3 = Beetle ESP32-C3
 board_type-ESP32C3DEVKITM1 = Espressif ESP32-C3 DevKitM-1
@@ -118,8 +118,8 @@ board_type-GLOVE_IMU_SLIMEVR_DEV = NekoVR Dev IMU Glove
 board_type-GESTURES = Gestos
 board_type-ESP32S3_SUPERMINI = ESP32-S3 Supermini
 board_type-GENERIC_NRF = nRF genérico
-board_type-SLIMEVR_BUTTERFLY_DEV = NekoVR Dev Butterfly
-board_type-SLIMEVR_BUTTERFLY = NekoVR Butterfly
+board_type-SLIMEVR_BUTTERFLY_DEV = SlimeVR Dev Butterfly
+board_type-SLIMEVR_BUTTERFLY = SlimeVR Butterfly
 
 ## Proportions
 
@@ -984,7 +984,7 @@ onboarding-quiz-slimeset-title = Que tipo de trackers você está conectando?
 onboarding-quiz-slimeset-description = Se você tiver vários conjuntos, você será solicitado novamente mais tarde no processo
 onboarding-quiz-slimeset-official-sets = Trackers Oficiais do NekoVR
 onboarding-quiz-slimeset-thirdparty-sets = Trackers de Terceiros ou Feitos por Você.
-onboarding-quiz-slimeset-answer-regular = NekoVR V1.0 e V1.2
+onboarding-quiz-slimeset-answer-regular = SlimeVR V1.0 e V1.2
 onboarding-quiz-slimeset-answer-butterfly = Butterfly
 onboarding-quiz-slimeset-answer-wifi = Slime baseado em Wi-Fi
 onboarding-quiz-slimeset-answer-dongle = Slime baseado em Dongle

@@ -32,6 +32,12 @@ import io.github.axisangles.ktmath.Vector3.Companion.NEG_Y
 import io.github.axisangles.ktmath.Vector3.Companion.NULL
 import io.github.axisangles.ktmath.Vector3.Companion.POS_Y
 import solarxr_protocol.datatypes.BodyPart
+import dev.slimevr.reset.ResetKind
+import dev.slimevr.reset.ResetLabelCalculator
+import dev.slimevr.reset.ResetLabelRecord
+import dev.slimevr.reset.ResetOutcome
+import dev.slimevr.reset.ResetRequest
+import dev.slimevr.reset.event
 import java.lang.IllegalArgumentException
 import kotlin.properties.Delegates
 
@@ -125,6 +131,8 @@ class HumanSkeleton(
 	var headTracker: Tracker? by Delegates.observable(null) { _, old, new ->
 		if (old == new) return@observable
 
+		trackersToReset.filterNotNull().forEach { it.resetsHandler.headTrackerSupplier = { headTracker } }
+		new?.resetsHandler?.headTrackerSupplier = { headTracker }
 		humanPoseManager.checkTrackersRequiringReset()
 	}
 	var neckTracker: Tracker? = null
@@ -1547,8 +1555,27 @@ class HumanSkeleton(
 			rightLittleDistalTracker,
 		)
 
-	@JvmOverloads
-	fun resetTrackersFull(resetSourceName: String?, bodyParts: List<Int> = ArrayList()) {
+        fun resetTrackersFull(request: ResetRequest) {
+                require(request.kind == ResetKind.FULL)
+                val bodyParts = request.bodyParts
+		val affectedTrackers = mutableListOf<Tracker>()
+		headTracker?.let {
+			if (bodyParts.isEmpty() || bodyParts.contains(BodyPart.HEAD)) {
+				affectedTrackers.add(it)
+			}
+		}
+		for (tracker in trackersToReset) {
+			if (tracker != null && (tracker.allowReset || tracker.isHmd) && (bodyParts.isEmpty() || bodyParts.contains(tracker.trackerPosition?.bodyPart))) {
+				if (!affectedTrackers.contains(tracker)) {
+					affectedTrackers.add(tracker)
+				}
+			}
+		}
+
+	val preMonotonicNs = System.nanoTime()
+	val preSnapshots = affectedTrackers.associateWith { it.snapshotResetState(preMonotonicNs) }
+	val hmdPre = headTracker?.snapshotResetState(preMonotonicNs)
+
 		humanPoseManager.server?.serverGuards?.onFullReset()
 
 		var referenceRotation = IDENTITY
@@ -1576,12 +1603,72 @@ class HumanSkeleton(
 		legTweaks.resetBuffer()
 		localizer.reset()
 		ikSolver.resetOffsets()
-		LogManager.info("[HumanSkeleton] Reset: full ($resetSourceName)")
+                LogManager.info("[HumanSkeleton] Reset: full (${request.source})")
+
+                val applyMonotonicNs = System.nanoTime()
+                val postSnapshots = affectedTrackers.associateWith { it.snapshotResetState(applyMonotonicNs) }
+                val hmdPost = headTracker?.snapshotResetState(applyMonotonicNs)
+		val hmdValid = ResetLabelCalculator.isValidHmdReference(hmdPre, hmdPost)
+
+		val labels = mutableListOf<ResetLabelRecord>()
+		for (tracker in affectedTrackers) {
+		if (tracker.isImu() && !tracker.isHmd) {
+				val pre = preSnapshots[tracker]
+				val post = postSnapshots[tracker]
+				if (pre != null && post != null) {
+					labels.add(
+						ResetLabelCalculator.buildLabelRecord(
+							trackerId = tracker.id,
+							sessionTrackerId = null,
+							trackerPosition = tracker.trackerPosition,
+							kind = ResetKind.FULL,
+							preState = pre,
+							postState = post,
+							hmdPre = hmdPre,
+							hmdPost = hmdPost,
+                                                        requestMonotonicNs = request.requestMonotonicNs,
+                                                        applyMonotonicNs = applyMonotonicNs,
+                                                        requestId = request.requestId,
+						),
+					)
+				}
+			}
+		}
+
+		humanPoseManager.resetEventPublisher.publish(
+                        request.event(
+                                outcome = ResetOutcome.APPLIED,
+                                appliedMonotonicNs = applyMonotonicNs,
+                                referenceValid = hmdValid,
+                                labels = labels,
+                        ),
+		)
 	}
 
 	@VRServerThread
-	@JvmOverloads
-	fun resetTrackersYaw(resetSourceName: String?, bodyParts: List<Int> = TrackerUtils.allBodyPartsButFingers) {
+        fun resetTrackersYaw(request: ResetRequest) {
+                require(request.kind == ResetKind.YAW)
+                val bodyParts = request.bodyParts
+		val affectedTrackers = mutableListOf<Tracker>()
+		headTracker?.let {
+			if (bodyParts.isEmpty() || bodyParts.contains(BodyPart.HEAD)) {
+				if (it.allowReset && !it.isComputed) {
+					affectedTrackers.add(it)
+				}
+			}
+		}
+		for (tracker in trackersToReset) {
+			if (tracker != null && tracker.allowReset && (bodyParts.isEmpty() || bodyParts.contains(tracker.trackerPosition?.bodyPart))) {
+				if (!affectedTrackers.contains(tracker)) {
+					affectedTrackers.add(tracker)
+				}
+			}
+		}
+
+	val preMonotonicNs = System.nanoTime()
+	val preSnapshots = affectedTrackers.associateWith { it.snapshotResetState(preMonotonicNs) }
+	val hmdPre = headTracker?.snapshotResetState(preMonotonicNs)
+
 		// Resets the yaw of the trackers with the head as reference.
 		var referenceRotation = IDENTITY
 		headTracker?.let {
@@ -1600,7 +1687,46 @@ class HumanSkeleton(
 			}
 		}
 		legTweaks.resetBuffer()
-		LogManager.info("[HumanSkeleton] Reset: yaw ($resetSourceName)")
+                LogManager.info("[HumanSkeleton] Reset: yaw (${request.source})")
+
+                val applyMonotonicNs = System.nanoTime()
+                val postSnapshots = affectedTrackers.associateWith { it.snapshotResetState(applyMonotonicNs) }
+                val hmdPost = headTracker?.snapshotResetState(applyMonotonicNs)
+		val hmdValid = ResetLabelCalculator.isValidHmdReference(hmdPre, hmdPost)
+
+		val labels = mutableListOf<ResetLabelRecord>()
+		for (tracker in affectedTrackers) {
+		if (tracker.isImu() && !tracker.isHmd) {
+				val pre = preSnapshots[tracker]
+				val post = postSnapshots[tracker]
+				if (pre != null && post != null) {
+					labels.add(
+						ResetLabelCalculator.buildLabelRecord(
+							trackerId = tracker.id,
+							sessionTrackerId = null,
+							trackerPosition = tracker.trackerPosition,
+							kind = ResetKind.YAW,
+							preState = pre,
+							postState = post,
+							hmdPre = hmdPre,
+							hmdPost = hmdPost,
+                                                        requestMonotonicNs = request.requestMonotonicNs,
+                                                        applyMonotonicNs = applyMonotonicNs,
+                                                        requestId = request.requestId,
+						),
+					)
+				}
+			}
+		}
+
+		humanPoseManager.resetEventPublisher.publish(
+                        request.event(
+                                outcome = ResetOutcome.APPLIED,
+                                appliedMonotonicNs = applyMonotonicNs,
+                                referenceValid = hmdValid,
+                                labels = labels,
+                        ),
+		)
 	}
 
 	/**
@@ -1608,8 +1734,9 @@ class HumanSkeleton(
 	 * Keep in mind TrackerResetsHandler.kt has some logic as well for which trackers get reset (feet)
 	 */
 	@VRServerThread
-	@JvmOverloads
-	fun resetTrackersMounting(resetSourceName: String?, bodyParts: List<Int>) {
+        fun resetTrackersMounting(request: ResetRequest) {
+                require(request.kind == ResetKind.MOUNTING)
+                val bodyParts = request.bodyParts
 		val trackersToReset = trackersToReset
 
 		// TODO: PLEASE rewrite this handling at some point in the future... This is so
@@ -1618,9 +1745,38 @@ class HumanSkeleton(
 		// non-zero reset status (indicates reset required), then block mounting reset,
 		// as it requires a full reset first
 		if (humanPoseManager.server != null && trackersToReset.any { it != null && it.needReset }) {
-			LogManager.info("[HumanSkeleton] Reset: mounting ($resetSourceName) failed, reset required")
+                        LogManager.info("[HumanSkeleton] Reset: mounting (${request.source}) failed, reset required")
+                        humanPoseManager.resetEventPublisher.publish(
+                                request.event(
+                                        outcome = ResetOutcome.FAILED,
+                                        appliedMonotonicNs = System.nanoTime(),
+                                        failureReason = "Reset required",
+                                ),
+			)
 			return
 		}
+
+		val affectedTrackers = mutableListOf<Tracker>()
+		headTracker?.let {
+			if (bodyParts.isEmpty() || bodyParts.contains(BodyPart.HEAD)) {
+				// Only reset if head allowMounting or is computed but not HMD
+				if (it.allowMounting || (it.isComputed && !it.isHmd)) {
+					affectedTrackers.add(it)
+				}
+			}
+		}
+		for (tracker in trackersToReset) {
+			// Only reset if tracker needsMounting
+			if (tracker != null && tracker.allowMounting && (bodyParts.isEmpty() || bodyParts.contains(tracker.trackerPosition?.bodyPart))) {
+				if (!affectedTrackers.contains(tracker)) {
+					affectedTrackers.add(tracker)
+				}
+			}
+		}
+
+	val preMonotonicNs = System.nanoTime()
+	val preSnapshots = affectedTrackers.associateWith { it.snapshotResetState(preMonotonicNs) }
+	val hmdPre = headTracker?.snapshotResetState(preMonotonicNs)
 
 		// Resets the mounting orientation of the trackers with the HMD as reference.
 		var referenceRotation = IDENTITY
@@ -1643,6 +1799,36 @@ class HumanSkeleton(
 		legTweaks.resetBuffer()
 		localizer.reset()
 
+                val applyMonotonicNs = System.nanoTime()
+                val postSnapshots = affectedTrackers.associateWith { it.snapshotResetState(applyMonotonicNs) }
+                val hmdPost = headTracker?.snapshotResetState(applyMonotonicNs)
+		val hmdValid = ResetLabelCalculator.isValidHmdReference(hmdPre, hmdPost)
+
+		val labels = mutableListOf<ResetLabelRecord>()
+		for (tracker in affectedTrackers) {
+		if (tracker.isImu() && !tracker.isHmd) {
+				val pre = preSnapshots[tracker]
+				val post = postSnapshots[tracker]
+				if (pre != null && post != null) {
+					labels.add(
+						ResetLabelCalculator.buildLabelRecord(
+							trackerId = tracker.id,
+							sessionTrackerId = null,
+							trackerPosition = tracker.trackerPosition,
+							kind = ResetKind.MOUNTING,
+							preState = pre,
+							postState = post,
+							hmdPre = hmdPre,
+							hmdPost = hmdPost,
+                                                        requestMonotonicNs = request.requestMonotonicNs,
+                                                        applyMonotonicNs = applyMonotonicNs,
+                                                        requestId = request.requestId,
+						),
+					)
+				}
+			}
+		}
+
 		if (humanPoseManager.server != null) {
 			humanPoseManager.server.configManager.vrConfig.resetsConfig.lastMountingMethod =
 				MountingMethods.AUTOMATIC
@@ -1663,7 +1849,16 @@ class HumanSkeleton(
 			humanPoseManager.server.configManager.saveConfig()
 		}
 
-		LogManager.info("[HumanSkeleton] Reset: mounting ($resetSourceName)")
+		humanPoseManager.resetEventPublisher.publish(
+                        request.event(
+                                outcome = ResetOutcome.APPLIED,
+                                appliedMonotonicNs = applyMonotonicNs,
+                                referenceValid = hmdValid,
+                                labels = labels,
+			),
+		)
+
+                LogManager.info("[HumanSkeleton] Reset: mounting (${request.source})")
 	}
 
 	@VRServerThread

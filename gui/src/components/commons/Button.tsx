@@ -40,7 +40,7 @@ function ButtonContent({
 export type ButtonProps = {
   children?: ReactNode;
   icon?: ReactNode;
-  variant: 'primary' | 'secondary' | 'tertiary' | 'quaternary';
+  variant: 'primary' | 'secondary' | 'tertiary' | 'quaternary' | 'destructive';
   to?: string;
   loading?: boolean;
   rounded?: boolean;
@@ -89,6 +89,11 @@ export function Button({
           !disabled,
         'bg-background-70 hover:bg-background-70 cursor-not-allowed text-background-40':
           disabled,
+      }),
+      destructive: classNames({
+        'bg-status-critical hover:brightness-110 text-standard text-background-10':
+          !disabled,
+        'bg-background-60 cursor-not-allowed text-background-40': disabled,
       }),
     };
     return classNames(

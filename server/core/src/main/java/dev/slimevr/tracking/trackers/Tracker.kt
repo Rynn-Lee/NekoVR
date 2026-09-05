@@ -148,6 +148,22 @@ class Tracker @JvmOverloads constructor(
 	var packetsLost: Int? = null
 	var packetLoss: Float? = null
 	var customName: String? = null
+	var telemetryCapabilities: MutableSet<Int> = mutableSetOf()
+	var sampleSequence: Long? = null
+	var deviceTimestamp: Long? = null
+	var rawAngularVelocity: Vector3? = null
+	var deviceUptimeMs: Long? = null
+	var packetGaps: Long = 0L
+	var packetReordered: Long = 0L
+	var packetDuplicates: Long = 0L
+	var packetCorrupt: Long = 0L
+	var charging: Boolean? = null
+	var firmwareFeatures: Long? = null
+	var calibrationQuality: Float? = null
+	var fusionStatus: Int? = null
+	var powerMode: String? = null
+	var resetReason: String? = null
+	var lastDataMonotonicNs: Long = System.nanoTime()
 
 	/**
 	 * Please don't use this and instead set it via [Device.setMag]
@@ -314,6 +330,7 @@ class Tracker @JvmOverloads constructor(
 	fun dataTick() {
 		timer.update()
 		timeAtLastUpdate = System.currentTimeMillis()
+		lastDataMonotonicNs = System.nanoTime()
 		if (trackRotDirection) {
 			filteringHandler.dataTick(getAdjustedRotation())
 		}
@@ -512,12 +529,16 @@ class Tracker @JvmOverloads constructor(
 		_magVector
 	}
 
+	fun getRawMagVector(): Vector3 = _magVector
+
 	/**
 	 * Sets the magnetic field vector.
 	 */
 	fun setMagVector(vec: Vector3) {
 		this._magVector = vec
 	}
+
+	fun getRawAcceleration(): Vector3 = _acceleration
 
 	/**
 	 * Gets the current TPS of the tracker
@@ -530,6 +551,27 @@ class Tracker @JvmOverloads constructor(
 	 */
 	fun resetFilteringQuats(reference: Quaternion) {
 		filteringHandler.resetMovingAverage(getAdjustedRotation(), reference)
+	}
+
+	fun snapshotResetState(nowMonotonicNs: Long = System.nanoTime()): dev.slimevr.reset.TrackerResetStateSnapshot {
+		val raw = getRawRotation()
+		val preAi = resetsHandler.getCalibratedPreAiRotation()
+		val adjusted = getRotation()
+		return dev.slimevr.reset.TrackerResetStateSnapshot(
+			trackerId = id,
+			trackerPosition = trackerPosition,
+			rawOrientation = raw,
+			calibratedPreAiOrientation = preAi,
+			adjustedOrientation = adjusted,
+			adjustments = resetsHandler.snapshotAdjustments(),
+			acceleration = getAcceleration() ?: Vector3.NULL,
+			angularVelocity = rawAngularVelocity ?: Vector3.NULL,
+			status = status,
+			resetEpoch = resetsHandler.resetEpoch,
+			calibrationEpoch = resetsHandler.calibrationEpoch,
+			sampleAgeNs = (nowMonotonicNs - lastDataMonotonicNs).coerceAtLeast(0L),
+			packetGapCount = packetGaps,
+		)
 	}
 
 	/**

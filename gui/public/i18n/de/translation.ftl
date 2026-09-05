@@ -101,9 +101,9 @@ board_type-WROOM32 = WROOM32
 board_type-WEMOSD1MINI = Wemos D1 Mini
 board_type-TTGO_TBASE = TTGO T-Base
 board_type-ESP01 = ESP-01
-board_type-SLIMEVR = NekoVR
-board_type-SLIMEVR_DEV = NekoVR Dev Board
-board_type-SLIMEVR_V1_2 = NekoVR v1.2
+board_type-SLIMEVR = SlimeVR
+board_type-SLIMEVR_DEV = SlimeVR Dev Board
+board_type-SLIMEVR_V1_2 = SlimeVR v1.2
 board_type-LOLIN_C3_MINI = Lolin C3 Mini
 board_type-BEETLE32C3 = Beetle ESP32-C3
 board_type-ESP32C3DEVKITM1 = Espressif ESP32-C3 DevKitM-1
@@ -118,8 +118,8 @@ board_type-GLOVE_IMU_SLIMEVR_DEV = NekoVR Dev-IMU-Handschuh
 board_type-GESTURES = Gesten
 board_type-ESP32S3_SUPERMINI = ESP32-S3 Supermini
 board_type-GENERIC_NRF = Generisches nRF
-board_type-SLIMEVR_BUTTERFLY_DEV = NekoVR Dev Butterfly
-board_type-SLIMEVR_BUTTERFLY = NekoVR Butterfly
+board_type-SLIMEVR_BUTTERFLY_DEV = SlimeVR Dev Butterfly
+board_type-SLIMEVR_BUTTERFLY = SlimeVR Butterfly
 
 ## Proportions
 

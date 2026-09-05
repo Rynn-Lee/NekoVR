@@ -44,6 +44,11 @@ export interface IElectronAPI {
   osStats: () => Promise<OSStats>;
   openLogsFolder: () => Promise<void>;
   openConfigFolder: () => Promise<void>;
+  openDatasetsFolder: () => Promise<void>;
+  revealDataset: (sessionId: string) => Promise<boolean>;
+  exportDataset: (
+    sessionId: string
+  ) => Promise<{ success: boolean; path?: string; error?: string }>;
   close: () => void;
   hide: () => void;
   minimize: () => void;
