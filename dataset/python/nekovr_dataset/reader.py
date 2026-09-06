@@ -9,7 +9,12 @@ from pathlib import Path
 from typing import BinaryIO, Iterator
 import zipfile
 
-from .dataset_v1_generated import DatasetRecord, FILE_HEADER, FRAME_BATCH, EVENT_BATCH, FOOTER, half, float_quat
+from .dataset_v1_generated import DatasetRecord, FILE_HEADER, TRACKER_ROSTER, FRAME_BATCH, EVENT_BATCH, FOOTER, half, float_quat
+
+
+DATASET_SCHEMA_MAJOR = 1
+FLAG_INSUFFICIENT_CONTEXT = 1 << 6
+FLAG_WINDOW_TRUNCATED = 1 << 7
 
 
 class DatasetFormatError(ValueError):
@@ -170,7 +175,7 @@ class DatasetReader:
                     pre_end_frame=t.u64(6),
                     post_start_frame=t.u64(7),
                     post_end_frame=t.u64(8),
-                    quality_flags=t.u16(9) | (t.u16(9, default=0) << 16), # or read u32
+                    quality_flags=t.u32(9),
                     request_id=t.string(10),
                     request_monotonic_ns=t.u64(11),
                     applied_monotonic_ns=t.u64(12),
@@ -188,7 +193,7 @@ class DatasetReader:
                     hmd_before_xyzw=float_quat(t.table(24)),
                     hmd_after_xyzw=float_quat(t.table(25)),
                     hmd_valid=bool(t.u8(26, default=1)),
-                    reset_epoch=t.u16(27),
+                    reset_epoch=t.u32(27),
                     training_policy=t.string(28) or "INCLUDE",
                 )
 
@@ -204,18 +209,100 @@ class DatasetReader:
             telemetry = archive.read("telemetry.fbs.zst")
             if hashlib.sha256(telemetry).hexdigest() != manifest.get("telemetrySha256"):
                 raise DatasetFormatError("telemetry checksum mismatch")
-            try:
-                import zstandard  # type: ignore
-            except ImportError as error:
-                raise DatasetFormatError("install zstandard to inspect compressed archives") from error
-            records = list(self.records(io.BytesIO(zstandard.ZstdDecompressor().decompress(telemetry))))
+            payload = self._decompress_zstd(telemetry)
+            records = list(self.records(io.BytesIO(payload)))
             if not records or records[0].record_type != FILE_HEADER or records[-1].record_type != FOOTER:
                 raise DatasetFormatError("archive is missing header or footer")
-            frame_count = sum(1 for _ in self.frames(io.BytesIO(zstandard.ZstdDecompressor().decompress(telemetry))))
-            reset_count = sum(1 for _ in self.reset_labels(io.BytesIO(zstandard.ZstdDecompressor().decompress(telemetry))))
-            return {"manifest": manifest, "record_count": len(records), "frame_count": frame_count, "reset_count": reset_count}
+            for expected_sequence, record in enumerate(records):
+                if record.sequence != expected_sequence:
+                    raise DatasetFormatError(
+                        f"record sequence mismatch: expected {expected_sequence}, got {record.sequence}"
+                    )
+            header = records[0].header
+            if header is None or header.u16(0, 1) != DATASET_SCHEMA_MAJOR:
+                raise DatasetFormatError("unsupported telemetry schema")
+            if manifest.get("schemaMajor") != DATASET_SCHEMA_MAJOR:
+                raise DatasetFormatError("unsupported manifest schema")
+            if header.string(2) != manifest.get("sessionId"):
+                raise DatasetFormatError("header and manifest session IDs differ")
+            if not manifest.get("privacy", {}).get("consent", False):
+                raise DatasetFormatError("recording consent is missing")
+            if not any(record.record_type == TRACKER_ROSTER for record in records):
+                raise DatasetFormatError("tracker roster is missing")
+
+            frames = tuple(self.frames(io.BytesIO(payload)))
+            labels = tuple(self.reset_labels(io.BytesIO(payload)))
+            frame_count = len(frames)
+            expected_frames = int(manifest.get("quality", {}).get("writtenFrames", -1))
+            if frame_count != expected_frames:
+                raise DatasetFormatError(
+                    f"frame count mismatch: manifest {expected_frames}, decoded {frame_count}"
+                )
+            last_frame = max((frame.index for frame in frames), default=-1)
+            tracker_ids = {
+                tracker.get("sessionTrackerId", "") for tracker in manifest.get("trackers", [])
+            }
+            invalid_window_mask = FLAG_INSUFFICIENT_CONTEXT | FLAG_WINDOW_TRUNCATED
+            valid_windows = [
+                {
+                    "eventIndex": label.event_index,
+                    "sessionTrackerId": label.session_tracker_id,
+                    "preStartFrame": label.pre_start_frame,
+                    "preEndFrame": label.pre_end_frame,
+                    "postStartFrame": label.post_start_frame,
+                    "postEndFrame": label.post_end_frame,
+                    "qualityFlags": label.quality_flags,
+                    "trainingPolicy": label.training_policy,
+                }
+                for label in labels
+                if label.session_tracker_id in tracker_ids
+                and 0 <= label.pre_start_frame <= label.pre_end_frame <= last_frame
+                and 0 <= label.post_start_frame <= label.post_end_frame <= last_frame
+                and not (label.quality_flags & invalid_window_mask)
+                and label.training_policy != "EXCLUDE"
+            ]
+            header_channel_ids = {
+                header.vector_table(8, index).u32(0)
+                for index in range(header.vector_length(8))
+            }
+            manifest_channel_ids = {int(value) for value in manifest.get("channelIds", [])}
+            if header_channel_ids != manifest_channel_ids:
+                raise DatasetFormatError("header and manifest channel registries differ")
+            return {
+                "archive": str(path),
+                "valid": True,
+                "fatalFindings": [],
+                "schemaMajor": manifest.get("schemaMajor"),
+                "schemaMinor": manifest.get("schemaMinor"),
+                "applicationCommit": manifest.get("applicationCommit", ""),
+                "recordCount": len(records),
+                "frames": frame_count,
+                "resetLabels": len(labels),
+                "rosterSize": len(manifest.get("trackers", [])),
+                "transports": sorted(
+                    {tracker.get("transport", "UNKNOWN") for tracker in manifest.get("trackers", [])}
+                ),
+                "channelIds": sorted(manifest_channel_ids),
+                "quality": manifest.get("quality", {}),
+                "validResetWindows": valid_windows,
+            }
+
+    @staticmethod
+    def _decompress_zstd(telemetry: bytes) -> bytes:
+        try:
+            import zstandard  # type: ignore
+
+            return zstandard.ZstdDecompressor().decompress(telemetry)
+        except ImportError:
+            try:
+                from compression import zstd  # type: ignore
+
+                return zstd.decompress(telemetry)
+            except ImportError as error:
+                raise DatasetFormatError(
+                    "install zstandard (or use Python with compression.zstd) to inspect archives"
+                ) from error
 
     @staticmethod
     def _quat(table) -> tuple[float, float, float, float]:
         return (half(table, 0), half(table, 1), half(table, 2), half(table, 3, 1.0))
-

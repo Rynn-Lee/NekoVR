@@ -9,6 +9,7 @@ import dev.slimevr.dataset.DatasetRecordingService
 import dev.slimevr.dataset.RecordingRequest
 import dev.slimevr.dataset.RecordingState
 import dev.slimevr.dataset.SessionPrivacyOptions
+import dev.slimevr.dataset.TelemetryChannelRegistry
 import dev.slimevr.tracking.trackers.Device
 import dev.slimevr.tracking.trackers.DeviceOrigin
 import dev.slimevr.tracking.trackers.Tracker
@@ -119,6 +120,10 @@ class DatasetRecordingServiceTests {
 		assertTrue(report.valid, "Archive report must be valid: ${report.findings}")
 		assertEquals(50L, report.frames)
 		assertEquals(1, report.schemaMajor)
+		assertEquals(1, report.rosterSize)
+		assertEquals(TelemetryChannelRegistry.channels.mapTo(linkedSetOf()) { it.id }, report.channelIds)
+		assertEquals(50L, report.quality?.writtenFrames)
+		assertEquals(setOf("UNKNOWN"), report.transports)
 		assertTrue(report.findings.none { it.severity.name == "FATAL" })
 	}
 

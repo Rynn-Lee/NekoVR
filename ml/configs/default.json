@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "seed": 20260906,
+  "deterministic": true,
+  "sample_rate_hz": 50,
+  "layouts": [5, 6, 8, 10],
+  "max_slots": 16,
+  "model": {
+    "feature_count": 16,
+    "hidden_size": 12,
+    "temporal_layers": 3,
+    "kernel_size": 3,
+    "role_count": 64,
+    "output_axes": 3,
+    "maximum_correction_degrees": 30.0,
+    "maximum_drift_rate_degrees_per_second": 5.0
+  },
+  "simulation": {
+    "mounting_max_degrees": 25.0,
+    "orientation_noise_degrees": 0.35,
+    "bias_degrees_per_second": 0.025,
+    "random_walk_degrees_per_sqrt_second": 0.015,
+    "temperature_drift_degrees_per_celsius": 0.01,
+    "latency_frames_min": 0,
+    "latency_frames_max": 3,
+    "packet_loss_probability": 0.01,
+    "stale_probability": 0.01,
+    "channel_unavailable_probability": 0.05,
+    "reset_probability_per_second": 0.002
+  },
+  "splits": {
+    "train": 0.7,
+    "validation": 0.15,
+    "test": 0.15,
+    "group_fields": ["domain", "subject_id", "source_id", "device_cohort"]
+  },
+  "losses": {
+    "synthetic_dense": 1.0,
+    "real_reset": 2.0,
+    "temporal": 0.2,
+    "self_supervised": 0.2,
+    "domain": 0.1,
+    "quality_downweight": 0.25,
+    "exclude_quality_flags": [64, 128]
+  },
+  "features": {
+    "contextual_missingness_probability": 0.15,
+    "maximum_unseen_cohort_regression": 0.0,
+    "require_ablation_improvement": true
+  },
+  "promotion": {
+    "minimum_activity_samples": 100,
+    "minimum_activity_duration_seconds": 30.0,
+    "minimum_activity_confidence": 0.6,
+    "maximum_error_regression": 0.0,
+    "maximum_false_correction_regression": 0.0,
+    "maximum_jitter_regression": 0.0
+  },
+  "personalization": {
+    "adapter_only": true,
+    "optimizer": "adamw",
+    "maximum_checkpoint_mib": 8
+  }
+}

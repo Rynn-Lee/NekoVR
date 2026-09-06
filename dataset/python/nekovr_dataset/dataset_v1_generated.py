@@ -39,6 +39,10 @@ class Table:
         field = self._field(index)
         return default if field is None else struct.unpack_from("<H", self.data, field)[0]
 
+    def u32(self, index: int, default: int = 0) -> int:
+        field = self._field(index)
+        return default if field is None else struct.unpack_from("<I", self.data, field)[0]
+
     def u64(self, index: int, default: int = 0) -> int:
         field = self._field(index)
         return default if field is None else struct.unpack_from("<Q", self.data, field)[0]
@@ -120,8 +124,16 @@ class DatasetRecord:
         return self.root.table(4)
 
     @property
+    def roster(self) -> Table | None:
+        return self.root.table(3)
+
+    @property
     def event_batch(self) -> Table | None:
         return self.root.table(5)
+
+    @property
+    def footer(self) -> Table | None:
+        return self.root.table(6)
 
 
 def half(table: Table | None, index: int, default: float = 0.0) -> float:

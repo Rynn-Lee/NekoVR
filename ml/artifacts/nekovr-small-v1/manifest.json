@@ -1,0 +1,53 @@
+{
+  "artifact_sha256": {
+    "evaluation_graph.json": "015ed5c0eb64c67ddb1d2bd58f74579d63db4bd1db2c7134e747c9707b8de1b8",
+    "nominal_checkpoint.json": "fe64a9f8a495fa9272cfc3ed1e1d59afb87947d34f647609dc219ec29473b5a2",
+    "optimizer.json": "b8b187950a1d20b13328a252c18223a77e0070ffc5e815db4245fe14c604f549",
+    "training_graph.json": "1add86c26d801148ccf3ec550feeff890db8af3687bb3676f7584f1f530560b1"
+  },
+  "base_model_sha256": "92fc34bbae8dc55e80cb345edbb68804cbfdec34fd84590ad2d874e599d67e46",
+  "frozen_parameter_count": 1524,
+  "frozen_parameters": [
+    "input_weights",
+    "input_bias",
+    "time_weights",
+    "role_embeddings",
+    "depthwise_kernels",
+    "pointwise_weights"
+  ],
+  "model_id": "nekovr-small-v1",
+  "personalization_ready": true,
+  "resource_expectations": {
+    "maximum_checkpoint_mib": 8,
+    "minimum_ram_mib": 256,
+    "recommended_cpu_threads": 2
+  },
+  "schema_version": 1,
+  "supported_layouts": [
+    5,
+    6,
+    8,
+    10
+  ],
+  "supported_roles": [
+    "body:hip",
+    "body:left_foot",
+    "body:left_lower_leg",
+    "body:left_upper_arm",
+    "body:left_upper_leg",
+    "body:right_foot",
+    "body:right_lower_leg",
+    "body:right_upper_arm",
+    "body:right_upper_leg",
+    "body:upper_chest"
+  ],
+  "trainable_parameter_count": 125,
+  "trainable_parameters": [
+    "correction_head",
+    "correction_bias",
+    "confidence_head",
+    "confidence_bias",
+    "drift_head",
+    "drift_bias"
+  ]
+}

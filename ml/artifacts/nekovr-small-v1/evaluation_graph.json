@@ -1,0 +1,17 @@
+{
+  "base_model_sha256": "92fc34bbae8dc55e80cb345edbb68804cbfdec34fd84590ad2d874e599d67e46",
+  "format": "nekovr-adapter-evaluation-graph-v1",
+  "gradient_outputs": [],
+  "inputs": [
+    "features",
+    "role_ids",
+    "slot_mask",
+    "channel_validity",
+    "time_deltas"
+  ],
+  "outputs": [
+    "correction",
+    "confidence",
+    "drift_rate"
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "algorithm": "adamw",
+  "format": "nekovr-adapter-optimizer-v1",
+  "frozen_parameters": [
+    "input_weights",
+    "input_bias",
+    "time_weights",
+    "role_embeddings",
+    "depthwise_kernels",
+    "pointwise_weights"
+  ],
+  "gradient_clip_norm": 1.0,
+  "learning_rate": 0.001,
+  "trainable_parameters": [
+    "correction_head",
+    "correction_bias",
+    "confidence_head",
+    "confidence_bias",
+    "drift_head",
+    "drift_bias"
+  ],
+  "weight_decay": 0.0001
+}

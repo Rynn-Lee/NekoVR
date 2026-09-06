@@ -1,5 +1,8 @@
 # NekoVR Dataset Contract v1
 
+The operational collection, consent, reset, acceptance, and dataset-ready gate
+procedure is defined in [the collection protocol](collection-protocol.md).
+
 The canonical archive extension is `.nvrdata`. It is a ZIP container stored
 without recompressing its entries and contains exactly `manifest.json` and
 `telemetry.fbs.zst`. The telemetry entry is a Zstandard level-3 stream of

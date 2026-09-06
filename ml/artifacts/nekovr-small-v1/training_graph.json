@@ -1,0 +1,34 @@
+{
+  "base_model_sha256": "92fc34bbae8dc55e80cb345edbb68804cbfdec34fd84590ad2d874e599d67e46",
+  "format": "nekovr-adapter-training-graph-v1",
+  "inputs": [
+    "features",
+    "role_ids",
+    "slot_mask",
+    "channel_validity",
+    "time_deltas",
+    "targets",
+    "loss_masks"
+  ],
+  "maximum_correction_radians": 0.5235987755982988,
+  "outputs": [
+    "total_loss",
+    "correction_loss",
+    "confidence_loss",
+    "adapter_gradients"
+  ],
+  "requires_grad": {
+    "confidence_bias": true,
+    "confidence_head": true,
+    "correction_bias": true,
+    "correction_head": true,
+    "depthwise_kernels": false,
+    "drift_bias": true,
+    "drift_head": true,
+    "input_bias": false,
+    "input_weights": false,
+    "pointwise_weights": false,
+    "role_embeddings": false,
+    "time_weights": false
+  }
+}

@@ -59,27 +59,27 @@
 
 ## 6. Establish the Dataset-Ready Gate
 
-- [ ] 6.1 Add a single validation command/report aggregating schema, numerical, metadata, reset-label, crash-recovery, memory-soak, RPC/UI, and baseline results.
+- [x] 6.1 Add a single validation command/report aggregating schema, numerical, metadata, reset-label, crash-recovery, memory-soak, RPC/UI, and baseline results.
 - [ ] 6.2 Record simulated and real short pilot sessions with multiple tracker layouts/transports and validate zero fatal findings.
-- [ ] 6.3 Load pilot archives through the Python reader, enumerate valid reset windows, and verify roster/channel/quality statistics against the server report.
-- [ ] 6.4 Persist and expose the build's dataset-ready result; keep production-profile recording disabled until all required evidence passes.
-- [ ] 6.5 Document the canonical collection protocol, consent/privacy rules, reset behavior, session acceptance criteria, and unsupported prototype files.
+- [x] 6.3 Load pilot archives through the Python reader, enumerate valid reset windows, and verify roster/channel/quality statistics against the server report.
+- [x] 6.4 Persist and expose the build's dataset-ready result; keep production-profile recording disabled until all required evidence passes.
+- [x] 6.5 Document the canonical collection protocol, consent/privacy rules, reset behavior, session acceptance criteria, and unsupported prototype files.
 
 ## 7. Build the AMASS and Real-Session ML Pipeline
 
-- [ ] 7.1 Create a pinned `ml/` Python project with CLI entry points, deterministic configuration, tests, and documented licensed AMASS/SMPL asset setup.
-- [ ] 7.2 Implement AMASS/SMPL conversion to canonical timed body-segment transforms and validate known-pose coordinate fixtures.
-- [ ] 7.3 Implement virtual sensor placements and configurable 5/6/8/10/additional body-role layout generation with masks.
-- [ ] 7.4 Implement reproducible mounting, noise, bias/random-walk/temperature-like drift, latency, packet-loss, stale-channel, and reset simulation.
-- [ ] 7.5 Implement real `.nvrdata` validation/loading, reset-window extraction, provenance masks, quality reports, and source hashes.
-- [ ] 7.6 Implement leakage-safe grouped train/validation/test splitting and training-only normalization with split audits.
-- [ ] 7.7 Implement dense synthetic, sparse real reset, temporal/self-supervised, domain, axis, and quality-weighted loss masks.
-- [ ] 7.8 Implement the compact shared causal temporal encoder, masked global context, per-slot bounded correction/confidence heads, and variable-layout batching.
-- [ ] 7.9 Add per-layout/domain/person/chipset/activity/drift evaluation for before/after error, confidence calibration, clean-motion false correction, jitter, magnitude/rate, discontinuity, resets/hour, time-to-first-reset and longest valid no-reset interval.
-- [ ] 7.10 Save run seed/config/environment/commit, split and dataset hashes, normalization, metrics, and artifact provenance for every run.
-- [ ] 7.11 Add temperature/network/power/hardware feature normalization, missingness augmentation, per-feature ablations, and unseen-device/session shortcut checks.
-- [ ] 7.12 Add explicit standing/seated/lying/crouching/transition/locomotion/dance/stationary cohort coverage and non-regression promotion gates.
-- [ ] 7.13 Generate frozen-backbone adapter training/eval/optimizer/nominal-checkpoint artifacts for every personalization-ready base model.
+- [x] 7.1 Create a pinned `ml/` Python project with CLI entry points, deterministic configuration, tests, and documented licensed AMASS/SMPL asset setup.
+- [x] 7.2 Implement AMASS/SMPL conversion to canonical timed body-segment transforms and validate known-pose coordinate fixtures.
+- [x] 7.3 Implement virtual sensor placements and configurable 5/6/8/10/additional body-role layout generation with masks.
+- [x] 7.4 Implement reproducible mounting, noise, bias/random-walk/temperature-like drift, latency, packet-loss, stale-channel, and reset simulation.
+- [x] 7.5 Implement real `.nvrdata` validation/loading, reset-window extraction, provenance masks, quality reports, and source hashes.
+- [x] 7.6 Implement leakage-safe grouped train/validation/test splitting and training-only normalization with split audits.
+- [x] 7.7 Implement dense synthetic, sparse real reset, temporal/self-supervised, domain, axis, and quality-weighted loss masks.
+- [x] 7.8 Implement the compact shared causal temporal encoder, masked global context, per-slot bounded correction/confidence heads, and variable-layout batching.
+- [x] 7.9 Add per-layout/domain/person/chipset/activity/drift evaluation for before/after error, confidence calibration, clean-motion false correction, jitter, magnitude/rate, discontinuity, resets/hour, time-to-first-reset and longest valid no-reset interval.
+- [x] 7.10 Save run seed/config/environment/commit, split and dataset hashes, normalization, metrics, and artifact provenance for every run.
+- [x] 7.11 Add temperature/network/power/hardware feature normalization, missingness augmentation, per-feature ablations, and unseen-device/session shortcut checks.
+- [x] 7.12 Add explicit standing/seated/lying/crouching/transition/locomotion/dance/stationary cohort coverage and non-regression promotion gates.
+- [x] 7.13 Generate frozen-backbone adapter training/eval/optimizer/nominal-checkpoint artifacts for every personalization-ready base model.
 
 ## 8. Export and Validate ONNX Models
 

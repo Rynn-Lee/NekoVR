@@ -109,3 +109,29 @@ dependencies {
 tasks.test {
 	useJUnitPlatform()
 }
+
+tasks.register<JavaExec>("datasetArchiveReport") {
+	group = "verification"
+	description = "Writes server-side validation reports for one or more .nvrdata archives"
+	dependsOn(tasks.classes)
+	mainClass.set("dev.slimevr.dataset.DatasetArchiveReportCommandKt")
+	classpath = sourceSets.main.get().runtimeClasspath
+	doFirst {
+		val archiveProperty = providers.gradleProperty("datasetArchives").orNull
+			?: error("Pass -PdatasetArchives=<path${File.pathSeparator}path>")
+		val outputProperty = providers.gradleProperty("datasetArchiveReport").orNull
+			?: layout.buildDirectory.file("reports/dataset-ready/server-pilots.json").get().asFile.path
+		args = listOf("--output", outputProperty) + archiveProperty.split(File.pathSeparator).filter(String::isNotBlank)
+	}
+}
+
+tasks.register<JavaExec>("generateDatasetPilots") {
+	group = "verification"
+	description = "Generates short simulated 5-tracker and mixed-transport 8-tracker pilot archives"
+	dependsOn(tasks.classes)
+	mainClass.set("dev.slimevr.dataset.DatasetPilotGeneratorCommandKt")
+	classpath = sourceSets.main.get().runtimeClasspath
+	val output = providers.gradleProperty("datasetPilotOutput")
+		.orElse(layout.buildDirectory.dir("dataset-pilots").map { it.asFile.path })
+	doFirst { args = listOf("--output", output.get()) }
+}

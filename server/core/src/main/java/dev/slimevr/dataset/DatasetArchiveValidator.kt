@@ -3,6 +3,8 @@ package dev.slimevr.dataset
 import com.github.luben.zstd.ZstdInputStream
 import dev.slimevr.dataset.generated.DatasetV1Bindings
 import dev.slimevr.dataset.generated.DatasetV1Reader
+import dev.slimevr.reset.FLAG_INSUFFICIENT_CONTEXT
+import dev.slimevr.reset.FLAG_WINDOW_TRUNCATED
 import java.io.BufferedInputStream
 import java.io.EOFException
 import java.io.InputStream
@@ -16,6 +18,8 @@ class DatasetArchiveValidator {
 		var manifest: DatasetManifest? = null
 		var frames = 0L
 		var resetLabels = 0L
+		var lastFrameIndex = -1L
+		val labels = mutableListOf<DatasetResetLabel>()
 		runCatching {
 			ZipFile(path.toFile()).use { zip ->
 				val names = zip.entries().asSequence().map { it.name }.toSet()
@@ -45,8 +49,14 @@ class DatasetArchiveValidator {
 								if (record.sessionId != manifest!!.sessionId) findings += fatal("SESSION_MISMATCH", "Header and manifest session IDs differ")
 							}
 							DatasetV1Bindings.RECORD_ROSTER -> sawRoster = true
-							DatasetV1Bindings.RECORD_FRAMES -> frames += record.frames.size
-							DatasetV1Bindings.RECORD_EVENTS -> resetLabels += record.resetLabels.size
+							DatasetV1Bindings.RECORD_FRAMES -> {
+								frames += record.frames.size
+								lastFrameIndex = maxOf(lastFrameIndex, record.frames.maxOfOrNull { it.frameIndex } ?: -1L)
+							}
+							DatasetV1Bindings.RECORD_EVENTS -> {
+								resetLabels += record.resetLabels.size
+								labels += record.resetLabels
+							}
 							DatasetV1Bindings.RECORD_FOOTER -> sawFooter = true
 						}
 					}
@@ -60,7 +70,38 @@ class DatasetArchiveValidator {
 				}
 			}
 		}.onFailure { findings += fatal("ARCHIVE_READ_FAILED", it.message ?: it.javaClass.simpleName) }
-		return DatasetValidationReport(path.toString(), manifest?.schemaMajor, manifest?.schemaMinor, frames, resetLabels, findings)
+		val trackerIds = manifest?.trackers?.mapTo(hashSetOf()) { it.sessionTrackerId }.orEmpty()
+		val invalidWindowMask = FLAG_INSUFFICIENT_CONTEXT or FLAG_WINDOW_TRUNCATED
+		val validWindows = labels.filter { label ->
+			label.sessionTrackerId in trackerIds &&
+				label.preStartFrame in 0..lastFrameIndex && label.preEndFrame in label.preStartFrame..lastFrameIndex &&
+				label.postStartFrame in 0..lastFrameIndex && label.postEndFrame in label.postStartFrame..lastFrameIndex &&
+				(label.qualityFlags and invalidWindowMask) == 0 && label.trainingPolicy != "EXCLUDE"
+		}.map { label ->
+			ResetWindowSummary(
+				label.eventIndex,
+				label.sessionTrackerId,
+				label.preStartFrame,
+				label.preEndFrame,
+				label.postStartFrame,
+				label.postEndFrame,
+				label.qualityFlags,
+				label.trainingPolicy,
+			)
+		}
+		return DatasetValidationReport(
+			path.toString(),
+			manifest?.schemaMajor,
+			manifest?.schemaMinor,
+			frames,
+			resetLabels,
+			findings,
+			manifest?.trackers?.size ?: 0,
+			manifest?.channelIds.orEmpty(),
+			manifest?.quality,
+			validWindows,
+			manifest?.trackers?.mapTo(linkedSetOf()) { it.transport }.orEmpty(),
+		)
 	}
 
 	private fun prototype(path: Path, code: String, missing: List<String>) = DatasetValidationReport(

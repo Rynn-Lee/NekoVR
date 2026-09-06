@@ -6,6 +6,7 @@ import dev.slimevr.dataset.DatasetArchiveValidator
 import dev.slimevr.dataset.DatasetManifest
 import dev.slimevr.dataset.DatasetPrivacy
 import dev.slimevr.dataset.DatasetRecordingService
+import dev.slimevr.dataset.DatasetReadyStatus
 import dev.slimevr.dataset.FindingSeverity
 import dev.slimevr.dataset.RecordingRequest
 import dev.slimevr.dataset.RecordingState
@@ -206,6 +207,37 @@ class DatasetRPCHandlerTests {
 		assertEquals(DatasetOperation.START, response.operation())
 		assertEquals(DatasetErrorCode.READINESS_FAILED, response.errorCode())
 		assertEquals(RecordingState.IDLE, recorder.status().state)
+	}
+
+	@Test
+	fun testProductionProfileStartsOnlyAfterDatasetReadyGatePasses(@TempDir tempDir: Path) {
+		val recorder = DatasetRecordingService(datasetsRoot = tempDir)
+		val trackers = listOf(createHeadTracker(), createImuTracker(1, TrackerPosition.WAIST))
+		val handler = RPCDatasetHandler(
+			datasetRecorder = recorder,
+			trackerProvider = { trackers },
+			datasetReadyStatusProvider = { DatasetReadyStatus(true, "dataset-ready test evidence") },
+			taskQueue = { it.run() },
+		)
+		assertTrue(handler.getReadinessFindings().any { it.code == "DATASET_READY" })
+
+		val connection = TestConnection()
+		val builder = FlatBufferBuilder(64)
+		val request = StartDatasetRecordingRequest.createStartDatasetRecordingRequest(
+			builder,
+			builder.createString("production-profile"),
+			1,
+			true,
+			builder.createString("subject"),
+			true,
+		)
+		handler.onStartDatasetRecordingRequest(
+			connection,
+			createHeader(builder, RpcMessage.StartDatasetRecordingRequest, request),
+		)
+
+		assertEquals(RecordingState.RECORDING, recorder.status().state)
+		recorder.cancelRecording()
 	}
 
 	@Test

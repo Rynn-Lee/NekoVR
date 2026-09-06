@@ -133,6 +133,9 @@ export function DatasetRecorderWidget() {
   );
   const isStarting = status.state === DatasetRecordingState.STARTING;
   const isActive = isRecording || isFinalizing || isStarting;
+  const isDatasetReady = readinessFindings.some(
+    (finding) => text(finding.code) === 'DATASET_READY'
+  );
 
   const handleReveal = async (sessionId: string) => {
     try {
@@ -204,12 +207,16 @@ export function DatasetRecorderWidget() {
                       'px-1.5 py-0.5 rounded text-[10px] font-bold uppercase',
                       f.severity === 2
                         ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                        : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
+                        : f.severity === 0
+                          ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                          : 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30'
                     )}
                   >
                     {f.severity === 2
                       ? l10n.getString('dataset_recorder-severity-error')
-                      : l10n.getString('dataset_recorder-severity-warning')}
+                      : f.severity === 0
+                        ? l10n.getString('dataset_recorder-severity-info')
+                        : l10n.getString('dataset_recorder-severity-warning')}
                   </span>
                   <span className="text-background-20">{localizedMsg}</span>
                 </div>
@@ -337,14 +344,32 @@ export function DatasetRecorderWidget() {
                 >
                   {l10n.getString('dataset_recorder-profile-custom')}
                 </button>
-                <div
-                  className="px-2.5 py-1 text-xs rounded border bg-background-70/50 border-background-50/50 text-background-40 cursor-not-allowed opacity-60 flex items-center gap-1"
-                  title="Production profile is locked pending dataset gate acceptance"
+                <button
+                  type="button"
+                  onClick={() => isDatasetReady && setSelectedProfile(1)}
+                  disabled={!isDatasetReady}
+                  className={classNames(
+                    'px-2.5 py-1 text-xs rounded border transition-colors flex items-center gap-1',
+                    selectedProfile === 1 && isDatasetReady
+                      ? 'bg-accent-background-20/20 border-accent-background-20 text-accent-background-10 font-semibold'
+                      : isDatasetReady
+                        ? 'bg-background-70 border-background-50 text-background-30'
+                        : 'bg-background-70/50 border-background-50/50 text-background-40 cursor-not-allowed opacity-60'
+                  )}
+                  title={
+                    isDatasetReady
+                      ? l10n.getString(
+                          'dataset_recorder-profile-production-ready'
+                        )
+                      : l10n.getString(
+                          'dataset_recorder-profile-production-locked'
+                        )
+                  }
                 >
                   <span>
                     {l10n.getString('dataset_recorder-profile-production')}
                   </span>
-                </div>
+                </button>
               </div>
             </div>
 

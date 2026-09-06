@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools==80.9.0", "wheel==0.45.1"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nekovr-ml"
+version = "0.1.0"
+description = "Reproducible AMASS and real-session preparation for NekoVR drift models"
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "GPL-3.0-or-later" }
+dependencies = [
+  "numpy==2.2.6",
+  "zstandard==0.23.0",
+]
+
+[project.optional-dependencies]
+test = ["pytest==8.3.5"]
+
+[project.scripts]
+nekovr-ml = "nekovr_ml.cli:main"
+nekovr-prepare-amass = "nekovr_ml.cli:prepare_amass_main"
+nekovr-prepare-sessions = "nekovr_ml.cli:prepare_sessions_main"
+nekovr-train = "nekovr_ml.cli:train_main"
+nekovr-evaluate = "nekovr_ml.cli:evaluate_main"
+nekovr-export-onnx = "nekovr_ml.cli:export_onnx_main"
+nekovr-validate-onnx = "nekovr_ml.cli:validate_onnx_main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+nekovr_ml = ["default_config.json"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+pythonpath = ["src"]

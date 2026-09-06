@@ -28,6 +28,9 @@ class RPCDatasetHandler(
 	private val api: ProtocolAPI? = null,
 	val datasetRecorder: DatasetRecordingService = api?.server?.datasetRecorder ?: DatasetRecordingService(),
 	val trackerProvider: () -> List<Tracker> = { api?.server?.allTrackers ?: emptyList() },
+	val datasetReadyStatusProvider: () -> DatasetReadyStatus = {
+		DatasetReadyReportStore.load(DatasetReadyReportStore.resolve(datasetRecorder.datasetsRoot))
+	},
 	@Suppress("unused") val taskQueue: (Runnable) -> Unit = { runnable -> api?.server?.queueTask(runnable) ?: runnable.run() },
 	val broadcaster: ((GenericConnection) -> Unit) -> Unit = { action -> api?.apiServers?.forEach { server -> server.apiConnections.forEach(action) } },
 	val workerExecutor: Executor = Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "dataset-rpc-worker").apply { isDaemon = true } },
@@ -100,6 +103,12 @@ class RPCDatasetHandler(
 		}.onFailure { add("STORAGE_ERROR", DatasetReadinessSeverity.ERROR, "Dataset storage is unavailable: ${it.message}") }
 		val unknown = assignedImus.count { it.imuType == null || it.imuType == dev.slimevr.tracking.trackers.udp.IMUType.UNKNOWN }
 		if (unknown > 0) add("UNKNOWN_HARDWARE", DatasetReadinessSeverity.WARNING, "$unknown tracker(s) have unknown IMU metadata")
+		val datasetReady = datasetReadyStatusProvider()
+		if (datasetReady.ready) {
+			add("DATASET_READY", DatasetReadinessSeverity.INFO, datasetReady.detail)
+		} else {
+			add("DATASET_READY_GATE_PENDING", DatasetReadinessSeverity.WARNING, datasetReady.detail)
+		}
 		return findings
 	}
 
@@ -170,7 +179,7 @@ class RPCDatasetHandler(
 		if (getReadinessFindings().any { it.severity == DatasetReadinessSeverity.ERROR }) {
 			sendStatus(conn, header, DatasetOperation.START, DatasetErrorCode.READINESS_FAILED, "Recorder readiness checks failed"); return
 		}
-		if (req.profile() != 0) {
+		if (req.profile() != 0 && !datasetReadyStatusProvider().ready) {
 			sendStatus(conn, header, DatasetOperation.START, DatasetErrorCode.READINESS_FAILED, "Higher-fidelity recording profiles remain locked until the dataset-ready gate passes")
 			return
 		}

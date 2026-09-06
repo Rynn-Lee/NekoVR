@@ -66,8 +66,10 @@ data class DatasetManifest(
 	}
 }
 
+@Serializable
 enum class FindingSeverity { INFO, WARNING, FATAL }
 
+@Serializable
 data class ValidationFinding(
 	val code: String,
 	val severity: FindingSeverity,
@@ -75,6 +77,19 @@ data class ValidationFinding(
 	val missingFields: List<String> = emptyList(),
 )
 
+@Serializable
+data class ResetWindowSummary(
+	val eventIndex: Long,
+	val sessionTrackerId: String,
+	val preStartFrame: Long,
+	val preEndFrame: Long,
+	val postStartFrame: Long,
+	val postEndFrame: Long,
+	val qualityFlags: Int,
+	val trainingPolicy: String,
+)
+
+@Serializable
 data class DatasetValidationReport(
 	val archive: String,
 	val schemaMajor: Int?,
@@ -82,7 +97,10 @@ data class DatasetValidationReport(
 	val frames: Long,
 	val resetLabels: Long,
 	val findings: List<ValidationFinding>,
-) {
-	val valid: Boolean
-		get() = findings.none { it.severity == FindingSeverity.FATAL }
-}
+	val rosterSize: Int = 0,
+	val channelIds: Set<Int> = emptySet(),
+	val quality: DatasetQualityCounters? = null,
+	val validResetWindows: List<ResetWindowSummary> = emptyList(),
+	val transports: Set<String> = emptySet(),
+	val valid: Boolean = findings.none { it.severity == FindingSeverity.FATAL },
+)
