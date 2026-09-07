@@ -291,6 +291,7 @@ class VRServer @JvmOverloads constructor(
 			}
 		}
 		datasetRecorder.close()
+		aiDriftEngine.close()
 	}
 
 	@ThreadSafe

@@ -7,7 +7,7 @@ from pathlib import Path
 import random
 from typing import Sequence
 
-from .model import CompactCausalModel, SequenceSample, collate_variable_layout
+from .model import CompactCausalModel, ModelConfig, SequenceSample, collate_variable_layout
 
 
 @dataclass(frozen=True)
@@ -30,11 +30,20 @@ def _head_inputs(model: CompactCausalModel, example: TrainingExample) -> tuple[t
     batch = collate_variable_layout([example.sequence], model.config.feature_count, model.config.max_slots)
     states = model.encode(batch)[0]
     last_time = max(index for index, valid in enumerate(batch.time_mask[0]) if valid)
-    valid_slots = [slot for slot, valid in enumerate(batch.slot_mask[0]) if valid and any(batch.channel_validity[0][last_time][slot])]
+    valid_slots = [
+        slot for slot, valid in enumerate(batch.slot_mask[0])
+        if valid and any(
+            channel_valid and math.isfinite(value)
+            for value, channel_valid in zip(batch.features[0][last_time][slot], batch.channel_validity[0][last_time][slot])
+        )
+    ]
     global_context = tuple(sum(states[last_time][slot][hidden] for slot in valid_slots) / len(valid_slots) if valid_slots else 0.0 for hidden in range(model.config.hidden_size))
     return tuple(
         states[last_time][slot] + global_context
-        if batch.slot_mask[0][slot] and any(batch.channel_validity[0][last_time][slot])
+        if batch.slot_mask[0][slot] and any(
+            channel_valid and math.isfinite(value)
+            for value, channel_valid in zip(batch.features[0][last_time][slot], batch.channel_validity[0][last_time][slot])
+        )
         else None
         for slot in range(model.config.max_slots)
     )
@@ -106,3 +115,24 @@ def write_model_checkpoint(model: CompactCausalModel, output: str | Path) -> Non
     temporary = target.with_suffix(target.suffix + ".partial")
     temporary.write_text(json.dumps({"format": "nekovr-framework-checkpoint-v1", "config": asdict(model.config), "parameters": model.state_dict()}, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
     temporary.replace(target)
+
+
+def load_model_checkpoint(path: str | Path) -> CompactCausalModel:
+    payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    if payload.get("format") != "nekovr-framework-checkpoint-v1":
+        raise ValueError("unsupported framework checkpoint format")
+    try:
+        model = CompactCausalModel(ModelConfig(**payload["config"]))
+        parameters = payload["parameters"]
+    except (KeyError, TypeError) as error:
+        raise ValueError(f"invalid framework checkpoint: {error}") from error
+    expected = set(model.frozen_parameter_names + model.adapter_parameter_names)
+    if set(parameters) != expected:
+        raise ValueError("framework checkpoint parameter names differ from model contract")
+
+    def tuples(value: object) -> object:
+        return tuple(tuples(item) for item in value) if isinstance(value, list) else value
+
+    for name in sorted(expected):
+        setattr(model, name, tuples(parameters[name]))
+    return model

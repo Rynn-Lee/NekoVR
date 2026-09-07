@@ -1,8 +1,9 @@
 # Keep this file in sync with pyproject.toml. Exact pins make clean CI and
 # developer environments resolve the same dependency versions.
-numpy==2.2.6
+numpy==2.3.5
+onnx==1.22.0
+onnxruntime==1.29.0
 zstandard==0.23.0
 pytest==8.3.5
 setuptools==80.9.0
 wheel==0.45.1
-

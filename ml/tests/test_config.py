@@ -28,6 +28,8 @@ def test_packaged_and_repository_default_configs_match():
     assert packaged.sha256 == repository.sha256
 
 
-def test_future_stage_entry_point_is_truthful(capsys):
-    assert cli._run(["export-onnx"]) == 3
-    assert '"implemented": false' in capsys.readouterr().out
+def test_onnx_entry_points_require_explicit_artifacts():
+    export = cli._parser().parse_args(["export-onnx", "--checkpoint", "model.json", "--metadata", "metadata.json", "--output", "model.onnx"])
+    validate = cli._parser().parse_args(["validate-onnx", "--model", "model.onnx"])
+    assert (export.command, export.checkpoint, export.metadata, export.output) == ("export-onnx", "model.json", "metadata.json", "model.onnx")
+    assert (validate.command, validate.model) == ("validate-onnx", "model.onnx")

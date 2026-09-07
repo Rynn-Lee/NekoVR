@@ -83,18 +83,18 @@
 
 ## 8. Export and Validate ONNX Models
 
-- [ ] 8.1 Define and version model sidecar metadata for feature-schema hash, tensors, normalization, roles/slot/context bounds, output convention, provenance, metrics, opset, size, and SHA-256.
-- [ ] 8.2 Export the small causal model with supported ONNX operators and dynamic bounded time/slot masks.
-- [ ] 8.3 Add framework-versus-ONNX Runtime parity tests across 5/6/8/10 layouts, slot permutations, masks, discontinuities, and invalid channels.
-- [ ] 8.4 Enforce the small-model 15 MiB size and safety/quality promotion gates before catalog publication.
-- [ ] 8.5 Produce a deterministic tiny probe model/fixture for provider, packaging, and server integration tests.
+- [x] 8.1 Define and version model sidecar metadata for feature-schema hash, tensors, normalization, roles/slot/context bounds, output convention, provenance, metrics, opset, size, and SHA-256.
+- [x] 8.2 Export the small causal model with supported ONNX operators and dynamic bounded time/slot masks.
+- [x] 8.3 Add framework-versus-ONNX Runtime parity tests across 5/6/8/10 layouts, slot permutations, masks, discontinuities, and invalid channels.
+- [x] 8.4 Enforce the small-model 15 MiB size and safety/quality promotion gates before catalog publication.
+- [x] 8.5 Produce a deterministic tiny probe model/fixture for provider, packaging, and server integration tests.
 
 ## 9. Implement Real ONNX Runtime Inference
 
-- [ ] 9.1 Replace heuristic-only `AIDriftEngine` behavior with model/metadata hash validation, tensor contract inspection, session creation, warm-up/probe, and atomic activation.
-- [ ] 9.2 Package platform-specific CPU/CUDA/TensorRT/DirectML native runtimes as supported and verify providers by successful session execution.
-- [ ] 9.3 Implement AUTO and forced provider behavior with truthful diagnostics and no silent forced-provider fallback.
-- [ ] 9.4 Implement the bounded latest-value inference worker, stable slot/body-role mappings, normalized causal histories, masks, epochs, and resource lifecycle.
+- [x] 9.1 Replace heuristic-only `AIDriftEngine` behavior with model/metadata hash validation, tensor contract inspection, session creation, warm-up/probe, and atomic activation.
+- [x] 9.2 Package platform-specific CPU/CUDA/TensorRT/DirectML native runtimes as supported and verify providers by successful session execution.
+- [x] 9.3 Implement AUTO and forced provider behavior with truthful diagnostics and no silent forced-provider fallback.
+- [x] 9.4 Implement the bounded latest-value inference worker, stable slot/body-role mappings, normalized causal histories, masks, epochs, and resource lifecycle.
 - [ ] 9.5 Implement per-tracker finite/fresh/confidence gating, magnitude/rate/acceleration bounds, smoothing, stale decay, watchdog, and identity fail-open behavior.
 - [ ] 9.6 Insert one explicit AI correction stage after calibration transforms and implement tested replace/compose policy for legacy drift compensation.
 - [ ] 9.7 Expose model/provider/latency/queue/drop/error/outlier/confidence/mapping runtime metrics and typed health state.

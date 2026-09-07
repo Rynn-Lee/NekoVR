@@ -8,6 +8,13 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
+val onnxRuntimeVersion = "1.29.0"
+val onnxRuntimeFlavor = providers.gradleProperty("onnxRuntimeFlavor").orElse("cpu")
+val supportedOnnxRuntimeFlavors = setOf("cpu", "nvidia", "directml")
+require(onnxRuntimeFlavor.get() in supportedOnnxRuntimeFlavors) {
+	"onnxRuntimeFlavor must be one of ${supportedOnnxRuntimeFlavors.sorted()}"
+}
+
 plugins {
 	kotlin("jvm")
 	kotlin("plugin.serialization")
@@ -96,7 +103,9 @@ dependencies {
 	implementation("io.ktor:ktor-client-cio:2.3.13")
 
 	// NekoVR AI Drift Correction Engine & Dataset compression
-	implementation("com.microsoft.onnxruntime:onnxruntime:1.20.0")
+	implementation(
+		"com.microsoft.onnxruntime:${if (onnxRuntimeFlavor.get() == "nvidia") "onnxruntime_gpu" else "onnxruntime"}:$onnxRuntimeVersion",
+	)
 	implementation("com.github.luben:zstd-jni:1.5.6-8")
 
 	testImplementation(kotlin("test"))
@@ -108,6 +117,17 @@ dependencies {
 
 tasks.test {
 	useJUnitPlatform()
+}
+
+tasks.processResources {
+	inputs.property("onnxRuntimeFlavor", onnxRuntimeFlavor)
+	inputs.property("onnxRuntimeVersion", onnxRuntimeVersion)
+	filesMatching("dev/slimevr/ai/onnx-runtime.properties") {
+		expand("flavor" to onnxRuntimeFlavor.get(), "version" to onnxRuntimeVersion)
+	}
+	from("../../ml/artifacts/onnx-probe-v1") {
+		into("dev/slimevr/ai/probe")
+	}
 }
 
 tasks.register<JavaExec>("datasetArchiveReport") {
@@ -134,4 +154,14 @@ tasks.register<JavaExec>("generateDatasetPilots") {
 	val output = providers.gradleProperty("datasetPilotOutput")
 		.orElse(layout.buildDirectory.dir("dataset-pilots").map { it.asFile.path })
 	doFirst { args = listOf("--output", output.get()) }
+}
+
+tasks.register<JavaExec>("onnxRuntimeProbe") {
+	group = "verification"
+	description = "Creates a real session and runs the packaged ONNX probe on -PonnxProbeProvider=<provider>"
+	dependsOn(tasks.classes)
+	mainClass.set("dev.slimevr.ai.OnnxRuntimeProbeCommand")
+	classpath = sourceSets.main.get().runtimeClasspath
+	javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+	args(providers.gradleProperty("onnxProbeProvider").orElse("CPU").get())
 }

@@ -10,7 +10,9 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "GPL-3.0-or-later" }
 dependencies = [
-  "numpy==2.2.6",
+  "numpy==2.3.5",
+  "onnx==1.22.0",
+  "onnxruntime==1.29.0",
   "zstandard==0.23.0",
 ]
 
@@ -25,6 +27,7 @@ nekovr-train = "nekovr_ml.cli:train_main"
 nekovr-evaluate = "nekovr_ml.cli:evaluate_main"
 nekovr-export-onnx = "nekovr_ml.cli:export_onnx_main"
 nekovr-validate-onnx = "nekovr_ml.cli:validate_onnx_main"
+nekovr-generate-probe = "nekovr_ml.cli:generate_probe_main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

@@ -1,7 +1,9 @@
 package dev.slimevr.ai
 
 enum class ExecutionProviderType(val displayName: String, val isGpu: Boolean, val warningNotice: String? = null) {
-	CUDA("NVIDIA CUDA / TensorRT", true, null),
+	AUTO("Automatic", false, null),
+	TENSORRT("NVIDIA TensorRT", true, null),
+	CUDA("NVIDIA CUDA", true, null),
 	DIRECTML(
 		"DirectML (DirectX 12)",
 		true,

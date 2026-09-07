@@ -1,0 +1,106 @@
+{
+  "absolute_tolerance": 1e-05,
+  "expected_outputs": {
+    "confidence": [
+      [
+        0.500116108557279,
+        0.0
+      ]
+    ],
+    "correction_rotation_vectors": [
+      [
+        [
+          -0.04384066127467612,
+          -0.09478865120930247,
+          -0.21493802001497872
+        ],
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ]
+    ],
+    "drift_rate": [
+      [
+        0.007774910824475266,
+        0.0
+      ]
+    ]
+  },
+  "format": "nekovr-onnx-probe-v1",
+  "inputs": {
+    "channel_validity": [
+      [
+        [
+          [
+            true,
+            true
+          ],
+          [
+            false,
+            false
+          ]
+        ],
+        [
+          [
+            true,
+            true
+          ],
+          [
+            false,
+            false
+          ]
+        ]
+      ]
+    ],
+    "features": [
+      [
+        [
+          [
+            0.25,
+            -0.5
+          ],
+          [
+            0.0,
+            0.0
+          ]
+        ],
+        [
+          [
+            0.5,
+            0.125
+          ],
+          [
+            0.0,
+            0.0
+          ]
+        ]
+      ]
+    ],
+    "role_ids": [
+      [
+        1,
+        0
+      ]
+    ],
+    "slot_mask": [
+      [
+        true,
+        false
+      ]
+    ],
+    "time_deltas_s": [
+      [
+        0.02,
+        0.02
+      ]
+    ],
+    "time_mask": [
+      [
+        true,
+        true
+      ]
+    ]
+  }
+}

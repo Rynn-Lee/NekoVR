@@ -44,8 +44,13 @@ nekovr-ml prepare-amass ...
 nekovr-ml prepare-sessions session.nvrdata --output session.json
 nekovr-ml train --config configs/default.json
 nekovr-ml evaluate --config configs/default.json
-nekovr-ml export-onnx --config configs/default.json
-nekovr-ml validate-onnx --config configs/default.json
+nekovr-ml export-onnx --checkpoint run/model-checkpoint.json \
+  --metadata export-metadata.json --output run/model.onnx \
+  --config configs/default.json
+nekovr-ml validate-onnx --model run/model.onnx \
+  --config configs/default.json
+nekovr-ml generate-probe --output-dir artifacts/onnx-probe-v1 \
+  --config configs/default.json
 ```
 
 `train` accepts a versioned `nekovr-training-input-v1` JSON document, trains
@@ -53,5 +58,30 @@ only the bounded adapter heads over the frozen shared causal encoder, and
 writes a framework checkpoint, personalization bundle, and complete `run.json`
 provenance manifest. `evaluate` accepts `nekovr-evaluation-input-v1` and emits
 overall plus layout/domain/person/chipset/transport/activity/drift cohort
-metrics and matching provenance. ONNX export/validation remain explicit
-unavailable commands until OpenSpec section 8 is implemented.
+metrics and matching provenance.
+
+## ONNX artifact contract
+
+`export-onnx` writes the model and an adjacent `model.onnx.json` sidecar. The
+versioned sidecar records the feature-schema hash, exact tensor names/types and
+symbolic shapes, training-only normalization, supported role IDs, slot/context
+bounds, output transform convention, run/dataset provenance, validation
+metrics, opset, performance tier, byte size, and model SHA-256. `validate-onnx`
+checks the sidecar against the bytes, limits the graph to the supported operator
+set, verifies the tensor contract, and creates a CPU ONNX Runtime session.
+
+The metadata input is JSON with `model_id`, `model_version`, `feature_schema`,
+`normalization`, `supported_roles`, `slot_bounds`, `context_bounds`,
+`provenance`, optional `validation_metrics`, and optional `performance_tier`.
+Provenance must include `seed`, `config_sha256`, `source_commit`, and
+`dataset_hashes`. Histories are left-padded, the rightmost frame is valid, and
+time/slot/channel masks are authoritative; masked slots produce zero outputs.
+
+Catalog publication is atomic and guarded by model integrity, the 15 MiB small
+tier limit, maximum and p99 framework/runtime parity tolerances, finite and
+bounded outputs, zero masked-slot outputs, required activity coverage, and
+quality non-regression. Failed candidates never modify the catalog.
+
+`generate-probe` reproducibly writes the tiny non-production ONNX model,
+sidecar, fixed inputs/expected outputs, and per-file SHA-256 manifest used by
+server and distribution provider probes.

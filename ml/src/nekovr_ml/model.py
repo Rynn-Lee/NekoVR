@@ -217,7 +217,13 @@ class CompactCausalModel:
             last_time = max(index for index, valid in enumerate(batch.time_mask[batch_index]) if valid)
             valid_slots = [
                 slot for slot, valid in enumerate(batch.slot_mask[batch_index])
-                if valid and any(batch.channel_validity[batch_index][last_time][slot])
+                if valid and any(
+                    channel_valid and math.isfinite(value)
+                    for value, channel_valid in zip(
+                        batch.features[batch_index][last_time][slot],
+                        batch.channel_validity[batch_index][last_time][slot],
+                    )
+                )
             ]
             global_context = tuple(
                 sum(history[last_time][slot][hidden] for slot in valid_slots) / len(valid_slots)
@@ -226,7 +232,13 @@ class CompactCausalModel:
             )
             batch_corrections, batch_confidence, batch_drift = [], [], []
             for slot in range(self.config.max_slots):
-                latest_channels_valid = any(batch.channel_validity[batch_index][last_time][slot])
+                latest_channels_valid = any(
+                    channel_valid and math.isfinite(value)
+                    for value, channel_valid in zip(
+                        batch.features[batch_index][last_time][slot],
+                        batch.channel_validity[batch_index][last_time][slot],
+                    )
+                )
                 if not batch.slot_mask[batch_index][slot] or not latest_channels_valid:
                     batch_corrections.append((0.0,) * self.config.output_axes)
                     batch_confidence.append(0.0)

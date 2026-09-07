@@ -34,5 +34,5 @@ class AIModelConfig {
 	var smoothing: Float = 0.2f
 	var selectedModelId: String = "nekovr-tcn-m"
 	var autoDownloadUpdates: Boolean = true
-	var activeProvider: ExecutionProviderType = ExecutionProviderType.CUDA
+	var activeProvider: ExecutionProviderType = ExecutionProviderType.AUTO
 }
