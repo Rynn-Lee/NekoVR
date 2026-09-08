@@ -12,6 +12,7 @@ import solarxr_protocol.datatypes.TransactionId
 import solarxr_protocol.rpc.*
 import java.nio.file.Files
 import java.nio.file.Path
+import java.security.MessageDigest
 import java.util.Comparator
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
@@ -229,7 +230,7 @@ class RPCDatasetHandler(
 			val report = DatasetArchiveValidator().validate(archive)
 			val manifest = runCatching { ZipFile(archive.toFile()).use { zip -> zip.getEntry("manifest.json")?.let { DatasetManifest.fromJsonString(zip.getInputStream(it).reader().readText()) } } }.getOrNull()
 			sessions += DatasetSessionInfoT().apply {
-				sessionId = manifest?.sessionId ?: archive.name.removeSuffix(".nvrdata"); archivePath = ""; archiveBytes = runCatching { archive.fileSize() }.getOrDefault(0)
+				sessionId = manifest?.sessionId ?: archive.name.removeSuffix(".nvrdata"); archiveSha256 = fileSha256(archive); archivePath = ""; archiveBytes = runCatching { archive.fileSize() }.getOrDefault(0)
 				durationNs = manifest?.durationNs ?: 0; sampledFrames = manifest?.quality?.sampledFrames ?: report.frames; writtenFrames = manifest?.quality?.writtenFrames ?: report.frames
 				droppedFrames = manifest?.quality?.droppedFrames ?: 0; resetCount = report.resetLabels; schemaMajor = (manifest?.schemaMajor ?: report.schemaMajor ?: 0).toLong(); schemaMinor = (manifest?.schemaMinor ?: report.schemaMinor ?: 0).toLong()
 				createdUtc = manifest?.createdUtc ?: ""; isValid = report.valid; validationError = report.findings.filter { it.severity == FindingSeverity.FATAL }.joinToString("; ") { it.message }
@@ -313,5 +314,14 @@ class RPCDatasetHandler(
 	private fun sendAction(conn: GenericConnection, header: RpcMessageHeader, id: String, successValue: Boolean, operationValue: Int, errorCodeValue: Int = DatasetErrorCode.OK, errorText: String = "") {
 		val response = DatasetActionResponseT().apply { sessionId = id; success = successValue; error = errorText; path = ""; errorCode = errorCodeValue; operation = operationValue; statusVersion = datasetRecorder.status().statusVersion }
 		val fbb = FlatBufferBuilder(128); val offset = DatasetActionResponse.pack(fbb, response); fbb.finish(createRPCMessage(fbb, RpcMessage.DatasetActionResponse, offset, header)); conn.send(fbb.dataBuffer())
+	}
+
+	private fun fileSha256(path: Path): String {
+		val digest = MessageDigest.getInstance("SHA-256")
+		Files.newInputStream(path).use { input ->
+			val buffer = ByteArray(64 * 1024)
+			while (true) { val count = input.read(buffer); if (count < 0) break; digest.update(buffer, 0, count) }
+		}
+		return digest.digest().joinToString("") { "%02x".format(it) }
 	}
 }

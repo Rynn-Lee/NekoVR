@@ -46,9 +46,17 @@ data class ModelArtifactMetadata(
 	val normalizationStandardDeviation: FloatArray,
 	val supportedRoles: Set<Int>,
 	val opset: Int,
+	val performanceTier: String = "unknown",
+	val kind: ModelArtifactKind = ModelArtifactKind.GLOBAL,
+	val profileId: String? = null,
 ) {
 	val featureCount: Int
 		get() = normalizationMean.size
+}
+
+enum class ModelArtifactKind {
+	GLOBAL,
+	PERSONAL,
 }
 
 object ModelArtifactValidator {
@@ -107,6 +115,15 @@ object ModelArtifactValidator {
 		if (featuresWidth?.toInt() != mean.size) {
 			throw ModelLoadException(ModelLoadErrorCode.SIDECAR_INVALID, "Normalization width differs from the features tensor")
 		}
+		val kind = when (root.path("model_kind").asText("global").lowercase()) {
+			"global" -> ModelArtifactKind.GLOBAL
+			"personal" -> ModelArtifactKind.PERSONAL
+			else -> throw ModelLoadException(ModelLoadErrorCode.SIDECAR_INVALID, "Unknown model_kind")
+		}
+		val profileId = root.path("profile_id").takeIf(JsonNode::isTextual)?.asText()?.takeIf(String::isNotBlank)
+		if (kind == ModelArtifactKind.PERSONAL && profileId == null) {
+			throw ModelLoadException(ModelLoadErrorCode.SIDECAR_INVALID, "Personal model sidecar requires profile_id")
+		}
 		return ModelArtifactMetadata(
 			modelId = text("model_id"), modelVersion = text("model_version"), modelSha256 = expectedHash,
 			modelSizeBytes = expectedSize, featureSchemaSha256 = featureHash,
@@ -116,6 +133,9 @@ object ModelArtifactValidator {
 			normalizationMean = mean, normalizationStandardDeviation = standardDeviation,
 			supportedRoles = supportedRoles,
 			opset = positiveInt(root, "opset"),
+			performanceTier = text("performance_tier"),
+			kind = kind,
+			profileId = profileId,
 		)
 	}
 

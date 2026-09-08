@@ -59,6 +59,15 @@
   "personalization": {
     "adapter_only": true,
     "optimizer": "adamw",
-    "maximum_checkpoint_mib": 8
+    "maximum_checkpoint_mib": 8,
+    "maximum_trainable_parameters": 200000,
+    "maximum_trainable_fraction": 0.1,
+    "maximum_epochs": 100,
+    "early_stopping_patience": 8,
+    "early_stopping_min_delta": 0.0001,
+    "maximum_correction_degrees": 30.0,
+    "maximum_clean_false_correction_degrees": 2.0,
+    "maximum_temporal_jitter_degrees": 1.0,
+    "provider": "AUTO"
   }
 }

@@ -128,6 +128,15 @@ tasks.processResources {
 	from("../../ml/artifacts/onnx-probe-v1") {
 		into("dev/slimevr/ai/probe")
 	}
+	from("../../ml/artifacts/benchmark-small-v1") {
+		into("dev/slimevr/ai/benchmark")
+	}
+	from({
+		zipTree(configurations.runtimeClasspath.get().single { it.name.startsWith("onnxruntime") && it.extension == "jar" })
+	}) {
+		include("ThirdPartyNotices.txt")
+		into("META-INF/licenses/onnxruntime")
+	}
 }
 
 tasks.register<JavaExec>("datasetArchiveReport") {
@@ -164,4 +173,77 @@ tasks.register<JavaExec>("onnxRuntimeProbe") {
 	classpath = sourceSets.main.get().runtimeClasspath
 	javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
 	args(providers.gradleProperty("onnxProbeProvider").orElse("CPU").get())
+}
+
+tasks.register<JavaExec>("aiInferenceBenchmark") {
+	group = "verification"
+	description = "Benchmarks ONNX inference, server-tick submission, queue stability, utilization, and memory"
+	dependsOn(tasks.classes)
+	mainClass.set("dev.slimevr.ai.InferenceBenchmarkCommand")
+	classpath = sourceSets.main.get().runtimeClasspath
+	javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+	doFirst {
+		val benchmarkArgs = mutableListOf(
+			"--provider", providers.gradleProperty("aiBenchmarkProvider").orElse("CPU").get(),
+			"--output", providers.gradleProperty("aiBenchmarkOutput")
+				.orElse(layout.buildDirectory.file("reports/ai-inference/benchmark.json").map { it.asFile.path }).get(),
+			"--iterations", providers.gradleProperty("aiBenchmarkIterations").orElse("500").get(),
+			"--warmup", providers.gradleProperty("aiBenchmarkWarmup").orElse("30").get(),
+			"--submission-hz", providers.gradleProperty("aiBenchmarkSubmissionHz").orElse("100").get(),
+		)
+		providers.gradleProperty("aiBenchmarkModel").orNull?.let { benchmarkArgs += listOf("--model", it) }
+		providers.gradleProperty("aiBenchmarkSidecar").orNull?.let { benchmarkArgs += listOf("--sidecar", it) }
+		providers.gradleProperty("aiBenchmarkTrackers").orNull?.let { benchmarkArgs += listOf("--trackers", it) }
+		providers.gradleProperty("aiBenchmarkContexts").orNull?.let { benchmarkArgs += listOf("--contexts", it) }
+		providers.gradleProperty("aiBenchmarkHostId").orNull?.let { benchmarkArgs += listOf("--host-id", it) }
+		args = benchmarkArgs
+	}
+}
+
+tasks.register<JavaExec>("aiInferenceBenchmarkGate") {
+	group = "verification"
+	description = "Enforces the small-tier 10-slot/60-frame latency, GPU-memory, and queue policy"
+	dependsOn("aiInferenceBenchmark")
+	mainClass.set("dev.slimevr.ai.InferenceBenchmarkGateCommand")
+	classpath = sourceSets.main.get().runtimeClasspath
+	javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+	doFirst {
+		val benchmark = providers.gradleProperty("aiBenchmarkOutput")
+			.orElse(layout.buildDirectory.file("reports/ai-inference/benchmark.json").map { it.asFile.path }).get()
+		val gate = providers.gradleProperty("aiBenchmarkGateOutput")
+			.orElse(layout.buildDirectory.file("reports/ai-inference/gate.json").map { it.asFile.path }).get()
+		args = listOf(benchmark, gate) + listOfNotNull(providers.gradleProperty("aiBenchmarkReferenceHostId").orNull)
+	}
+}
+
+tasks.register<JavaExec>("inferenceReadyReport") {
+	group = "verification"
+	description = "Aggregates and verifies all hash-pinned inference-ready evidence"
+	dependsOn(tasks.classes)
+	mainClass.set("dev.slimevr.ai.InferenceReadyReportCommand")
+	classpath = sourceSets.main.get().runtimeClasspath
+	javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+	doFirst {
+		val manifest = providers.gradleProperty("inferenceReadyEvidence").orNull
+			?: error("Pass -PinferenceReadyEvidence=<evidence-manifest.json>")
+		val output = providers.gradleProperty("inferenceReadyOutput")
+			.orElse(layout.projectDirectory.file("models/ai/inference-ready-report.json").asFile.path).get()
+		args = listOf(manifest, output)
+	}
+}
+
+tasks.register<JavaExec>("shadowDogfoodGate") {
+	group = "verification"
+	description = "Validates real-player shadow sessions across required layout/activity cohorts"
+	dependsOn(tasks.classes)
+	mainClass.set("dev.slimevr.ai.ShadowDogfoodGateCommand")
+	classpath = sourceSets.main.get().runtimeClasspath
+	javaLauncher.set(javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) })
+	doFirst {
+		val source = providers.gradleProperty("shadowDogfoodEvidence").orNull
+			?: error("Pass -PshadowDogfoodEvidence=<shadow-dogfood.json>")
+		val output = providers.gradleProperty("shadowDogfoodGateOutput")
+			.orElse(layout.buildDirectory.file("reports/ai-inference/shadow-dogfood-gate.json").map { it.asFile.path }).get()
+		args = listOf(source, output)
+	}
 }

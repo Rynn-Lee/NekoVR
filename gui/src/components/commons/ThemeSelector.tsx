@@ -60,7 +60,9 @@ export function ThemeSelector<T extends FieldValues = FieldValues>({
               <span
                 className={classNames(
                   'text-sm font-semibold text-center tracking-wide',
-                  isSelected ? 'text-background-10 font-bold' : 'text-background-20'
+                  isSelected
+                    ? 'text-background-10 font-bold'
+                    : 'text-background-20'
                 )}
               >
                 {label}

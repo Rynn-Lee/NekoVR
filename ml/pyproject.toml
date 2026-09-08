@@ -28,6 +28,7 @@ nekovr-evaluate = "nekovr_ml.cli:evaluate_main"
 nekovr-export-onnx = "nekovr_ml.cli:export_onnx_main"
 nekovr-validate-onnx = "nekovr_ml.cli:validate_onnx_main"
 nekovr-generate-probe = "nekovr_ml.cli:generate_probe_main"
+nekovr-trainer-worker = "nekovr_ml.trainer_worker:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

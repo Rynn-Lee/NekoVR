@@ -3,6 +3,7 @@ package dev.slimevr.tracking.trackers
 import com.jme3.math.FastMath
 import dev.slimevr.ai.DriftCorrectionResult
 import dev.slimevr.ai.DriftCorrectionSource
+import dev.slimevr.ai.LegacyDriftCompensationMode
 import dev.slimevr.config.ArmsResetModes
 import dev.slimevr.config.DriftCompensationConfig
 import dev.slimevr.config.ResetsConfig
@@ -275,47 +276,54 @@ class TrackerResetsHandler(
 	 * and reference/drift adjustments, updating [lastPreAiRotation].
 	 */
 	fun getCalibratedPreAiRotation(): Quaternion {
-		val raw = tracker.getRawRotation()
-		var rot = adjustToReference(raw)
+		val calibrated = adjustToReference(tracker.getRawRotation())
+		val rot = if (driftCorrectionSource.legacyDriftCompensationMode(tracker.id) == LegacyDriftCompensationMode.COMPOSE) {
+			legacyDriftCorrection() * calibrated
+		} else {
+			calibrated
+		}
+		lastPreAiRotation = rot
+		return rot
+	}
+
+	private fun legacyDriftCorrection(): Quaternion {
 		if (driftCompensationEnabled && totalDriftTime > 0) {
 			var driftTimeRatio = ((System.currentTimeMillis() - driftSince).toFloat() / totalDriftTime)
 			if (!driftPrediction) {
 				driftTimeRatio = min(1.0f, driftTimeRatio)
 			}
-			rot = averagedDriftQuat.pow(driftAmount * driftTimeRatio) * rot
+			return averagedDriftQuat.pow(driftAmount * driftTimeRatio)
 		}
-		lastPreAiRotation = rot
-		return rot
+		return Quaternion.IDENTITY
 	}
 
 	/**
 	 * Adjust the given rotation for drift compensation if enabled,
 	 * and returns it
 	 */
-	private fun adjustToDrift(rotation: Quaternion): Quaternion {
-		var rot = rotation
-		if (driftCompensationEnabled && totalDriftTime > 0) {
-			var driftTimeRatio = ((System.currentTimeMillis() - driftSince).toFloat() / totalDriftTime)
-			if (!driftPrediction) {
-				driftTimeRatio = min(1.0f, driftTimeRatio)
-			}
-			rot = averagedDriftQuat.pow(driftAmount * driftTimeRatio) * rot
+	private fun adjustToDrift(rotation: Quaternion): Quaternion = applyCorrectionStages(rotation, legacyDriftCorrection())
+
+	/** Explicit post-calibration correction stage; exposed internally for composition-policy tests. */
+	internal fun applyCorrectionStages(calibratedRotation: Quaternion, legacyCorrection: Quaternion): Quaternion {
+		var preAiRotation = calibratedRotation
+		if (driftCorrectionSource.legacyDriftCompensationMode(tracker.id) == LegacyDriftCompensationMode.COMPOSE) {
+			preAiRotation = legacyCorrection * preAiRotation
 		}
 
-		lastPreAiRotation = rot
+		lastPreAiRotation = preAiRotation
 		val correctionResult = driftCorrectionSource.correctionFor(
 			trackerId = tracker.id,
-			preAiRotation = rot,
-			acceleration = tracker.getAcceleration() ?: Vector3.NULL,
+			preAiRotation = preAiRotation,
+			acceleration = tracker.getAcceleration(),
 			epoch = resetEpoch,
 		)
 		if (correctionResult.epoch != resetEpoch) {
 			lastAiCorrection = DriftCorrectionResult(rejectionReason = "STALE_EPOCH", epoch = resetEpoch)
 		} else {
 			lastAiCorrection = correctionResult
-			rot *= lastAiCorrection.correction
+			preAiRotation = lastAiCorrection.correction * preAiRotation
 		}
-		return rot
+		return preAiRotation
 	}
 
 	/**

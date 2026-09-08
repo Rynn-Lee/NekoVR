@@ -69,6 +69,7 @@ fun main(args: Array<String>) {
 	options.addOption("V", "version", false, "Show version")
 	options.addOption("i", "install", false, "Run the driver install")
 	options.addOption("s", "steam", false, "Run the server in steam mode")
+	options.addOption(null, "enable-ai-correction", false, "Opt in to bounded AI correction when inference-ready evidence passes")
 	if (isLinux) {
 		options.addOption("u", "no-udev", false, "Skip checking if udev rules are installed")
 	}
@@ -95,6 +96,8 @@ fun main(args: Array<String>) {
 	if (cmd.hasOption("steam")) {
 		featureFlags.steam = true
 	}
+	featureFlags.aiActiveCorrection = cmd.hasOption("enable-ai-correction") ||
+		System.getenv("NEKOVR_ENABLE_AI_CORRECTION") == "1"
 	featureFlags.skipCheckUdev = !isLinux || cmd.hasOption("no-udev")
 
 	if (cmd.args.isEmpty()) {

@@ -99,12 +99,7 @@ export const defaultConfig: Config = {
   dontShowUdevModal: false,
 };
 
-export const VALID_THEMES = [
-  'dark-orange',
-  'dark-purple',
-  'dark-gray',
-  'light-clean',
-];
+export const VALID_THEMES = ['dark-orange', 'dark-purple', 'dark-gray', 'light-clean'];
 
 const localStore: CrossStorage = {
   get: async <T>(key: string) => (localStorage.getItem(key) as T) ?? undefined,

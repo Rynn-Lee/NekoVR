@@ -1,0 +1,78 @@
+{
+    "format": "nekovr-inference-benchmark-v1",
+    "benchmarkHostId": "development-ryzen7-5700x-windows-v1",
+    "createdAtUtc": "2026-09-07T16:06:48.219020Z",
+    "modelId": "nekovr-small-benchmark-fixture",
+    "modelVersion": "1.0.0",
+    "modelSha256": "0d1858ec04c334b80f9356258c5c1aeed57a6b83d90483a7e07661ef94266930",
+    "performanceTier": "small",
+    "provider": "CPU",
+    "runtimeFlavor": "cpu",
+    "runtimeVersion": "1.29.0",
+    "os": "Windows 11",
+    "architecture": "amd64",
+    "jvm": "OpenJDK 64-Bit Server VM 17.0.20.1",
+    "availableProcessors": 16,
+    "warmupInferences": 50,
+    "submissionRateHz": 100.0,
+    "scenarios": [
+        {
+            "trackerCount": 10,
+            "contextSize": 60,
+            "requestedSubmissions": 500,
+            "processedInferences": 491,
+            "queueDrops": 9,
+            "queueMaximumDepth": 1,
+            "queueFinalDepth": 0,
+            "queueDrained": true,
+            "serverTickBlocking": {
+                "p50Micros": 36,
+                "p95Micros": 109,
+                "p99Micros": 264,
+                "maximumMicros": 561,
+                "samples": 500
+            },
+            "inferenceLatency": {
+                "p50Micros": 578,
+                "p95Micros": 1079,
+                "p99Micros": 1528,
+                "maximumMicros": 6375,
+                "samples": 491
+            },
+            "queueWaitLatency": {
+                "p50Micros": 41,
+                "p95Micros": 606,
+                "p99Micros": 952
+            },
+            "utilization": {
+                "processCpuPercent": {
+                    "p50": 43.19674084993568,
+                    "p95": 47.03112164170625,
+                    "p99": 47.03112164170625,
+                    "maximum": 47.03112164170625,
+                    "samples": 35
+                },
+                "systemCpuPercent": {
+                    "p50": 74.3749444843297,
+                    "p95": 89.37733739705888,
+                    "p99": 89.37733739705888,
+                    "maximum": 89.37733739705888,
+                    "samples": 35
+                },
+                "gpuPercent": null,
+                "gpuMemoryBaselineBytes": null,
+                "gpuMemoryPeakBytes": null,
+                "gpuMemoryIncrementalBytes": null,
+                "gpuSource": null,
+                "gpuUnavailableReason": "CPU provider does not execute inference on a GPU"
+            },
+            "memory": {
+                "heapBaselineBytes": 33554432,
+                "heapPeakBytes": 41943040,
+                "heapIncrementalBytes": 8388608,
+                "nonHeapPeakBytes": 15235808,
+                "committedVirtualMemoryPeakBytes": 1276071936
+            }
+        }
+    ]
+}

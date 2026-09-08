@@ -120,8 +120,8 @@ jobs:
           distribution: 'adopt'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v6
-      - name: Build ShadowJar
-        run: ./gradlew :server:desktop:shadowJar --build-cache
+      - name: Build and verify inference-enabled ShadowJar
+        run: ./gradlew :server:desktop:installedInferenceSmoke --build-cache
       - name: Test with Gradle
         run: ./gradlew :server:desktop:test
       - name: Upload Server Jar
@@ -182,11 +182,22 @@ jobs:
         with:
           node-version-file: '.node-version'
           cache: 'pnpm'
+      - name: Set up JDK 17 for installed CPU smoke
+        uses: actions/setup-java@v5
+        with:
+          java-version: '17'
+          distribution: 'adopt'
       - name: Download Server Jar
         uses: actions/download-artifact@v8
         with:
           name: server-jar
           path: server
+      - if: matrix.os != 'windows-11-arm'
+        name: Run offline installed-package CPU smoke
+        shell: bash
+        env:
+          NEKOVR_OFFLINE_SMOKE: '1'
+        run: java -Djava.net.useSystemProxies=false -cp server/slimevr.jar dev.slimevr.ai.InstalledInferenceSmokeCommand
       - if: contains(fromJson(needs.setup-matrix.outputs.matrix-cpp).include.*.os, matrix.os)
         name: Download bindings provider artifact
         uses: actions/download-artifact@v8
@@ -218,6 +229,15 @@ jobs:
             ${{ matrix.platform == 'macos' && '--universal' || '' }} \
             --config.extraMetadata.version="$VERSION" \
             --publish never
+      - if: matrix.os != 'windows-11-arm'
+        name: Run offline smoke from packaged Electron payload
+        shell: bash
+        env:
+          NEKOVR_OFFLINE_SMOKE: '1'
+        run: |
+          INSTALLED_JAR=$(find gui/dist/artifacts -type f -name slimevr.jar -print -quit)
+          test -n "$INSTALLED_JAR"
+          java -Djava.net.useSystemProxies=false -cp "$INSTALLED_JAR" dev.slimevr.ai.InstalledInferenceSmokeCommand
       - name: Collect and Rename Artifacts
         shell: bash
         run: |

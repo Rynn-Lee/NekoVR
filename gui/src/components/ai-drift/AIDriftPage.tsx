@@ -1,114 +1,94 @@
+import { useState } from 'react';
+import { useLocalization } from '@fluent/react';
 import { AIDriftIcon } from '@/components/commons/icon/BrainIcon';
-import { WrenchIcon } from '@/components/commons/icon/WrenchIcons';
-import { RecordIcon } from '@/components/commons/icon/RecordIcon';
-import { DownloadIcon } from '@/components/commons/icon/DownloadIcon';
-import { AutoUpdaterWidget } from '@/components/updater/AutoUpdaterWidget';
-import { Typography } from '@/components/commons/Typography';
+import { useAIModelControl } from '@/hooks/ai-model';
+import { useDatasetRecorder } from '@/hooks/dataset-recorder';
+import { AIModelControlPanel } from './AIModelControlPanel';
 import { DatasetRecorderWidget } from './DatasetRecorderWidget';
+import { usePersonalTraining } from '@/hooks/personal-training';
+import { PersonalTrainingPanel } from './PersonalTrainingPanel';
+
+export type AIDriftTab = 'correction' | 'datasets' | 'personal';
 
 export function AIDriftPage() {
+  const { l10n } = useLocalization();
+  const [activeTab, setActiveTab] = useState<AIDriftTab>('correction');
+
+  // Both authoritative subscriptions remain mounted while tab content changes.
+  const modelControl = useAIModelControl();
+  const datasetControl = useDatasetRecorder();
+  const personalTraining = usePersonalTraining();
+
+  const tabs: { id: AIDriftTab; label: string }[] = [
+    { id: 'correction', label: l10n.getString('ai_drift-tab-correction') },
+    { id: 'datasets', label: l10n.getString('ai_drift-tab-datasets') },
+    { id: 'personal', label: l10n.getString('ai_drift-tab-personal') },
+  ];
+
   return (
-    <div className="flex flex-col gap-4 p-4 md:p-6 max-w-4xl mx-auto w-full h-full overflow-y-auto">
-      {/* 1. ИИ-коррекция дрифта */}
-      <div className="bg-background-70 border border-background-50 rounded-2xl p-5 shadow-sm flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-10 h-10 bg-background-60 border border-background-50 flex justify-center items-center rounded-xl fill-background-10 text-background-10">
-              <AIDriftIcon size={22} />
-            </div>
-            <div className="flex flex-col">
-              <Typography
-                variant="section-title"
-                className="!text-base font-bold text-background-10"
-              >
-                ИИ-коррекция дрифта
-              </Typography>
-              <span className="text-xs text-background-30">
-                Автоматическое устранение дрифта IMU-трекеров нейросетью в
-                реальном времени
-              </span>
-            </div>
-          </div>
-
-          <span className="rounded-full border border-background-40 bg-background-60 px-3 py-1 text-xs font-semibold text-background-30">
-            Недоступно
-          </span>
+    <main
+      className="mx-auto flex h-full w-full max-w-6xl flex-col overflow-hidden px-4 pt-4 md:px-6 md:pt-6"
+      aria-labelledby="ai-drift-page-title"
+    >
+      <header className="flex items-center gap-3 border-b border-background-50 pb-3">
+        <div className="flex h-9 w-9 items-center justify-center fill-background-10">
+          <AIDriftIcon size={22} />
         </div>
-
-        <p className="rounded-lg border border-background-50 bg-background-60 p-3 text-xs text-background-30">
-          Коррекция отключена до прохождения проверки inference-ready. Обычный
-          трекинг продолжает работать без изменений.
-        </p>
-      </div>
-
-      {/* 2. Файл модели */}
-      <div className="bg-background-70 border border-background-50 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
-        <div className="flex items-center gap-3.5 mb-1">
-          <div className="w-10 h-10 bg-background-60 border border-background-50 flex justify-center items-center rounded-xl fill-background-10 text-background-10">
-            <WrenchIcon />
-          </div>
-          <div className="flex flex-col">
-            <Typography
-              variant="section-title"
-              className="!text-base font-bold text-background-10"
-            >
-              Файл модели (.onnx)
-            </Typography>
-            <span className="text-xs text-background-30">
-              Загрузка и подключение обученной модели нейросети
-            </span>
-          </div>
+        <div>
+          <h1
+            id="ai-drift-page-title"
+            className="text-lg font-bold text-background-10"
+          >
+            {l10n.getString('ai_drift-title')}
+          </h1>
+          <p className="text-xs text-background-30">
+            {l10n.getString('ai_drift-description')}
+          </p>
         </div>
+      </header>
 
-        <p className="rounded-lg border border-background-50 bg-background-60 p-3 text-xs text-background-30">
-          Загрузка модели появится после внедрения проверяемого серверного каталога
-          и безопасной активации ONNX.
-        </p>
-      </div>
+      <nav
+        className="flex gap-1 border-b border-background-50 pt-2"
+        role="tablist"
+        aria-label={l10n.getString('ai_drift-tabs-label')}
+      >
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            id={`ai-drift-tab-${tab.id}`}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === tab.id}
+            aria-controls={`ai-drift-panel-${tab.id}`}
+            tabIndex={activeTab === tab.id ? 0 : -1}
+            className={`border-b-2 px-4 py-2 text-sm font-semibold ${activeTab === tab.id ? 'border-accent-background-20 text-background-10' : 'border-transparent text-background-30 hover:text-background-10'}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
 
-      {/* 3. Сбор датасетов */}
-      <div className="bg-background-70 border border-background-50 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
-        <div className="flex items-center gap-3.5 mb-1">
-          <div className="w-10 h-10 bg-background-60 border border-background-50 flex justify-center items-center rounded-xl fill-background-10 text-background-10">
-            <RecordIcon />
-          </div>
-          <div className="flex flex-col">
-            <Typography
-              variant="section-title"
-              className="!text-base font-bold text-background-10"
-            >
-              Сбор датасетов (50 Гц)
-            </Typography>
-            <span className="text-xs text-background-30">
-              Запись ориентации шлема и IMU-трекеров для обучения нейросетей
-            </span>
-          </div>
-        </div>
-
-        <DatasetRecorderWidget />
-      </div>
-
-      {/* 4. Автообновление */}
-      <div className="bg-background-70 border border-background-50 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
-        <div className="flex items-center gap-3.5 mb-1">
-          <div className="w-10 h-10 bg-background-60 border border-background-50 flex justify-center items-center rounded-xl fill-background-10 text-background-10">
-            <DownloadIcon />
-          </div>
-          <div className="flex flex-col">
-            <Typography
-              variant="section-title"
-              className="!text-base font-bold text-background-10"
-            >
-              Автообновление (GitHub)
-            </Typography>
-            <span className="text-xs text-background-30">
-              Синхронизация и проверка обновлений из ветки main
-            </span>
-          </div>
-        </div>
-
-        <AutoUpdaterWidget />
-      </div>
-    </div>
+      <section
+        id={`ai-drift-panel-${activeTab}`}
+        role="tabpanel"
+        aria-labelledby={`ai-drift-tab-${activeTab}`}
+        className="min-h-0 flex-1 overflow-y-auto py-4"
+      >
+        {activeTab === 'correction' && (
+          <AIModelControlPanel control={modelControl} />
+        )}
+        {activeTab === 'datasets' && (
+          <DatasetRecorderWidget control={datasetControl} />
+        )}
+        {activeTab === 'personal' && (
+          <PersonalTrainingPanel
+            control={personalTraining}
+            availableSessions={datasetControl.sessions}
+            availableModels={modelControl.models}
+          />
+        )}
+      </section>
+    </main>
   );
 }

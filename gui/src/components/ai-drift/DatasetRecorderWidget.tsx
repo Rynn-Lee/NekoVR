@@ -13,7 +13,13 @@ import { DownloadIcon } from '@/components/commons/icon/DownloadIcon';
 import { useElectron } from '@/hooks/electron';
 import { useDatasetRecorder } from '@/hooks/dataset-recorder';
 
-export function DatasetRecorderWidget() {
+export type DatasetRecorderControl = ReturnType<typeof useDatasetRecorder>;
+
+export function DatasetRecorderWidget({
+  control,
+}: {
+  control: DatasetRecorderControl;
+}) {
   const { l10n } = useLocalization();
   const electron = useElectron();
   const {
@@ -37,7 +43,7 @@ export function DatasetRecorderWidget() {
     deleteSession,
     exportSession,
     revealSession,
-  } = useDatasetRecorder();
+  } = control;
 
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);

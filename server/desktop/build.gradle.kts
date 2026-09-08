@@ -7,6 +7,7 @@
  */
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.util.zip.ZipFile
 
 plugins {
 	kotlin("jvm")
@@ -74,11 +75,75 @@ tasks.shadowJar {
 		exclude(dependency("net.java.dev.jna:.*:.*"))
 		exclude(dependency("com.google.flatbuffers:flatbuffers-java:.*"))
 
+		exclude(project(":server:core"))
 		exclude(project(":solarxr-protocol"))
+		exclude(dependency("com.microsoft.onnxruntime:.*:.*"))
 	}
 	archiveBaseName.set("slimevr")
 	archiveClassifier.set("")
 	archiveVersion.set("")
+}
+
+tasks.register("verifyInferenceDistributionContents") {
+	group = "verification"
+	description = "Verifies generated RPC, ONNX runtime/model metadata, and licenses in the desktop distribution JAR"
+	dependsOn(tasks.shadowJar)
+	doLast {
+		val archive = tasks.shadowJar.get().archiveFile.get().asFile
+		ZipFile(archive).use { zip ->
+			val entries = zip.entries().asSequence().map { it.name }.toSet()
+			val required = setOf(
+				"dev/slimevr/desktop/Main.class",
+				"dev/slimevr/ai/InstalledInferenceSmokeCommand.class",
+				"solarxr_protocol/rpc/RpcMessage.class",
+				"ai/onnxruntime/OrtEnvironment.class",
+				"dev/slimevr/ai/probe/probe.onnx",
+				"dev/slimevr/ai/probe/probe.onnx.json",
+				"dev/slimevr/ai/benchmark/small.onnx",
+				"dev/slimevr/ai/benchmark/small.onnx.json",
+				"META-INF/licenses/onnxruntime/ThirdPartyNotices.txt",
+			)
+			val missing = required - entries
+			check(missing.isEmpty()) { "Desktop distribution is missing: ${missing.sorted()}" }
+			check(entries.any { it.startsWith("ai/onnxruntime/native/") }) { "Desktop distribution has no ONNX native runtime" }
+		}
+	}
+}
+
+val prepareJpackageInput by tasks.registering(Sync::class) {
+	dependsOn(tasks.shadowJar)
+	from(tasks.shadowJar.flatMap { it.archiveFile })
+	from("../../gui/out") { into("gui") }
+	into(layout.buildDirectory.dir("jpackage-input"))
+}
+
+tasks.register<Exec>("jpackageImage") {
+	group = "distribution"
+	description = "Builds a self-contained server image with the packaged GUI assets and ONNX runtime"
+	dependsOn(prepareJpackageInput, "verifyInferenceDistributionContents")
+	val destination = layout.buildDirectory.dir("jpackage")
+	doFirst {
+		project.delete(destination)
+		commandLine(
+			javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) }.get().metadata.installationPath.file("bin/jpackage${if (System.getProperty("os.name").startsWith("Windows")) ".exe" else ""}").asFile,
+			"--type", "app-image", "--name", "NekoVR-Server", "--dest", destination.get().asFile,
+			"--input", layout.buildDirectory.dir("jpackage-input").get().asFile,
+			"--main-jar", "slimevr.jar", "--main-class", "dev.slimevr.desktop.Main",
+		)
+	}
+}
+
+tasks.register<Exec>("installedInferenceSmoke") {
+	group = "verification"
+	description = "Runs managed import and every available provider from the packaged offline desktop JAR"
+	dependsOn(tasks.shadowJar, "verifyInferenceDistributionContents")
+	doFirst {
+		val java = javaToolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(17)) }.get().executablePath.asFile
+		val archive = tasks.shadowJar.get().archiveFile.get().asFile
+		val output = layout.buildDirectory.file("reports/installed-inference-smoke.json").get().asFile
+		environment("NEKOVR_OFFLINE_SMOKE", "1")
+		commandLine(java, "-Djava.net.useSystemProxies=false", "-cp", archive, "dev.slimevr.ai.InstalledInferenceSmokeCommand", output)
+	}
 }
 application {
 	mainClass.set("dev.slimevr.desktop.Main")

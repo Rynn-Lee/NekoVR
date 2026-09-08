@@ -1,0 +1,161 @@
+{
+  "context_bounds": {
+    "maximum": 60,
+    "minimum": 1
+  },
+  "feature_schema_sha256": "e37e48936624db7b2816f480783089a0eb48d18e14b17590be89ae14db698205",
+  "format": "nekovr-model-sidecar-v1",
+  "inputs": [
+    {
+      "dtype": "float32",
+      "name": "features",
+      "semantics": "normalized causal feature history",
+      "shape": [
+        "batch",
+        "time",
+        "slots",
+        4
+      ]
+    },
+    {
+      "dtype": "int64",
+      "name": "role_ids",
+      "semantics": "canonical body-role IDs",
+      "shape": [
+        "batch",
+        "slots"
+      ]
+    },
+    {
+      "dtype": "bool",
+      "name": "slot_mask",
+      "semantics": "mapped tracker slots",
+      "shape": [
+        "batch",
+        "slots"
+      ]
+    },
+    {
+      "dtype": "bool",
+      "name": "channel_validity",
+      "semantics": "per-channel validity",
+      "shape": [
+        "batch",
+        "time",
+        "slots",
+        4
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "time_deltas_s",
+      "semantics": "monotonic elapsed seconds",
+      "shape": [
+        "batch",
+        "time"
+      ]
+    },
+    {
+      "dtype": "bool",
+      "name": "time_mask",
+      "semantics": "valid causal frames; rightmost frame must be valid",
+      "shape": [
+        "batch",
+        "time"
+      ]
+    }
+  ],
+  "model_id": "nekovr-small-benchmark-fixture",
+  "model_sha256": "0d1858ec04c334b80f9356258c5c1aeed57a6b83d90483a7e07661ef94266930",
+  "model_size_bytes": 8997,
+  "model_version": "1.0.0",
+  "normalization": {
+    "mean": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ],
+    "scope": "fixture",
+    "standard_deviation": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ]
+  },
+  "opset": 18,
+  "output_convention": {
+    "correction": "q_corrected = rotation_vector_world * q_pre_ai",
+    "correction_axes": "world_xyz",
+    "masked_slot_output": "zero",
+    "maximum_correction_radians": 0.5235987755982988,
+    "maximum_drift_rate_radians_per_second": 0.08726646259971647,
+    "quaternion_order": "xyzw",
+    "time_padding": "left"
+  },
+  "outputs": [
+    {
+      "dtype": "float32",
+      "name": "correction_rotation_vectors",
+      "semantics": "bounded world-frame rotation vector in radians",
+      "shape": [
+        "batch",
+        "slots",
+        3
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "confidence",
+      "semantics": "per-slot confidence in [0,1]",
+      "shape": [
+        "batch",
+        "slots"
+      ]
+    },
+    {
+      "dtype": "float32",
+      "name": "drift_rate",
+      "semantics": "bounded yaw drift-rate estimate in radians/second",
+      "shape": [
+        "batch",
+        "slots"
+      ]
+    }
+  ],
+  "performance_tier": "small",
+  "provenance": {
+    "config_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+    "dataset_hashes": {},
+    "seed": 1102,
+    "source_commit": "DETERMINISTIC_BENCHMARK_FIXTURE"
+  },
+  "schema_version": 1,
+  "slot_bounds": {
+    "maximum": 10,
+    "minimum": 1
+  },
+  "supported_roles": [
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16
+  ],
+  "validation_metrics": {
+    "not_for_correction": true,
+    "purpose": "runtime_performance_fixture"
+  }
+}

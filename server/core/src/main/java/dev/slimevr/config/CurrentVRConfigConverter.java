@@ -348,6 +348,17 @@ public class CurrentVRConfigConverter implements VersionedModelConverter {
 						ignoredStepsArray.removeAll();
 				}
 			}
+
+			if (version < 16) {
+				// Prototype AI state was neither versioned nor fully validated. Never
+				// migrate its enabled/model state into the production control plane.
+				ObjectNode aiDriftNode = nodeFactory.objectNode();
+				aiDriftNode.put("schemaVersion", 1);
+				aiDriftNode.put("enabled", false);
+				modelData.set("aiDrift", aiDriftNode);
+				modelData.remove("aiModel");
+				modelData.remove("aiModelConfig");
+			}
 		} catch (Exception e) {
 			LogManager.severe("Error during config migration: " + e);
 		}

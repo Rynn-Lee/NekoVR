@@ -10,7 +10,7 @@ import dev.slimevr.tracking.trackers.Tracker
 import dev.slimevr.tracking.trackers.TrackerRole
 
 @JsonVersionedModel(
-	currentVersion = "15",
+	currentVersion = "16",
 	defaultDeserializeToVersion = "15",
 	toCurrentConverterClass = CurrentVRConfigConverter::class,
 )
@@ -20,6 +20,8 @@ class VRConfig {
 	val filters: FiltersConfig = FiltersConfig()
 
 	val driftCompensation: DriftCompensationConfig = DriftCompensationConfig()
+
+	val aiDrift: AIDriftConfig = AIDriftConfig()
 
 	val oscRouter: OSCConfig = OSCConfig()
 

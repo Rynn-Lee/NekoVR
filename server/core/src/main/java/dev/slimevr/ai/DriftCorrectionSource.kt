@@ -4,8 +4,8 @@ import io.github.axisangles.ktmath.Quaternion
 import io.github.axisangles.ktmath.Vector3
 
 /**
- * Result of the optional drift-correction stage. The correction is composed on
- * the right of the calibrated tracker orientation. Identity is the mandatory
+ * Result of the optional drift-correction stage. The world-frame correction is
+ * composed on the left of the calibrated tracker orientation. Identity is the mandatory
  * fail-open value whenever the feature is disabled or unavailable.
  */
 data class DriftCorrectionResult(
@@ -27,6 +27,8 @@ interface DriftCorrectionSource {
 		acceleration: Vector3,
 		epoch: Long = 0L,
 	): DriftCorrectionResult
+
+	fun legacyDriftCompensationMode(trackerId: Int): LegacyDriftCompensationMode = LegacyDriftCompensationMode.COMPOSE
 
 	fun resetHistory(trackerId: Int, epoch: Long) {}
 

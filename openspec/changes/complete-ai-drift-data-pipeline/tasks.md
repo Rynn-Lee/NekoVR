@@ -95,50 +95,50 @@
 - [x] 9.2 Package platform-specific CPU/CUDA/TensorRT/DirectML native runtimes as supported and verify providers by successful session execution.
 - [x] 9.3 Implement AUTO and forced provider behavior with truthful diagnostics and no silent forced-provider fallback.
 - [x] 9.4 Implement the bounded latest-value inference worker, stable slot/body-role mappings, normalized causal histories, masks, epochs, and resource lifecycle.
-- [ ] 9.5 Implement per-tracker finite/fresh/confidence gating, magnitude/rate/acceleration bounds, smoothing, stale decay, watchdog, and identity fail-open behavior.
-- [ ] 9.6 Insert one explicit AI correction stage after calibration transforms and implement tested replace/compose policy for legacy drift compensation.
-- [ ] 9.7 Expose model/provider/latency/queue/drop/error/outlier/confidence/mapping runtime metrics and typed health state.
-- [ ] 9.8 Add unit/integration tests for load failure rollback, reload/unload, provider failure, stale/late epochs, mappings, mixed confidence, outliers, watchdog, and normal tracking fallback.
+- [x] 9.5 Implement per-tracker finite/fresh/confidence gating, magnitude/rate/acceleration bounds, smoothing, stale decay, watchdog, and identity fail-open behavior.
+- [x] 9.6 Insert one explicit AI correction stage after calibration transforms and implement tested replace/compose policy for legacy drift compensation.
+- [x] 9.7 Expose model/provider/latency/queue/drop/error/outlier/confidence/mapping runtime metrics and typed health state.
+- [x] 9.8 Add unit/integration tests for load failure rollback, reload/unload, provider failure, stale/late epochs, mappings, mixed confidence, outliers, watchdog, and normal tracking fallback.
 
 ## 10. Add Model Control Plane and UI
 
-- [ ] 10.1 Extend FlatBuffers RPC with model import/catalog/download/load/unload, provider/config/mapping commands, runtime status, progress, and typed errors.
-- [ ] 10.2 Implement managed local model storage with temporary copies, path containment, metadata/size/SHA-256 verification, and atomic imports.
-- [ ] 10.3 Replace hard-coded model entries with a versioned HTTPS allowlisted JSON catalog parser and verified downloads reflecting actual local state.
-- [ ] 10.4 Persist versioned enabled/provider/context/confidence/safety/legacy-mode/mapping settings with AI disabled on unsafe prototype migration.
-- [ ] 10.5 Replace local React-only AI/model state with RPC hooks and server acknowledgements for actual active model/provider/configuration.
-- [ ] 10.6 Implement AUTO/provider, context, confidence, correction limits, per-tracker slot/body-role mapping, enable/disable, unload, catalog, progress, and error controls.
-- [ ] 10.7 Remove WebGL GPU detection as execution-provider evidence and display only server-probed compatibility/latency/runtime health.
-- [ ] 10.8 Add English/Russian Fluent strings, accessibility coverage, and control-plane UI integration tests.
-- [ ] 10.9 Implement server-owned hash-based recent/pinned global and personal model history with compatibility state and transactional quick switching.
-- [ ] 10.10 Refactor AI Drift into compact top-level Correction, Datasets and Personal Training tabs with shared authoritative hooks and no nested decorative cards.
-- [ ] 10.11 Keep correction and recording jobs running across tab navigation and application/client reconnects.
-- [ ] 10.12 Add one-action fallback/rollback to the previous compatible model after switch or shadow-validation failure.
+- [x] 10.1 Extend FlatBuffers RPC with model import/catalog/download/load/unload, provider/config/mapping commands, runtime status, progress, and typed errors.
+- [x] 10.2 Implement managed local model storage with temporary copies, path containment, metadata/size/SHA-256 verification, and atomic imports.
+- [x] 10.3 Replace hard-coded model entries with a versioned HTTPS allowlisted JSON catalog parser and verified downloads reflecting actual local state.
+- [x] 10.4 Persist versioned enabled/provider/context/confidence/safety/legacy-mode/mapping settings with AI disabled on unsafe prototype migration.
+- [x] 10.5 Replace local React-only AI/model state with RPC hooks and server acknowledgements for actual active model/provider/configuration.
+- [x] 10.6 Implement AUTO/provider, context, confidence, correction limits, per-tracker slot/body-role mapping, enable/disable, unload, catalog, progress, and error controls.
+- [x] 10.7 Remove WebGL GPU detection as execution-provider evidence and display only server-probed compatibility/latency/runtime health.
+- [x] 10.8 Add English/Russian Fluent strings, accessibility coverage, and control-plane UI integration tests.
+- [x] 10.9 Implement server-owned hash-based recent/pinned global and personal model history with compatibility state and transactional quick switching.
+- [x] 10.10 Refactor AI Drift into compact top-level Correction, Datasets and Personal Training tabs with shared authoritative hooks and no nested decorative cards.
+- [x] 10.11 Keep correction and recording jobs running across tab navigation and application/client reconnects.
+- [x] 10.12 Add one-action fallback/rollback to the previous compatible model after switch or shadow-validation failure.
 
 ## 11. Performance, Packaging, and Inference-Ready Gate
 
-- [ ] 11.1 Add benchmark harnesses for server tick blocking, p50/p95/p99 inference, queue stability, CPU/GPU utilization, memory, tracker count, and context size.
+- [x] 11.1 Add benchmark harnesses for server tick blocking, p50/p95/p99 inference, queue stability, CPU/GPU utilization, memory, tracker count, and context size.
 - [ ] 11.2 Select and document the reference weak CPU/GPU/driver matrix and record the 10-slot/60-frame small-model baseline.
-- [ ] 11.3 Enforce small-tier targets of at most 128 MiB incremental GPU memory, 1 ms p95 on reference entry GPU, and 4 ms p95 on reference CPU.
-- [ ] 11.4 Integrate generated protocol, React assets, server, ONNX native providers/licenses, model metadata, and startup paths into Gradle/Electron/jpackage distributions.
-- [ ] 11.5 Add installed-package offline CPU and available GPU-provider smoke tests for every supported target.
+- [x] 11.3 Enforce small-tier targets of at most 128 MiB incremental GPU memory, 1 ms p95 on reference entry GPU, and 4 ms p95 on reference CPU.
+- [x] 11.4 Integrate generated protocol, React assets, server, ONNX native providers/licenses, model metadata, and startup paths into Gradle/Electron/jpackage distributions.
+- [x] 11.5 Add installed-package offline CPU and available GPU-provider smoke tests for every supported target.
 - [ ] 11.6 Run shadow-mode dogfood and verify correction safety, reset interaction, layout cohorts, no visible performance loss, and fail-open behavior.
-- [ ] 11.7 Add a single inference-ready report aggregating parity, provider/package, layout, watchdog, safety, quality, baseline regression, and performance evidence.
-- [ ] 11.8 Enable bounded active correction only behind an opt-in feature flag after inference-ready passes and retain instant rollback to identity correction.
+- [x] 11.7 Add a single inference-ready report aggregating parity, provider/package, layout, watchdog, safety, quality, baseline regression, and performance evidence.
+- [x] 11.8 Enable bounded active correction only behind an opt-in feature flag after inference-ready passes and retain instant rollback to identity correction.
 
 ## 12. Implement Local Personal-Model Training
 
-- [ ] 12.1 Define versioned personal profiles, model/job/checkpoint/cache metadata, compatible roles/layouts/sensor families and local privacy/provenance storage.
-- [ ] 12.2 Implement selected-session eligibility analysis for integrity, feature/base compatibility, valid hours/windows, resets, clean intervals, body assignment, sensor/layout and activity coverage.
-- [ ] 12.3 Implement leakage-safe whole-session/time personal train/validation/test splits with recent suitable holdout and deterministic balanced streaming windows.
-- [ ] 12.4 Build a signed out-of-process `NekoVR Trainer` worker over typed local IPC using ONNX Runtime Training artifacts and atomic resumable checkpoints.
-- [ ] 12.5 Implement CPU adapter-training baseline and optional CUDA training only after packaged provider probe; report DirectML inference and training support separately.
-- [ ] 12.6 Enforce frozen-backbone/adapter-only gradients, bounded trainable parameter count, early stopping and correction safety constraints.
-- [ ] 12.7 Implement Quick, Balanced and Thorough presets derived from usable data, hardware/resource probe and validated epoch/window/early-stop policies.
-- [ ] 12.8 Implement CPU thread, GPU memory/utilization, RAM, disk and I/O budgets plus automatic checkpoint/pause/throttle policy during active VR tracking.
-- [ ] 12.9 Implement trainer install/probe/profile/eligibility/job/pause/resume/cancel/status/evaluate/export/activate FlatBuffers RPC and regenerated bindings.
-- [ ] 12.10 Implement Personal Training tab base/profile/session selection, coverage findings, preset/resource controls and authoritative staged progress with ETA, metrics, resources and errors.
-- [ ] 12.11 Restore unfinished jobs and checkpoints after application restart and test worker crash isolation without interrupting active correction.
+- [x] 12.1 Define versioned personal profiles, model/job/checkpoint/cache metadata, compatible roles/layouts/sensor families and local privacy/provenance storage.
+- [x] 12.2 Implement selected-session eligibility analysis for integrity, feature/base compatibility, valid hours/windows, resets, clean intervals, body assignment, sensor/layout and activity coverage.
+- [x] 12.3 Implement leakage-safe whole-session/time personal train/validation/test splits with recent suitable holdout and deterministic balanced streaming windows.
+- [x] 12.4 Build a signed out-of-process `NekoVR Trainer` worker over typed local IPC using ONNX Runtime Training artifacts and atomic resumable checkpoints.
+- [x] 12.5 Implement CPU adapter-training baseline and optional CUDA training only after packaged provider probe; report DirectML inference and training support separately.
+- [x] 12.6 Enforce frozen-backbone/adapter-only gradients, bounded trainable parameter count, early stopping and correction safety constraints.
+- [x] 12.7 Implement Quick, Balanced and Thorough presets derived from usable data, hardware/resource probe and validated epoch/window/early-stop policies.
+- [x] 12.8 Implement CPU thread, GPU memory/utilization, RAM, disk and I/O budgets plus automatic checkpoint/pause/throttle policy during active VR tracking.
+- [x] 12.9 Implement trainer install/probe/profile/eligibility/job/pause/resume/cancel/status/evaluate/export/activate FlatBuffers RPC and regenerated bindings.
+- [x] 12.10 Implement Personal Training tab base/profile/session selection, coverage findings, preset/resource controls and authoritative staged progress with ETA, metrics, resources and errors.
+- [x] 12.11 Restore unfinished jobs and checkpoints after application restart and test worker crash isolation without interrupting active correction.
 - [ ] 12.12 Evaluate each personal model against its base on held-out reset replay, resets/hour, time-to-first-reset, clean false correction, jitter, correction bounds and every sufficiently represented activity/layout cohort.
 - [ ] 12.13 Export validated personal ONNX plus base/profile/session/split/checkpoint/metric hashes and run framework/training-runtime/inference-runtime parity checks.
 - [ ] 12.14 Add transactional optional shadow activation, inference-history reset, previous-model retention, topology compatibility fallback and one-action rollback.

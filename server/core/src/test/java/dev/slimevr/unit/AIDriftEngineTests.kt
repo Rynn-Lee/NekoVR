@@ -2,8 +2,10 @@ package dev.slimevr.unit
 
 import dev.slimevr.ai.AIDriftEngine
 import dev.slimevr.ai.ExecutionProviderType
+import dev.slimevr.ai.InferenceSnapshot
 import dev.slimevr.ai.InferenceTensorBatch
 import dev.slimevr.ai.InferenceTensorOutput
+import dev.slimevr.ai.InferenceTrackerSample
 import dev.slimevr.ai.JavaOnnxRuntimeBackend
 import dev.slimevr.ai.LoadedModelSession
 import dev.slimevr.ai.ModelArtifactMetadata
@@ -13,13 +15,16 @@ import dev.slimevr.ai.ModelLoadException
 import dev.slimevr.ai.OnnxRuntimeBackend
 import dev.slimevr.ai.OnnxRuntimePackage
 import dev.slimevr.ai.RuntimeTensorInfo
+import dev.slimevr.ai.TrackerSlotMapping
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.io.path.writeBytes
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -153,6 +158,179 @@ class AIDriftEngineTests {
 		assertTrue(OnnxRuntimePackage("directml", "1.29.0").allows(ExecutionProviderType.DIRECTML))
 	}
 
+	@Test
+	fun `repeated inference failures trip watchdog and expose typed fail-open health`() {
+		val (model, sidecar) = probeFiles()
+		val metadata = ModelArtifactValidator.validate(model, sidecar)
+		val backend = FakeRuntime(metadata, setOf(ExecutionProviderType.CPU)).apply { inferenceFailure = true }
+		val config = dev.slimevr.ai.AIModelConfig().apply {
+			enabled = true
+			watchdogFailureThreshold = 2
+		}
+		AIDriftEngine(config = config, runtimeFactory = { backend }).use { engine ->
+			assertTrue(engine.loadModel(model, sidecar, ExecutionProviderType.CPU).activated)
+			engine.configureMappings(listOf(TrackerSlotMapping(10, 1, 0)))
+			fun submit(sequence: Long) = engine.submitInferenceSnapshot(
+				InferenceSnapshot(
+					sequence,
+					System.nanoTime(),
+					0.02f,
+					listOf(InferenceTrackerSample(10, 0L, floatArrayOf(1f, 1f), booleanArrayOf(true, true))),
+				),
+			)
+			assertTrue(submit(1))
+			assertTrue(eventually { engine.runtimeStatus().metrics.processedInferences >= 1L })
+			assertTrue(submit(2))
+			assertTrue(eventually { engine.runtimeStatus().metrics.inferenceErrors >= 1L })
+			assertTrue(submit(3))
+			assertTrue(eventually { engine.runtimeStatus().metrics.inferenceErrors >= 2L })
+
+			val correction = engine.correctionFor(10, io.github.axisangles.ktmath.Quaternion.IDENTITY, io.github.axisangles.ktmath.Vector3.NULL, 0L)
+			assertFalse(correction.applied)
+			assertEquals("WATCHDOG_TRIPPED", correction.rejectionReason)
+			assertEquals(dev.slimevr.ai.AIRuntimeHealthState.WATCHDOG_TRIPPED, engine.runtimeStatus().health)
+			assertEquals("INFERENCE_ERROR", engine.runtimeStatus().lastError?.code)
+		}
+	}
+
+	@Test
+	fun `runtime status exposes active model provider mapping confidence and worker metrics`() {
+		val (model, sidecar) = probeFiles()
+		val metadata = ModelArtifactValidator.validate(model, sidecar)
+		val backend = FakeRuntime(metadata, setOf(ExecutionProviderType.CPU))
+		val config = dev.slimevr.ai.AIModelConfig().apply {
+			enabled = true
+			confidenceThreshold = 0f
+			maximumResultAgeMillis = 1_000L
+		}
+		AIDriftEngine(config = config, runtimeFactory = { backend }).use { engine ->
+			assertTrue(engine.loadModel(model, sidecar, ExecutionProviderType.CPU).activated)
+			engine.configureMappings(listOf(TrackerSlotMapping(10, 1, 0)))
+			fun submit(sequence: Long) = engine.submitInferenceSnapshot(
+				InferenceSnapshot(
+					sequence,
+					System.nanoTime(),
+					0.02f,
+					listOf(InferenceTrackerSample(10, 0L, floatArrayOf(1f, 1f), booleanArrayOf(true, true))),
+				),
+			)
+			assertTrue(submit(1))
+			assertTrue(eventually { engine.runtimeStatus().metrics.processedInferences >= 1L })
+			assertTrue(submit(2))
+			assertTrue(eventually { engine.latestInference(10, 0L) != null })
+			engine.correctionFor(10, io.github.axisangles.ktmath.Quaternion.IDENTITY, io.github.axisangles.ktmath.Vector3.NULL, 0L)
+
+			val status = engine.runtimeStatus()
+			assertEquals(dev.slimevr.ai.AIModelLoadState.ACTIVE, status.loadState)
+			assertEquals(dev.slimevr.ai.AIRuntimeHealthState.HEALTHY, status.health)
+			assertEquals("nekovr-provider-probe", status.activeModel?.modelId)
+			assertEquals(ExecutionProviderType.CPU, status.activeModel?.provider)
+			assertTrue(status.metrics.processedInferences >= 2L)
+			assertEquals(0f, status.metrics.confidenceMinimum)
+			assertEquals(10, status.trackers.single().trackerId)
+			assertTrue(status.trackers.single().correctionApplied)
+		}
+	}
+
+	@Test
+	fun `shadow mode observes accepted predictions but never changes tracking output`() {
+		val (model, sidecar) = probeFiles()
+		val metadata = ModelArtifactValidator.validate(model, sidecar)
+		val backend = FakeRuntime(metadata, setOf(ExecutionProviderType.CPU))
+		val config = dev.slimevr.ai.AIModelConfig().apply {
+			enabled = true
+			shadowMode = true
+			confidenceThreshold = 0f
+			maximumResultAgeMillis = 1_000L
+		}
+		AIDriftEngine(config = config, runtimeFactory = { backend }).use { engine ->
+			assertTrue(engine.loadModel(model, sidecar, ExecutionProviderType.CPU).activated)
+			engine.configureMappings(listOf(TrackerSlotMapping(10, 1, 0)))
+			assertEquals(dev.slimevr.ai.LegacyDriftCompensationMode.COMPOSE, engine.legacyDriftCompensationMode(10))
+				repeat(2) { sequence ->
+				assertTrue(
+					engine.submitInferenceSnapshot(
+						InferenceSnapshot(
+							sequence.toLong(), System.nanoTime(), 0.02f,
+							listOf(InferenceTrackerSample(10, 7L, floatArrayOf(1f, 1f), booleanArrayOf(true, true))),
+						),
+					),
+				)
+				assertTrue(eventually { engine.runtimeStatus().metrics.processedInferences >= sequence + 1L })
+			}
+			assertTrue(eventually { engine.latestInference(10, 7L) != null })
+
+			val result = engine.correctionFor(10, io.github.axisangles.ktmath.Quaternion.IDENTITY, io.github.axisangles.ktmath.Vector3.NULL, 7L)
+			assertFalse(result.applied)
+			assertEquals(io.github.axisangles.ktmath.Quaternion.IDENTITY, result.correction)
+			assertEquals("SHADOW_MODE", result.rejectionReason)
+			assertTrue(result.historyValid)
+			assertFalse(engine.runtimeStatus().trackers.single().correctionApplied)
+
+			engine.resetHistory(10, 8L)
+			val afterReset = engine.correctionFor(10, io.github.axisangles.ktmath.Quaternion.IDENTITY, io.github.axisangles.ktmath.Vector3.NULL, 8L)
+			assertFalse(afterReset.applied)
+			assertEquals(io.github.axisangles.ktmath.Quaternion.IDENTITY, afterReset.correction)
+		}
+	}
+
+	@Test
+	fun `active correction is dynamically gated and rollback is immediately identity`() {
+		val (model, sidecar) = probeFiles()
+		val metadata = ModelArtifactValidator.validate(model, sidecar)
+		val enabledByGate = AtomicBoolean(false)
+		val config = dev.slimevr.ai.AIModelConfig().apply {
+			enabled = true
+			confidenceThreshold = 0f
+			maximumResultAgeMillis = 1_000L
+		}
+		AIDriftEngine(
+			config = config,
+			runtimeFactory = { FakeRuntime(metadata, setOf(ExecutionProviderType.CPU)) },
+			activeCorrectionAuthorization = {
+				if (enabledByGate.get()) dev.slimevr.ai.ActiveCorrectionAuthorization(true, null)
+				else dev.slimevr.ai.ActiveCorrectionAuthorization(false, "INFERENCE_READY_GATE_PENDING")
+			},
+		).use { engine ->
+			assertTrue(engine.loadModel(model, sidecar, ExecutionProviderType.CPU).activated)
+			engine.configureMappings(listOf(TrackerSlotMapping(10, 1, 0)))
+			repeat(2) { sequence ->
+				assertTrue(engine.submitInferenceSnapshot(InferenceSnapshot(sequence.toLong(), System.nanoTime(), 0.02f, listOf(InferenceTrackerSample(10, 0L, floatArrayOf(1f, 1f), booleanArrayOf(true, true))))))
+				assertTrue(eventually { engine.runtimeStatus().metrics.processedInferences >= sequence + 1L })
+			}
+			assertTrue(eventually { engine.latestInference(10, 0L) != null })
+
+			val gated = engine.correctionFor(10, io.github.axisangles.ktmath.Quaternion.IDENTITY, io.github.axisangles.ktmath.Vector3.NULL, 0L)
+			assertFalse(gated.applied)
+			assertEquals("INFERENCE_READY_GATE_PENDING", gated.rejectionReason)
+			assertEquals(dev.slimevr.ai.LegacyDriftCompensationMode.COMPOSE, engine.legacyDriftCompensationMode(10))
+
+			enabledByGate.set(true)
+			val active = engine.correctionFor(10, io.github.axisangles.ktmath.Quaternion.IDENTITY, io.github.axisangles.ktmath.Vector3.NULL, 0L)
+			assertTrue(active.applied)
+			enabledByGate.set(false)
+			val disabled = engine.correctionFor(10, io.github.axisangles.ktmath.Quaternion.IDENTITY, io.github.axisangles.ktmath.Vector3.NULL, 0L)
+			assertFalse(disabled.applied)
+			assertEquals(io.github.axisangles.ktmath.Quaternion.IDENTITY, disabled.correction)
+
+			enabledByGate.set(true)
+			engine.rollbackToIdentity()
+			assertFalse(config.enabled)
+			val rolledBack = engine.correctionFor(10, io.github.axisangles.ktmath.Quaternion.IDENTITY, io.github.axisangles.ktmath.Vector3.NULL, 0L)
+			assertFalse(rolledBack.applied)
+			assertEquals(io.github.axisangles.ktmath.Quaternion.IDENTITY, rolledBack.correction)
+		}
+	}
+
+	private fun eventually(predicate: () -> Boolean): Boolean {
+		val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3)
+		while (System.nanoTime() < deadline) {
+			if (predicate()) return true
+			Thread.yield()
+		}
+		return predicate()
+	}
+
 	private fun probeFiles(): Pair<Path, Path> {
 		fun resource(name: String): Path = Path.of(requireNotNull(javaClass.getResource("/dev/slimevr/ai/probe/$name")).toURI())
 		return resource("probe.onnx") to resource("probe.onnx.json")
@@ -166,13 +344,14 @@ class AIDriftEngineTests {
 		val failures = mutableMapOf<ExecutionProviderType, ModelLoadErrorCode>()
 		val createdProviders = mutableListOf<ExecutionProviderType>()
 		val sessions = mutableListOf<FakeSession>()
+		var inferenceFailure = false
 		private val inputs = metadata.inputs.associate { it.name to it.runtimeInfo() }
 		private val outputs = metadata.outputs.associate { it.name to it.runtimeInfo() }
 
 		override fun createSession(modelPath: Path, provider: ExecutionProviderType): LoadedModelSession {
 			createdProviders += provider
 			if (provider !in availableProviders) throw ModelLoadException(ModelLoadErrorCode.PROVIDER_UNAVAILABLE, "$provider unavailable")
-			val session = FakeSession(inputs, outputs, failures[provider])
+			val session = FakeSession(inputs, outputs, failures[provider]) { inferenceFailure }
 			sessions += session
 			return session
 		}
@@ -189,6 +368,7 @@ class AIDriftEngineTests {
 		override val inputInfo: Map<String, RuntimeTensorInfo>,
 		override val outputInfo: Map<String, RuntimeTensorInfo>,
 		private val failure: ModelLoadErrorCode?,
+		private val inferenceFailure: () -> Boolean,
 	) : LoadedModelSession {
 		var probeRuns = 0
 		var closed = false
@@ -198,9 +378,10 @@ class AIDriftEngineTests {
 			if (failure != null) throw ModelLoadException(failure, "probe failed")
 		}
 
-		override fun runInference(input: InferenceTensorBatch): InferenceTensorOutput = InferenceTensorOutput(
-			FloatArray(input.slots * 3), FloatArray(input.slots), FloatArray(input.slots),
-		)
+		override fun runInference(input: InferenceTensorBatch): InferenceTensorOutput {
+			if (inferenceFailure()) throw IllegalStateException("fixture inference failure")
+			return InferenceTensorOutput(FloatArray(input.slots * 3), FloatArray(input.slots), FloatArray(input.slots))
+		}
 
 		override fun close() {
 			closed = true

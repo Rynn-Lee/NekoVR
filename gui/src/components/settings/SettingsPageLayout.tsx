@@ -17,8 +17,9 @@ interface SettingsLayoutContextType {
   expandAll: () => void;
 }
 
-const SettingsLayoutContext =
-  createContext<SettingsLayoutContextType | null>(null);
+const SettingsLayoutContext = createContext<SettingsLayoutContextType | null>(
+  null
+);
 
 export function useSettingsLayout() {
   return useContext(SettingsLayoutContext);

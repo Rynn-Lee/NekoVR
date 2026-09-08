@@ -80,6 +80,13 @@ class LatestValueInferenceWorker(
 	private val latestOutputs = AtomicReference<Map<Int, TrackerInferenceOutput>>(emptyMap())
 	private val droppedSnapshots = AtomicLong()
 	private val processedSnapshots = AtomicLong()
+	private val inferenceErrors = AtomicLong()
+	private val consecutiveInferenceErrors = AtomicLong()
+	private val latencySamplesMicros = ArrayDeque<Long>(256)
+	private val queueWaitSamplesMicros = ArrayDeque<Long>(256)
+	private val startedNanos = System.nanoTime()
+	private val lastSuccessfulInferenceNanos = AtomicLong()
+	private val lastInferenceError = AtomicReference<String?>(null)
 	private val thread: Thread
 
 	init {
@@ -94,8 +101,36 @@ class LatestValueInferenceWorker(
 		get() = droppedSnapshots.get()
 	val processedSnapshotCount: Long
 		get() = processedSnapshots.get()
+	val inferenceErrorCount: Long
+		get() = inferenceErrors.get()
+	val consecutiveInferenceErrorCount: Long
+		get() = consecutiveInferenceErrors.get()
+	val queueDepth: Int
+		get() = queue.size
+	val lastError: String?
+		get() = lastInferenceError.get()
 	val isAlive: Boolean
 		get() = thread.isAlive
+	val inferenceRateHz: Double
+		get() {
+			val elapsedSeconds = (System.nanoTime() - startedNanos).coerceAtLeast(1L) / 1_000_000_000.0
+			return processedSnapshots.get() / elapsedSeconds
+		}
+
+	fun latencyPercentiles(): InferenceLatencyPercentiles = synchronized(latencySamplesMicros) {
+		percentiles(latencySamplesMicros)
+	}
+
+	fun queueWaitLatencyPercentiles(): InferenceLatencyPercentiles = synchronized(queueWaitSamplesMicros) {
+		percentiles(queueWaitSamplesMicros)
+	}
+
+	internal fun resetLatencyMetrics() {
+		synchronized(latencySamplesMicros) { latencySamplesMicros.clear() }
+		synchronized(queueWaitSamplesMicros) { queueWaitSamplesMicros.clear() }
+	}
+
+	fun latestOutputs(): Map<Int, TrackerInferenceOutput> = latestOutputs.get()
 
 	fun mappings(): List<TrackerSlotMapping> = mappingState.get().byTracker.values.sortedBy { it.slot }
 
@@ -138,6 +173,7 @@ class LatestValueInferenceWorker(
 		while (running.get()) {
 			try {
 				val queued = queue.take()
+				recordLatency(queueWaitSamplesMicros, (System.nanoTime() - queued.snapshot.monotonicNanos).coerceAtLeast(0L) / 1_000L)
 				val mapping = mappingState.get()
 				if (queued.mappingVersion != mapping.version) continue
 				if (historyMappingVersion != mapping.version) {
@@ -162,6 +198,10 @@ class LatestValueInferenceWorker(
 				val started = System.nanoTime()
 				val output = session.runInference(input)
 				val latencyMicros = (System.nanoTime() - started) / 1_000L
+				recordLatency(latencySamplesMicros, latencyMicros)
+				consecutiveInferenceErrors.set(0L)
+				lastInferenceError.set(null)
+				lastSuccessfulInferenceNanos.set(System.nanoTime())
 				if (mappingState.get().version != mapping.version) continue
 				val newestSamples = history.last().samples
 				val results = mapping.byTracker.values.mapNotNull { slotMapping ->
@@ -179,8 +219,10 @@ class LatestValueInferenceWorker(
 				latestOutputs.set(results)
 			} catch (_: InterruptedException) {
 				if (!running.get()) return
-			} catch (_: Throwable) {
-				// Runtime health/watchdog reporting is added by task 9.7; keep tracking fail-open here.
+			} catch (error: Throwable) {
+				inferenceErrors.incrementAndGet()
+				consecutiveInferenceErrors.incrementAndGet()
+				lastInferenceError.set(error.message ?: error::class.java.simpleName)
 				latestOutputs.set(emptyMap())
 			}
 		}
@@ -236,6 +278,18 @@ class LatestValueInferenceWorker(
 		require(it.features.size == metadata.featureCount && it.channelValidity.size == metadata.featureCount) { "Sample feature width differs from model metadata" }
 	}
 
+	private fun recordLatency(samples: ArrayDeque<Long>, value: Long) = synchronized(samples) {
+		if (samples.size == 256) samples.removeFirst()
+		samples.addLast(value)
+	}
+
+	private fun percentiles(samples: ArrayDeque<Long>): InferenceLatencyPercentiles {
+		if (samples.isEmpty()) return InferenceLatencyPercentiles()
+		val sorted = samples.sorted()
+		fun percentile(value: Double): Long = sorted[((sorted.lastIndex * value).toInt()).coerceIn(0, sorted.lastIndex)]
+		return InferenceLatencyPercentiles(percentile(0.50), percentile(0.95), percentile(0.99))
+	}
+
 	override fun close() {
 		if (!running.compareAndSet(true, false)) return
 		queue.clear()
@@ -244,3 +298,9 @@ class LatestValueInferenceWorker(
 		latestOutputs.set(emptyMap())
 	}
 }
+
+data class InferenceLatencyPercentiles(
+	val p50Micros: Long = 0L,
+	val p95Micros: Long = 0L,
+	val p99Micros: Long = 0L,
+)

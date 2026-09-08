@@ -32,6 +32,16 @@ gradlew :server:core:onnxRuntimeProbe -PonnxRuntimeFlavor=nvidia -PonnxProbeProv
 gradlew :server:core:onnxRuntimeProbe -PonnxRuntimeFlavor=directml -PonnxProbeProvider=DIRECTML
 ```
 
+Distribution verification and installed-payload smoke tests are available with:
+
+```text
+gradlew :server:desktop:verifyInferenceDistributionContents
+gradlew :server:desktop:installedInferenceSmoke
+gradlew :server:desktop:jpackageImage
+```
+
+The CPU ONNX Runtime payload currently makes AI inference a supported packaged feature on Windows x64, Linux x64, Linux arm64, and macOS arm64. Windows arm64 and macOS x64 packages may still contain the rest of the application, but are not AI-inference targets until matching ONNX JNI natives are integrated; CI therefore does not claim inference smoke coverage for them. CI runs the offline managed-import/session/probe smoke both on the downloaded server payload and again from the Electron package output on every supported runner. `ThirdPartyNotices.txt`, the deterministic model and sidecar, generated RPC classes, GUI assets, server entry point, and native ONNX libraries are checked as distribution contents.
+
 A forced provider failure is terminal for that activation request. `AUTO` tries
 TensorRT, CUDA, DirectML, and CPU in order, records every failed attempt, and
 activates only the first provider which successfully executes the probe.

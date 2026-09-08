@@ -51,6 +51,7 @@ nekovr-ml validate-onnx --model run/model.onnx \
   --config configs/default.json
 nekovr-ml generate-probe --output-dir artifacts/onnx-probe-v1 \
   --config configs/default.json
+nekovr-trainer-worker --ipc-stdio
 ```
 
 `train` accepts a versioned `nekovr-training-input-v1` JSON document, trains
@@ -85,3 +86,29 @@ quality non-regression. Failed candidates never modify the catalog.
 `generate-probe` reproducibly writes the tiny non-production ONNX model,
 sidecar, fixed inputs/expected outputs, and per-file SHA-256 manifest used by
 server and distribution provider probes.
+
+## Local personal training
+
+`personal_data.py` performs profile/base/schema/integrity/body-assignment and
+quality eligibility analysis before splitting. Its report includes usable
+duration and windows, excluded ranges, reset and clean evidence, body layouts,
+sensor families, and all required activity cohorts. Production splits use the
+two newest suitable whole sessions as test and validation holdouts. Training
+windows are represented by small descriptors and streamed in deterministic
+activity/layout/reset-versus-clean rounds; `seed`, epoch, and offset reproduce
+the exact order without loading session telemetry into memory.
+
+`nekovr-trainer-worker` is a JSON-lines, protocol-versioned local IPC process.
+The controller verifies its executable SHA-256 and RSA signature before
+launching it with `shell=false`. Checkpoints are ZIP archives written through a
+temporary file and atomic replacement, and can restore the exact adapter state.
+The worker validates every base training artifact hash and graph/optimizer
+gradient contract. The portable baseline trains only the declared adapter on
+CPU. Optional CUDA is exposed only when a packaged `onnxruntime.training` API
+loads the signed native training/evaluation/optimizer/checkpoint artifacts and
+successfully completes the bundle's probe optimizer step. DirectML inference
+and DirectML training availability are always reported independently.
+
+Every epoch rechecks the frozen-backbone fingerprint and finite correction,
+clean-motion false-correction, and temporal-jitter limits. Best checkpoints are
+saved atomically and bounded early stopping terminates non-improving runs.

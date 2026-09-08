@@ -28,7 +28,8 @@ export function AutoUpdaterWidget() {
           sha: relData.tag_name || 'Release',
           message: relData.name || relData.body || 'Новый релиз',
           date: relData.published_at || '',
-          url: relData.html_url || 'https://github.com/Rynn-Lee/NekoVR/releases',
+          url:
+            relData.html_url || 'https://github.com/Rynn-Lee/NekoVR/releases',
         });
       } else {
         const comRes = await fetch(
@@ -40,7 +41,8 @@ export function AutoUpdaterWidget() {
           const comData = await comRes.json();
           setCommitInfo({
             sha: (comData.sha || '').substring(0, 7),
-            message: comData.commit?.message?.split('\n')[0] || 'Коммит ветки main',
+            message:
+              comData.commit?.message?.split('\n')[0] || 'Коммит ветки main',
             date: comData.commit?.author?.date
               ? new Date(comData.commit.author.date).toLocaleString('ru-RU')
               : '',

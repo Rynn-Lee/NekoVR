@@ -20,13 +20,9 @@ function calculateCrc32(bytes: Uint8Array): number {
 
 function getDosDateTime(date: Date) {
   const dosTime =
-    (date.getHours() << 11) |
-    (date.getMinutes() << 5) |
-    (date.getSeconds() >> 1);
+    (date.getHours() << 11) | (date.getMinutes() << 5) | (date.getSeconds() >> 1);
   const dosDate =
-    ((date.getFullYear() - 1980) << 9) |
-    ((date.getMonth() + 1) << 5) |
-    date.getDate();
+    ((date.getFullYear() - 1980) << 9) | ((date.getMonth() + 1) << 5) | date.getDate();
   return { dosTime, dosDate };
 }
 

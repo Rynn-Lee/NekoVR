@@ -113,6 +113,7 @@ class VRServer @JvmOverloads constructor(
 	@JvmField
 	val protocolAPI: ProtocolAPI
 	private val timer = Timer()
+	private var lastPersonalTrainingResourceCheckNs = 0L
 	private val resetTimerManager = ResetTimerManager()
 	val fpsTimer = NanoTimer()
 
@@ -131,11 +132,43 @@ class VRServer @JvmOverloads constructor(
 	@JvmField
 	val handshakeHandler = HandshakeHandler()
 
+	val inferenceReadyStatus = dev.slimevr.ai.InferenceReadyReportStore.load(
+		dev.slimevr.ai.InferenceReadyReportStore.resolve(java.nio.file.Path.of("models", "ai")),
+	)
+
 	@JvmField
-	val aiDriftEngine = dev.slimevr.ai.AIDriftEngine()
+	val aiDriftEngine = configManager.vrConfig.aiDrift.validated().let { persisted ->
+		if (!persisted.valid) LogManager.warning("[AI] Ignoring unsafe persisted configuration: ${persisted.error}")
+		dev.slimevr.ai.AIDriftEngine(
+			config = persisted.config,
+			activeCorrectionAuthorization = { modelHash ->
+				dev.slimevr.ai.ActiveCorrectionAuthorization.evaluate(featureFlags.aiActiveCorrection, inferenceReadyStatus, modelHash)
+			},
+		).also { engine ->
+			engine.configureMappings(persisted.mappings)
+		}
+	}
 
 	@JvmField
 	val datasetRecorder = dev.slimevr.dataset.DatasetRecordingService()
+
+	@JvmField
+	val personalTrainingStore = dev.slimevr.ai.personal.PersonalTrainingStore(
+		java.nio.file.Path.of(System.getProperty("user.home"), ".nekovr", "personal-training"),
+	)
+
+	@JvmField
+	val personalTrainingCoordinator = dev.slimevr.ai.personal.PersonalTrainingCoordinator(
+		personalTrainingStore,
+		object : dev.slimevr.ai.personal.PersonalTrainerWorker {
+			override fun start(job: dev.slimevr.ai.personal.PersonalJobMetadata, onProgress: (dev.slimevr.ai.personal.PersonalTrainingStage, Float, Long, Double, Double) -> Unit) {
+				throw IllegalStateException("Signed personal trainer worker is not installed or configured")
+			}
+			override fun pause(jobId: String) = Unit
+			override fun throttle(jobId: String) = Unit
+			override fun cancel(jobId: String) = Unit
+		},
+	)
 
 	@JvmField
 	val autoUpdater = dev.slimevr.updater.AutoUpdater()
@@ -277,6 +310,13 @@ class VRServer @JvmOverloads constructor(
 			}
 			humanPoseManager.update()
 			datasetRecorder.sampleIfDue(trackers)
+			val nowNs = System.nanoTime()
+			if (nowNs - lastPersonalTrainingResourceCheckNs >= 1_000_000_000L) {
+				lastPersonalTrainingResourceCheckNs = nowNs
+				personalTrainingCoordinator.enforceActiveVr(
+					!getPauseTracking() && trackers.any { it.status == TrackerStatus.OK },
+				)
+			}
 			for (bridge in bridges) {
 				bridge.dataWrite()
 			}

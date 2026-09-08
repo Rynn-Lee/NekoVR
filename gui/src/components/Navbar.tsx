@@ -54,10 +54,13 @@ export function NavButton({
         </div>
       </div>
       <div
-        className={classnames('text-center mobile:hidden text-xs font-semibold', {
-          'text-background-10': doesMatch,
-          'text-background-30 group-hover:text-background-10': !doesMatch,
-        })}
+        className={classnames(
+          'text-center mobile:hidden text-xs font-semibold',
+          {
+            'text-background-10': doesMatch,
+            'text-background-30 group-hover:text-background-10': !doesMatch,
+          }
+        )}
       >
         {children}
       </div>
