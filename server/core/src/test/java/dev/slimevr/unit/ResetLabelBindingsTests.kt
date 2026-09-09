@@ -6,9 +6,11 @@ import dev.slimevr.dataset.generated.DatasetV1Bindings
 import dev.slimevr.dataset.generated.DatasetV1Reader
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import kotlin.math.cos
+import kotlin.math.sin
 
 class ResetLabelBindingsTests {
-	private fun q(value: Float) = QuaternionSample(value, value + 0.1f, value + 0.2f, value + 0.3f)
+	private fun q(value: Float) = QuaternionSample(sin(value), 0f, 0f, cos(value))
 
 	@Test
 	fun testCompleteAdjustmentChainRoundTrip() {

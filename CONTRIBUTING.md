@@ -40,6 +40,32 @@ be at `server/build/libs/slimevr.jar` (you can ignore `server.jar`).
 - Finally, to compile for production, run `pnpm package:build`. The result
 will be at `dist/artifacts/` content will change depending of the platform.
 
+### Foundation verification baseline
+
+Run the complete cross-platform foundation baseline from the repository root:
+
+```bash
+pnpm run verify:foundation
+```
+
+It stops on the first non-zero child exit and runs the following checks without
+shell command chaining:
+
+```bash
+pnpm -C gui test
+pnpm -C gui lint
+pnpm -C gui build
+./gradlew :server:core:test --rerun-tasks
+./gradlew :server:core:generateDatasetPilots -PdatasetPilotOutput=<temporary-directory>
+python -m unittest discover -s dataset/python/tests -v
+```
+
+On Windows the aggregate uses `pnpm.cmd` and `gradlew.bat`. It discovers Python
+from `NEKOVR_PYTHON`, repository virtual environments, `python3`, `python`, or
+the Windows `py -3` launcher. The Python suite receives the fresh Kotlin pilot
+directory through `NEKOVR_KOTLIN_DATASET_FIXTURES`; skipping that conformance
+check fails the aggregate baseline.
+
 ## Code style
 
 ### Java (server)

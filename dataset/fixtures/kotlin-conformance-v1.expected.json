@@ -1,0 +1,67 @@
+{
+  "format": "NekoVR deterministic Kotlin/Python v1 conformance source",
+  "generator": "dev.slimevr.dataset.DatasetConformanceFixture",
+  "archive": "kotlin-conformance-v1.nvrdata",
+  "archiveSha256": "44ee28c44a244c6d77c5b6a36e4cebe994d26612dd9a8f2cb2e6a480bebf01e0",
+  "floatAbsoluteTolerance": 0.001,
+  "sessionId": "kotlin-conformance-v1",
+  "recordTypes": [0, 1, 2, 3, 4],
+  "recordSequences": [0, 1, 2, 3, 4],
+  "header": {
+    "schemaMajor": 1,
+    "schemaMinor": 2,
+    "createdUtc": "2026-01-02T03:04:05Z",
+    "applicationVersion": "conformance-1",
+    "applicationCommit": "0123456789abcdef",
+    "profile": 2,
+    "canonicalRateHz": 50,
+    "channelCount": 45
+  },
+  "roster": {"revision": 3, "ids": ["tracker-1", "controller-1", "hmd-1"]},
+  "frame": {
+    "index": 12,
+    "monotonicNs": 1000000000,
+    "deltaNs": 20000000,
+    "rawOrientation": [0.0, 0.0, 0.5, 0.8660254],
+    "preAdjusted": [0.70710677, 0.0, 0.0, 0.70710677],
+    "postAdjusted": [0.0, 0.70710677, 0.0, 0.70710677],
+    "rawAcceleration": [1.25, -2.5, 9.8125],
+    "linearAcceleration": [0.125, -0.25, 0.5],
+    "angularVelocity": [0.75, -1.5, 2.25],
+    "magneticVector": [12.5, -24.25, 48.75],
+    "validity": [3, 2, 1],
+    "provenance": [2, 6],
+    "hmdPosition": [0.125, 1.75, -0.5],
+    "activity": [6, 0.875, 10, 14, 5]
+  },
+  "native": {
+    "temperature": [8, 1000000000, [36.625], null, null, 3, 1],
+    "sequence": [9, 1000000000, [], 42, null, 3, 2],
+    "state": [21, 1000000000, [], null, "CALIBRATED", 2, 2]
+  },
+  "correction": {
+    "prediction": [0.0, 0.70710677, 0.0, 0.70710677],
+    "applied": [-0.5, 0.5, 0.5, 0.5],
+    "modelHash": "model-sha256",
+    "provider": "CPU",
+    "slot": 2,
+    "latencyUs": 321,
+    "provenance": 4
+  },
+  "event": {"index": 9, "requestId": "reset-1", "parts": ["WAIST", "LEGS"]},
+  "reset": {
+    "correction": [-0.5, 0.5, 0.5, 0.5],
+    "axisMask": 7,
+    "qualityFlags": 5,
+    "resetEpoch": 4,
+    "calibrationEpoch": 6,
+    "bodyRole": "WAIST",
+    "trainingPolicy": "REVIEW"
+  },
+  "footer": {
+    "endedMonotonicNs": 1020000000,
+    "durationNs": 20000000,
+    "complete": true,
+    "counters": [2, 1, 1, 1, 2, 7, 3, 4, 5, 6]
+  }
+}

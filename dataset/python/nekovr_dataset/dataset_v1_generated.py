@@ -31,6 +31,9 @@ class Table:
         offset = struct.unpack_from("<H", self.data, entry)[0]
         return None if offset == 0 else self.position + offset
 
+    def has_field(self, index: int) -> bool:
+        return self._field(index) is not None
+
     def u8(self, index: int, default: int = 0) -> int:
         field = self._field(index)
         return default if field is None else self.data[field]
@@ -43,9 +46,17 @@ class Table:
         field = self._field(index)
         return default if field is None else struct.unpack_from("<I", self.data, field)[0]
 
+    def i32(self, index: int, default: int = 0) -> int:
+        field = self._field(index)
+        return default if field is None else struct.unpack_from("<i", self.data, field)[0]
+
     def u64(self, index: int, default: int = 0) -> int:
         field = self._field(index)
         return default if field is None else struct.unpack_from("<Q", self.data, field)[0]
+
+    def i64(self, index: int, default: int = 0) -> int:
+        field = self._field(index)
+        return default if field is None else struct.unpack_from("<q", self.data, field)[0]
 
     def f32(self, index: int, default: float = 0.0) -> float:
         field = self._field(index)
@@ -93,6 +104,25 @@ class Table:
         start = slot + struct.unpack_from("<I", self.data, slot)[0]
         str_len = struct.unpack_from("<I", self.data, start)[0]
         return self.data[start + 4 : start + 4 + str_len].decode("utf-8")
+
+    def _vector_scalar(self, index: int, element: int, code: str):
+        field = self._field(index)
+        if field is None:
+            raise IndexError("missing vector")
+        vector = field + struct.unpack_from("<I", self.data, field)[0]
+        length = struct.unpack_from("<I", self.data, vector)[0]
+        if element < 0 or element >= length:
+            raise IndexError(element)
+        return struct.unpack_from("<" + code, self.data, vector + 4 + element * struct.calcsize(code))[0]
+
+    def vector_u8(self, index: int, element: int) -> int:
+        return self._vector_scalar(index, element, "B")
+
+    def vector_u32(self, index: int, element: int) -> int:
+        return self._vector_scalar(index, element, "I")
+
+    def vector_f32(self, index: int, element: int) -> float:
+        return self._vector_scalar(index, element, "f")
 
 
 @dataclass(frozen=True)

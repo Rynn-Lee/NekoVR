@@ -9,6 +9,23 @@ without recompressing its entries and contains exactly `manifest.json` and
 little-endian, unsigned-32-bit-length-prefixed FlatBuffer `DatasetRecord`
 messages with file identifier `NVRD`.
 
+## Checksums
+
+`Footer.telemetry_sha256` is the lowercase, 64-character SHA-256 of the exact
+decompressed record bytes preceding the terminal Footer. The hash input is the
+concatenation, in stream order, of each original four-byte little-endian
+unsigned record length and its original FlatBuffer payload, beginning with the
+FileHeader and ending with the last non-Footer record. It excludes the Footer's
+length prefix and payload, the Zstandard framing, ZIP metadata, and the
+manifest. Validators hash the original bytes; they do not decode and re-encode
+records. This makes the checksum reproducible and avoids a self-reference.
+
+`manifest.json.telemetrySha256` has a separate scope: it is the lowercase
+SHA-256 of the exact final `telemetry.fbs.zst` entry bytes, including the Footer
+record and all Zstandard framing. ZIP entry metadata is excluded. Thus the
+Footer authenticates the canonical pre-Footer record stream while the manifest
+binds the complete compressed telemetry entry.
+
 ## Coordinate and time conventions
 
 - World coordinates are right-handed: +X right, +Y up, +Z backward. Sensor

@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "fp16Cases": [
+    {
+      "name": "positive-infinity",
+      "bits": 31744,
+      "minimum": -1.0,
+      "maximum": 1.0
+    },
+    {
+      "name": "quiet-nan",
+      "bits": 32256,
+      "minimum": -1.0,
+      "maximum": 1.0
+    },
+    {
+      "name": "acceleration-above-range",
+      "bits": 23552,
+      "minimum": -128.0,
+      "maximum": 128.0
+    }
+  ],
+  "quaternionCases": [
+    {
+      "name": "zero-norm",
+      "values": [0.0, 0.0, 0.0, 0.0]
+    },
+    {
+      "name": "finite-non-unit",
+      "values": [0.0, 0.0, 0.0, 0.5]
+    },
+    {
+      "name": "component-out-of-range",
+      "values": [0.0, 0.0, 0.0, 1.5]
+    }
+  ]
+}

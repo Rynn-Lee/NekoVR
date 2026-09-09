@@ -40,6 +40,31 @@ data class TelemetryChannel(
 	val allowedProvenance: Set<ChannelProvenance>,
 )
 
+data class DatasetFileHeader(
+	val schemaMajor: Int,
+	val schemaMinor: Int,
+	val sessionId: String,
+	val createdUtc: String,
+	val applicationVersion: String,
+	val applicationCommit: String,
+	val profile: CollectionProfile,
+	val canonicalRateHz: Int,
+	val channels: List<TelemetryChannel>,
+)
+
+data class DatasetTrackerRoster(
+	val revision: Int,
+	val trackers: List<SessionTrackerMetadata>,
+)
+
+data class DatasetFooter(
+	val endedMonotonicNs: Long,
+	val durationNs: Long,
+	val counters: DatasetQualityCounters,
+	val telemetrySha256: String,
+	val complete: Boolean,
+)
+
 object TelemetryChannelRegistry {
 	private val measured = setOf(ChannelProvenance.MEASURED, ChannelProvenance.FIRMWARE_REPORTED)
 	private val measuredOrDerived = measured + ChannelProvenance.SERVER_DERIVED
@@ -158,6 +183,7 @@ data class ActivitySample(
 	val confidence: Float,
 	val startFrame: Long,
 	val endFrame: Long,
+	val provenance: ChannelProvenance = ChannelProvenance.SERVER_DERIVED,
 )
 
 data class SessionFrame(

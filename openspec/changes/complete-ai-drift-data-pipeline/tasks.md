@@ -139,7 +139,7 @@
 - [x] 12.9 Implement trainer install/probe/profile/eligibility/job/pause/resume/cancel/status/evaluate/export/activate FlatBuffers RPC and regenerated bindings.
 - [x] 12.10 Implement Personal Training tab base/profile/session selection, coverage findings, preset/resource controls and authoritative staged progress with ETA, metrics, resources and errors.
 - [x] 12.11 Restore unfinished jobs and checkpoints after application restart and test worker crash isolation without interrupting active correction.
-- [ ] 12.12 Evaluate each personal model against its base on held-out reset replay, resets/hour, time-to-first-reset, clean false correction, jitter, correction bounds and every sufficiently represented activity/layout cohort.
-- [ ] 12.13 Export validated personal ONNX plus base/profile/session/split/checkpoint/metric hashes and run framework/training-runtime/inference-runtime parity checks.
-- [ ] 12.14 Add transactional optional shadow activation, inference-history reset, previous-model retention, topology compatibility fallback and one-action rollback.
-- [ ] 12.15 Add installed-package end-to-end tests from nine multi-hour session manifests through resumed training, validation, ONNX export, activation and rollback without loading all telemetry into memory.
+- [x] 12.12 Evaluate each personal model against its base on held-out reset replay, resets/hour, time-to-first-reset, clean false correction, jitter, correction bounds and every sufficiently represented activity/layout cohort.
+- [x] 12.13 Export validated personal ONNX plus base/profile/session/split/checkpoint/metric hashes and run framework/training-runtime/inference-runtime parity checks.
+- [x] 12.14 Add transactional optional shadow activation, inference-history reset, previous-model retention, topology compatibility fallback and one-action rollback.
+- [x] 12.15 Add installed-package end-to-end tests from nine multi-hour session manifests through resumed training, validation, ONNX export, activation and rollback without loading all telemetry into memory.

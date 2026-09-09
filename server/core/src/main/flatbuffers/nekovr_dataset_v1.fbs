@@ -237,6 +237,8 @@ table Footer {
   ended_monotonic_ns:ulong;
   duration_ns:ulong;
   counters:QualityCounters;
+  // Lowercase SHA-256 of the exact decompressed uint32-length-prefixed records
+  // preceding this Footer. Footer framing/payload and compression are excluded.
   telemetry_sha256:string;
   complete:bool;
 }

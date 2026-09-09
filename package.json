@@ -13,6 +13,7 @@
     "skipbundler": "cd gui && pnpm run skipbundler",
     "build": "cd gui && pnpm build",
     "update-solarxr": "cd solarxr-protocol && pnpm run build",
+    "verify:foundation": "node scripts/foundation-baseline.mjs",
     "prepare": "husky && pnpm run update-solarxr",
     "preinstall": "npx only-allow pnpm"
   },

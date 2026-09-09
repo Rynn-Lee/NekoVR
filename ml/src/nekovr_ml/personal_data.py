@@ -10,7 +10,7 @@ import os
 from pathlib import Path
 import random
 import re
-from typing import Iterator, Mapping, Sequence
+from typing import Iterable, Iterator, Mapping, Sequence
 
 
 ACTIVITIES = (
@@ -25,6 +25,7 @@ ACTIVITIES = (
 )
 SPLITS = ("train", "validation", "test")
 _HASH = re.compile(r"^[0-9a-f]{64}$")
+MAX_PERSONAL_SESSION_MANIFEST_BYTES = 1024 * 1024
 
 
 @dataclass(frozen=True)
@@ -80,6 +81,35 @@ class SessionEligibilityInput:
             raise ValueError("layout must contain the canonical assigned body roles")
         if any(name not in ACTIVITIES or not math.isfinite(seconds) or seconds < 0 for name, seconds in self.activity_seconds.items()):
             raise ValueError("activity coverage is invalid")
+
+
+def iter_session_eligibility_manifests(paths: Iterable[str | Path]) -> Iterator[SessionEligibilityInput]:
+    """Read bounded session summaries one at a time; canonical telemetry is never materialized here."""
+    seen: set[Path] = set()
+    for value in paths:
+        path = Path(value).resolve()
+        if path in seen:
+            raise ValueError("personal session manifest paths must be unique")
+        seen.add(path)
+        if not path.is_file() or path.is_symlink() or path.stat().st_size > MAX_PERSONAL_SESSION_MANIFEST_BYTES:
+            raise ValueError("personal session manifest must be a bounded regular file")
+        with path.open("rb") as stream:
+            encoded = stream.read(MAX_PERSONAL_SESSION_MANIFEST_BYTES + 1)
+        if len(encoded) > MAX_PERSONAL_SESSION_MANIFEST_BYTES:
+            raise ValueError("personal session manifest exceeds the size limit")
+        try:
+            payload = json.loads(encoded.decode("utf-8"))
+            if payload.pop("format") != "nekovr-personal-session-summary-v1" or payload.pop("schema_version") != 1:
+                raise ValueError("unsupported personal session manifest")
+            payload["fatal_findings"] = tuple(payload["fatal_findings"])
+            payload["compatible_base_hashes"] = tuple(payload["compatible_base_hashes"])
+            payload["body_role_ids"] = tuple(int(item) for item in payload["body_role_ids"])
+            payload["sensor_families"] = tuple(payload["sensor_families"])
+            payload["layout"] = tuple(int(item) for item in payload["layout"])
+            payload["excluded_ranges"] = tuple(ExcludedRange(**item) for item in payload.get("excluded_ranges", ()))
+            yield SessionEligibilityInput(**payload)
+        except (KeyError, TypeError, UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ValueError(f"invalid personal session manifest: {path.name}") from error
 
 
 @dataclass(frozen=True)

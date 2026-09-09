@@ -165,6 +165,17 @@ tasks.register<JavaExec>("generateDatasetPilots") {
 	doFirst { args = listOf("--output", output.get()) }
 }
 
+tasks.register<JavaExec>("generateDatasetConformanceFixture") {
+	group = "verification"
+	description = "Generates the deterministic Kotlin-writer/Python-reader v1 conformance archive"
+	dependsOn(tasks.classes)
+	mainClass.set("dev.slimevr.dataset.DatasetConformanceFixtureCommandKt")
+	classpath = sourceSets.main.get().runtimeClasspath
+	val output = providers.gradleProperty("datasetConformanceOutput")
+		.orElse(layout.buildDirectory.dir("dataset-conformance").map { it.asFile.path })
+	doFirst { args = listOf("--output", output.get()) }
+}
+
 tasks.register<JavaExec>("onnxRuntimeProbe") {
 	group = "verification"
 	description = "Creates a real session and runs the packaged ONNX probe on -PonnxProbeProvider=<provider>"

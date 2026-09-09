@@ -31,7 +31,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
-import java.security.DigestOutputStream
 import java.security.MessageDigest
 import java.time.Instant
 import java.util.ArrayDeque
@@ -650,15 +649,15 @@ class DatasetRecordingService(
 		)
 
 		val recoveredTelemetry = session.directory.resolve("telemetry.recovered.zst")
-		val digest = MessageDigest.getInstance("SHA-256")
+		val footerChecksum = DatasetTelemetryChecksum()
 
 		FileChannel.open(recoveredTelemetry, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING, StandardOpenOption.WRITE).use { channel ->
-			val digestOutput = DigestOutputStream(BufferedOutputStream(Channels.newOutputStream(channel), 64 * 1024), digest)
-			ZstdOutputStream(digestOutput, 3).use { zstd ->
+			val bufferedOutput = BufferedOutputStream(Channels.newOutputStream(channel), 64 * 1024)
+			ZstdOutputStream(bufferedOutput, 3).use { zstd ->
 				for (rec in validRecords) {
-					writeRecord(zstd, rec)
+					writeRecord(zstd, rec, footerChecksum)
 				}
-				val preFooterChecksum = (digest.clone() as MessageDigest).digest().hex()
+				val preFooterChecksum = footerChecksum.digestHex()
 				writeRecord(zstd, DatasetV1Bindings.footer(finalManifest.durationNs, finalManifest.durationNs, finalManifest.quality, preFooterChecksum, true, expectedSequence))
 				zstd.flush()
 				channel.force(true)
@@ -695,7 +694,7 @@ class DatasetRecordingService(
 
 	private fun writerLoop(work: Path, initialManifest: DatasetManifest, minFreeSpaceBytes: Long) {
 		val telemetry = work.resolve(TELEMETRY_PARTIAL)
-		val digest = MessageDigest.getInstance("SHA-256")
+		val footerChecksum = DatasetTelemetryChecksum()
 		var sequence = 0L
 		var batches = 0
 		val frames = ArrayList<SessionFrame>(batchSize)
@@ -703,10 +702,10 @@ class DatasetRecordingService(
 		val resetLabels = ArrayList<DatasetResetLabel>()
 		try {
 			FileChannel.open(telemetry, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).use { channel ->
-				val digestOutput = DigestOutputStream(BufferedOutputStream(Channels.newOutputStream(channel), 64 * 1024), digest)
-				ZstdOutputStream(digestOutput, 3).use { zstd ->
-					writeRecord(zstd, DatasetV1Bindings.header(initialManifest.sessionId, initialManifest.createdUtc, initialManifest.applicationVersion, initialManifest.applicationCommit, initialManifest.profile))
-					writeRecord(zstd, DatasetV1Bindings.roster(initialManifest.trackers, sequence = ++sequence))
+				val bufferedOutput = BufferedOutputStream(Channels.newOutputStream(channel), 64 * 1024)
+				ZstdOutputStream(bufferedOutput, 3).use { zstd ->
+					writeRecord(zstd, DatasetV1Bindings.header(initialManifest.sessionId, initialManifest.createdUtc, initialManifest.applicationVersion, initialManifest.applicationCommit, initialManifest.profile), footerChecksum)
+					writeRecord(zstd, DatasetV1Bindings.roster(initialManifest.trackers, sequence = ++sequence), footerChecksum)
 					var finishing = false
 					while (!finishing) {
 						when (val item = queue.take()) {
@@ -716,9 +715,9 @@ class DatasetRecordingService(
 								resetLabels += item.resetLabels
 								if (frames.size >= batchSize) {
 									check(freeSpace(datasetsRoot) >= minFreeSpaceBytes) { "Disk free-space threshold reached" }
-									writeRecord(zstd, DatasetV1Bindings.frames(frames, ++sequence))
+									writeRecord(zstd, DatasetV1Bindings.frames(frames, ++sequence), footerChecksum)
 									if (events.isNotEmpty() || resetLabels.isNotEmpty()) {
-										writeRecord(zstd, DatasetV1Bindings.events(events, resetLabels, ++sequence))
+										writeRecord(zstd, DatasetV1Bindings.events(events, resetLabels, ++sequence), footerChecksum)
 										events.clear()
 										resetLabels.clear()
 									}
@@ -737,7 +736,7 @@ class DatasetRecordingService(
 								events += item.events
 								resetLabels += item.resetLabels
 								if (events.isNotEmpty() || resetLabels.isNotEmpty()) {
-									writeRecord(zstd, DatasetV1Bindings.events(events, resetLabels, ++sequence))
+									writeRecord(zstd, DatasetV1Bindings.events(events, resetLabels, ++sequence), footerChecksum)
 									events.clear()
 									resetLabels.clear()
 								}
@@ -746,15 +745,15 @@ class DatasetRecordingService(
 						}
 					}
 					if (frames.isNotEmpty()) {
-						writeRecord(zstd, DatasetV1Bindings.frames(frames, ++sequence))
+					writeRecord(zstd, DatasetV1Bindings.frames(frames, ++sequence), footerChecksum)
 						written.addAndGet(frames.size.toLong())
 					}
 					if (events.isNotEmpty() || resetLabels.isNotEmpty()) {
-						writeRecord(zstd, DatasetV1Bindings.events(events, resetLabels, ++sequence))
+						writeRecord(zstd, DatasetV1Bindings.events(events, resetLabels, ++sequence), footerChecksum)
 						events.clear()
 						resetLabels.clear()
 					}
-					val preFooterChecksum = (digest.clone() as MessageDigest).digest().hex()
+					val preFooterChecksum = footerChecksum.digestHex()
 					val duration = (clockNs() - sessionStartNs).coerceAtLeast(0)
 					writeRecord(zstd, DatasetV1Bindings.footer(duration, duration, counters(), preFooterChecksum, true, ++sequence))
 					zstd.flush()
@@ -791,7 +790,8 @@ class DatasetRecordingService(
 		}
 	}
 
-	private fun writeRecord(output: ZstdOutputStream, payload: ByteArray) {
+	private fun writeRecord(output: ZstdOutputStream, payload: ByteArray, checksum: DatasetTelemetryChecksum? = null) {
+		checksum?.updateRecord(payload)
 		val buffer = directBuffers.take()
 		try {
 			require(payload.size + 4 <= buffer.capacity()) { "FlatBuffer batch exceeds the fixed direct-buffer budget" }

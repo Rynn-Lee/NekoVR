@@ -236,7 +236,7 @@ object DatasetV1Bindings {
 
 	private fun activity(builder: FlatBufferBuilder, sample: ActivitySample): Int {
 		builder.startTable(5)
-		builder.addByte(4, ChannelProvenance.SERVER_DERIVED.ordinal.toByte(), 0)
+		builder.addByte(4, sample.provenance.ordinal.toByte(), 0)
 		builder.addLong(3, sample.endFrame, 0)
 		builder.addLong(2, sample.startFrame, 0)
 		builder.addFloat(1, sample.confidence, 0.0)
@@ -444,9 +444,12 @@ data class DatasetRecordSummary(
 	val schemaMajor: Int? = null,
 	val schemaMinor: Int? = null,
 	val sessionId: String? = null,
+	val header: DatasetFileHeader? = null,
+	val roster: DatasetTrackerRoster? = null,
 	val frames: List<SessionFrame> = emptyList(),
 	val events: List<DatasetEvent> = emptyList(),
 	val resetLabels: List<DatasetResetLabel> = emptyList(),
+	val footer: DatasetFooter? = null,
 )
 
 private class FbTable(private val buffer: ByteBuffer, private val table: Int) {
@@ -506,6 +509,18 @@ private class FbTable(private val buffer: ByteBuffer, private val table: Int) {
 		duplicate.get(bytes)
 		return bytes.toString(Charsets.UTF_8)
 	}
+
+	private fun vectorElement(index: Int, element: Int, width: Int): Int {
+		val location = field(index)
+		require(location != 0) { "missing vector field $index" }
+		val vector = location + buffer.getInt(location)
+		require(element in 0 until buffer.getInt(vector)) { "vector index out of range" }
+		return vector + 4 + element * width
+	}
+
+	fun vectorByte(index: Int, element: Int): Int = buffer.get(vectorElement(index, element, 1)).toInt() and 0xff
+	fun vectorInt(index: Int, element: Int): Int = buffer.getInt(vectorElement(index, element, 4))
+	fun vectorFloat(index: Int, element: Int): Float = buffer.getFloat(vectorElement(index, element, 4))
 }
 
 object DatasetV1Reader {
@@ -519,20 +534,116 @@ object DatasetV1Reader {
 		return when (type) {
 			DatasetV1Bindings.RECORD_HEADER -> {
 				val header = root.table(2) ?: error("header payload missing")
-				DatasetRecordSummary(type, sequence, header.ushort(0, 1), header.ushort(1), header.string(2))
+				val decoded = readHeader(header)
+				DatasetRecordSummary(
+					type = type,
+					sequence = sequence,
+					schemaMajor = decoded.schemaMajor,
+					schemaMinor = decoded.schemaMinor,
+					sessionId = decoded.sessionId,
+					header = decoded,
+				)
 			}
-			DatasetV1Bindings.RECORD_FRAMES -> DatasetRecordSummary(type, sequence, frames = readFrames(root.table(4) ?: error("frame payload missing")))
+			DatasetV1Bindings.RECORD_ROSTER -> DatasetRecordSummary(
+				type = type,
+				sequence = sequence,
+				roster = readRoster(root.table(3) ?: error("roster payload missing")),
+			)
+			DatasetV1Bindings.RECORD_FRAMES -> DatasetRecordSummary(type = type, sequence = sequence, frames = readFrames(root.table(4) ?: error("frame payload missing")))
 			DatasetV1Bindings.RECORD_EVENTS -> {
 				val batch = root.table(5) ?: error("event payload missing")
 				DatasetRecordSummary(
-					type,
-					sequence,
+					type = type,
+					sequence = sequence,
 					events = readEvents(batch),
 					resetLabels = readResetLabels(batch),
 				)
 			}
-			else -> DatasetRecordSummary(type, sequence)
+			DatasetV1Bindings.RECORD_FOOTER -> DatasetRecordSummary(
+				type = type,
+				sequence = sequence,
+				footer = readFooter(root.table(6) ?: error("footer payload missing")),
+			)
+			else -> error("unknown dataset record type $type")
 		}
+	}
+
+	private inline fun <reified T : Enum<T>> enumValue(value: Int, field: String): T {
+		val entries = enumValues<T>()
+		require(value in entries.indices) { "$field has unknown ordinal $value" }
+		return entries[value]
+	}
+
+	private fun readHeader(table: FbTable): DatasetFileHeader {
+		val channels = List(table.vectorLength(8)) { index ->
+			val channel = table.vectorTable(8, index)
+			TelemetryChannel(
+				id = channel.int(0),
+				name = channel.string(1) ?: "",
+				unit = channel.string(2) ?: "",
+				coordinateFrame = channel.string(3) ?: "",
+				cadence = channel.string(4) ?: "",
+				precision = channel.string(5) ?: "",
+				minimumProfile = enumValue(channel.byte(6), "channel.required_profile"),
+				allowedProvenance = List(channel.vectorLength(7)) { provenanceIndex ->
+					enumValue<ChannelProvenance>(channel.vectorByte(7, provenanceIndex), "channel.allowed_provenance")
+				}.toSet(),
+			)
+		}
+		return DatasetFileHeader(
+			schemaMajor = table.ushort(0, 1),
+			schemaMinor = table.ushort(1),
+			sessionId = table.string(2) ?: "",
+			createdUtc = table.string(3) ?: "",
+			applicationVersion = table.string(4) ?: "",
+			applicationCommit = table.string(5) ?: "",
+			profile = enumValue(table.byte(6), "header.profile"),
+			canonicalRateHz = table.ushort(7, 50),
+			channels = channels,
+		)
+	}
+
+	private fun readRoster(table: FbTable): DatasetTrackerRoster = DatasetTrackerRoster(
+		revision = table.int(0),
+		trackers = List(table.vectorLength(1)) { index ->
+			val tracker = table.vectorTable(1, index)
+			SessionTrackerMetadata(
+				sessionTrackerId = tracker.string(0) ?: "",
+				deviceLocalTrackerNumber = tracker.int(1),
+				bodyRole = tracker.string(2) ?: "",
+				imuType = tracker.string(3) ?: "",
+				transport = tracker.string(4) ?: "",
+				boardType = tracker.string(5) ?: "",
+				mcuType = tracker.string(6) ?: "",
+				firmwareVersion = tracker.string(7) ?: "",
+				manufacturer = tracker.string(8) ?: "",
+				capabilities = List(tracker.vectorLength(9)) { tracker.vectorInt(9, it) }.toSet(),
+				initialCalibration = tracker.string(10) ?: "",
+				pseudonymousDeviceId = tracker.string(11)?.takeIf(String::isNotEmpty),
+			)
+		},
+	)
+
+	private fun readFooter(table: FbTable): DatasetFooter {
+		val counters = table.table(2) ?: error("footer quality counters missing")
+		return DatasetFooter(
+			endedMonotonicNs = table.long(0),
+			durationNs = table.long(1),
+			counters = DatasetQualityCounters(
+				sampledFrames = counters.long(0),
+				writtenFrames = counters.long(1),
+				droppedFrames = counters.long(2),
+				gapEvents = counters.long(3),
+				invalidSamples = counters.long(4),
+				queueHighWatermark = counters.int(5),
+				packetGaps = counters.long(6),
+				packetReordered = counters.long(7),
+				packetDuplicates = counters.long(8),
+				packetCorrupt = counters.long(9),
+			),
+			telemetrySha256 = table.string(3) ?: "",
+			complete = table.bool(4),
+		)
 	}
 
 	private fun readEvents(batch: FbTable): List<DatasetEvent> {
@@ -611,41 +722,61 @@ object DatasetV1Reader {
 	private fun readResetLabels(eventBatch: FbTable): List<DatasetResetLabel> =
 		List(eventBatch.vectorLength(1)) { resetLabel(eventBatch.vectorTable(1, it)) }
 
-	private fun quat(table: FbTable?, half: Boolean): QuaternionSample {
+	private fun quat(table: FbTable?, half: Boolean, channel: String = "quaternion"): QuaternionSample {
 		if (table == null) return QuaternionSample(0f, 0f, 0f, 1f)
-		return if (half) QuaternionSample(
-			FP16BinaryPacker.fromHalfPrecision(table.ushort(0).toShort()),
-			FP16BinaryPacker.fromHalfPrecision(table.ushort(1).toShort()),
-			FP16BinaryPacker.fromHalfPrecision(table.ushort(2).toShort()),
-			FP16BinaryPacker.fromHalfPrecision(table.ushort(3).toShort()),
+		val value = if (half) QuaternionSample(
+			FP16BinaryPacker.decodeFinite(table.ushort(0).toShort(), -1f, 1f, "$channel.x"),
+			FP16BinaryPacker.decodeFinite(table.ushort(1).toShort(), -1f, 1f, "$channel.y"),
+			FP16BinaryPacker.decodeFinite(table.ushort(2).toShort(), -1f, 1f, "$channel.z"),
+			FP16BinaryPacker.decodeFinite(table.ushort(3).toShort(), -1f, 1f, "$channel.w"),
 		) else QuaternionSample(table.float(0), table.float(1), table.float(2), table.float(3, 1f))
+		FP16BinaryPacker.requireNormalizedQuaternion(floatArrayOf(value.x, value.y, value.z, value.w), channel)
+		return value
 	}
 
-	private fun vec(table: FbTable?, half: Boolean): Vector3Sample {
+	private fun vec(table: FbTable?, half: Boolean, limit: Float = FP16BinaryPacker.MAX_FINITE, channel: String = "vector"): Vector3Sample {
 		if (table == null) return Vector3Sample(0f, 0f, 0f)
-		return if (half) Vector3Sample(
-			FP16BinaryPacker.fromHalfPrecision(table.ushort(0).toShort()),
-			FP16BinaryPacker.fromHalfPrecision(table.ushort(1).toShort()),
-			FP16BinaryPacker.fromHalfPrecision(table.ushort(2).toShort()),
+		val value = if (half) Vector3Sample(
+			FP16BinaryPacker.decodeFinite(table.ushort(0).toShort(), -limit, limit, "$channel.x"),
+			FP16BinaryPacker.decodeFinite(table.ushort(1).toShort(), -limit, limit, "$channel.y"),
+			FP16BinaryPacker.decodeFinite(table.ushort(2).toShort(), -limit, limit, "$channel.z"),
 		) else Vector3Sample(table.float(0), table.float(1), table.float(2))
+		require(listOf(value.x, value.y, value.z).all { it.isFinite() && it in -limit..limit }) {
+			"$channel must contain finite components in [-$limit, $limit]"
+		}
+		return value
 	}
 
 	private fun tracker(table: FbTable): TrackerFrameSample {
 		val correction = table.table(16)
+		val nativeChannels = List(table.vectorLength(17)) { index ->
+			val native = table.vectorTable(17, index)
+			val values = List(native.vectorLength(2)) { native.vectorFloat(2, it) }
+			require(values.all(Float::isFinite)) { "native channel values must be finite" }
+			NativeChannelSample(
+				channelId = native.int(0),
+				monotonicNs = native.long(1),
+				values = values,
+				integerValue = native.long(3).takeIf { native.hasField(3) },
+				textValue = native.string(4),
+				validity = enumValue(native.byte(5), "native.validity"),
+				provenance = enumValue(native.byte(6), "native.provenance"),
+			)
+		}
 		return TrackerFrameSample(
 			sessionTrackerId = table.string(0) ?: "",
-			rawOrientation = quat(table.table(1), true),
-			calibratedPreAiOrientation = quat(table.table(2), true),
-			finalOrientation = quat(table.table(3), true),
-			rawAcceleration = vec(table.table(4), true),
-			linearAcceleration = vec(table.table(5), true),
-			angularVelocity = vec(table.table(6), true),
-			magneticVector = vec(table.table(7), true),
-			orientationValidity = ChannelValidity.entries[table.byte(8).coerceIn(ChannelValidity.entries.indices)],
-			accelerationValidity = ChannelValidity.entries[table.byte(9).coerceIn(ChannelValidity.entries.indices)],
-			angularVelocityValidity = ChannelValidity.entries[table.byte(10).coerceIn(ChannelValidity.entries.indices)],
-			angularVelocityProvenance = ChannelProvenance.entries[table.byte(11).coerceIn(ChannelProvenance.entries.indices)],
-			driftProvenance = ChannelProvenance.entries[table.byte(12).coerceIn(ChannelProvenance.entries.indices)],
+			rawOrientation = quat(table.table(1), true, "raw_orientation"),
+			calibratedPreAiOrientation = quat(table.table(2), true, "calibrated_pre_ai_orientation"),
+			finalOrientation = quat(table.table(3), true, "final_orientation"),
+			rawAcceleration = vec(table.table(4), true, 128f, "raw_acceleration"),
+			linearAcceleration = vec(table.table(5), true, 128f, "linear_acceleration"),
+			angularVelocity = vec(table.table(6), true, 64f, "angular_velocity"),
+			magneticVector = vec(table.table(7), true, 4096f, "magnetic_vector"),
+			orientationValidity = enumValue(table.byte(8), "tracker.orientation_validity"),
+			accelerationValidity = enumValue(table.byte(9), "tracker.acceleration_validity"),
+			angularVelocityValidity = enumValue(table.byte(10), "tracker.angular_velocity_validity"),
+			angularVelocityProvenance = enumValue(table.byte(11), "tracker.angular_velocity_provenance"),
+			driftProvenance = enumValue(table.byte(12), "tracker.drift_provenance"),
 			trackerStatus = table.string(13) ?: "UNKNOWN",
 			sampleSequence = table.long(14),
 			sampleAgeNs = table.long(15),
@@ -658,9 +789,10 @@ object DatasetV1Reader {
 				provider = correction?.string(5),
 				slot = correction?.int(6, -1) ?: -1,
 				historyValid = correction?.bool(7) ?: false,
-				latencyMicros = correction?.long(8),
-				provenance = ChannelProvenance.entries[(correction?.byte(9) ?: 0).coerceIn(ChannelProvenance.entries.indices)],
+				latencyMicros = correction?.let { value -> value.long(8).takeIf { value.hasField(8) } },
+				provenance = enumValue(correction?.byte(9) ?: 0, "correction.provenance"),
 			),
+			nativeChannels = nativeChannels,
 		)
 	}
 
@@ -676,18 +808,22 @@ object DatasetV1Reader {
 			deltaNs = frame.long(2),
 			hmd = ReferenceFrameSample(
 				orientation = quat(hmd?.table(0), false),
-				position = vec(hmd?.table(1), false),
-				validity = ChannelValidity.entries[(hmd?.byte(2) ?: 0).coerceIn(ChannelValidity.entries.indices)],
+				position = vec(hmd?.table(1), false, 1000f, "hmd.position"),
+				validity = enumValue(hmd?.byte(2) ?: 0, "hmd.validity"),
 				sampleAgeNs = hmd?.long(3) ?: 0,
 			),
 			trackers = trackers,
 			contextSamples = context,
 			activity = ActivitySample(
-				type = ActivityType.entries[(activity?.byte(0) ?: 0).coerceIn(ActivityType.entries.indices)],
+				type = enumValue(activity?.byte(0) ?: 0, "activity.type"),
 				confidence = activity?.float(1) ?: 0f,
 				startFrame = activity?.long(2) ?: frame.long(0),
 				endFrame = activity?.long(3) ?: frame.long(0),
+				provenance = enumValue(activity?.byte(4) ?: 0, "activity.provenance"),
 			),
-		)
+		).also {
+			require(it.activity.confidence.isFinite() && it.activity.confidence in 0f..1f) { "activity confidence must be in [0, 1]" }
+			require(it.activity.startFrame <= it.activity.endFrame) { "activity frame interval is inverted" }
+		}
 	}
 }

@@ -1,15 +1,18 @@
 package dev.slimevr.unit
 
+import com.github.luben.zstd.ZstdInputStream
 import dev.slimevr.dataset.ArchiveState
 import dev.slimevr.dataset.CollectionProfile
 import dev.slimevr.dataset.DatasetArchiveValidator
 import dev.slimevr.dataset.DatasetManifest
 import dev.slimevr.dataset.DatasetPrivacy
 import dev.slimevr.dataset.DatasetRecordingService
+import dev.slimevr.dataset.DatasetTelemetryChecksum
 import dev.slimevr.dataset.RecordingRequest
 import dev.slimevr.dataset.RecordingState
 import dev.slimevr.dataset.SessionPrivacyOptions
 import dev.slimevr.dataset.TelemetryChannelRegistry
+import dev.slimevr.dataset.generated.DatasetV1Reader
 import dev.slimevr.tracking.trackers.Device
 import dev.slimevr.tracking.trackers.DeviceOrigin
 import dev.slimevr.tracking.trackers.Tracker
@@ -31,6 +34,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
+import java.security.MessageDigest
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicLong
 import java.util.zip.ZipFile
@@ -42,6 +46,21 @@ import kotlin.math.cos
 import kotlin.math.sin
 
 class DatasetRecordingServiceTests {
+	private fun assertChecksumScopes(archive: Path) {
+		ZipFile(archive.toFile()).use { zip ->
+			val telemetry = zip.getInputStream(zip.getEntry("telemetry.fbs.zst")).readAllBytes()
+			val manifest = DatasetManifest.fromJsonString(zip.getInputStream(zip.getEntry("manifest.json")).reader().readText())
+			val compressedSha = MessageDigest.getInstance("SHA-256").digest(telemetry).joinToString("") { "%02x".format(it) }
+			assertEquals(compressedSha, manifest.telemetrySha256)
+			val records = ZstdInputStream(telemetry.inputStream()).use { input ->
+				buildList {
+					while (true) add(DatasetArchiveValidator.readRecord(input) ?: break)
+				}
+			}
+			val footer = DatasetV1Reader.read(records.last()).footer!!
+			assertEquals(DatasetTelemetryChecksum.computeHex(records.dropLast(1)), footer.telemetrySha256)
+		}
+	}
 
 	private fun yawQuat(rad: Float): Quaternion = Quaternion(cos(rad / 2f), 0f, sin(rad / 2f), 0f)
 
@@ -112,6 +131,7 @@ class DatasetRecordingServiceTests {
 		}
 
 		val archive = service.stopAndFinalize(timeoutSeconds = 5)
+		assertChecksumScopes(archive)
 		assertTrue(archive.exists())
 		assertEquals(RecordingState.COMPLETED, service.status().state)
 
@@ -347,6 +367,7 @@ class DatasetRecordingServiceTests {
 		assertTrue(recoveryService.recoverabilityFindings(session).none { it.severity.name == "FATAL" })
 
 		val recoveredArchive = recoveryService.recoverPartial(session)
+		assertChecksumScopes(recoveredArchive)
 		val report = DatasetArchiveValidator().validate(recoveredArchive)
 		assertTrue(report.valid, "Recovered archive must validate: ${report.findings}")
 		assertEquals(6L, report.frames)

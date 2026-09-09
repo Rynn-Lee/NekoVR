@@ -66,7 +66,9 @@ object FP16BinaryPacker {
 					sign or ((e + 127) shl 23) or (m shl 13)
 				}
 			}
+
 			0x1f -> sign or 0x7f800000 or (mantissa shl 13)
+
 			else -> sign or ((exponent - 15 + 127) shl 23) or (mantissa shl 13)
 		}
 		return java.lang.Float.intBitsToFloat(floatBits)
@@ -90,9 +92,17 @@ object FP16BinaryPacker {
 		return value
 	}
 
+	fun requireNormalizedQuaternion(components: FloatArray, channel: String = "quaternion") {
+		require(components.size == 4) { "$channel must have four components" }
+		require(components.all { it.isFinite() && it in -1f..1f }) {
+			"$channel must contain finite components in [-1, 1]"
+		}
+		val normSquared = components.sumOf { (it * it).toDouble() }.toFloat()
+		require(normSquared in 0.98f..1.02f) { "$channel must be normalized" }
+	}
+
 	fun writeQuaternionFP16(buffer: ByteBuffer, qx: Float, qy: Float, qz: Float, qw: Float) {
-		val normSquared = qx * qx + qy * qy + qz * qz + qw * qw
-		require(normSquared.isFinite() && normSquared in 0.98f..1.02f) { "quaternion must be finite and normalized" }
+		requireNormalizedQuaternion(floatArrayOf(qx, qy, qz, qw))
 		buffer.putShort(encodeFinite(qx, -1f, 1f, "quaternion.x"))
 		buffer.putShort(encodeFinite(qy, -1f, 1f, "quaternion.y"))
 		buffer.putShort(encodeFinite(qz, -1f, 1f, "quaternion.z"))

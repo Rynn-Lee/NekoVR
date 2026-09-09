@@ -40,6 +40,8 @@ class ModelSidecar:
     performance_tier: str
     model_size_bytes: int
     model_sha256: str
+    model_kind: str = "global"
+    profile_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -54,6 +56,8 @@ def validate_sidecar(sidecar: ModelSidecar, model_path: str | Path | None = None
         raise ValueError("unsupported model sidecar format or schema version")
     if not sidecar.model_id or not sidecar.model_version:
         raise ValueError("model identity and version are required")
+    if sidecar.model_kind not in {"global", "personal"} or (sidecar.model_kind == "personal" and not sidecar.profile_id):
+        raise ValueError("personal model sidecars require a profile ID")
     if not _is_sha256(sidecar.feature_schema_sha256) or not _is_sha256(sidecar.model_sha256):
         raise ValueError("feature schema and model hashes must be lowercase SHA-256 values")
     if sidecar.opset <= 0 or sidecar.model_size_bytes <= 0:
@@ -108,6 +112,7 @@ def load_sidecar(path: str | Path, model_path: str | Path | None = None) -> Mode
             validation_metrics=payload["validation_metrics"], opset=int(payload["opset"]),
             performance_tier=payload["performance_tier"], model_size_bytes=int(payload["model_size_bytes"]),
             model_sha256=payload["model_sha256"],
+            model_kind=payload.get("model_kind", "global"), profile_id=payload.get("profile_id"),
         )
     except (KeyError, TypeError, ValueError) as error:
         raise ValueError(f"invalid model sidecar: {error}") from error

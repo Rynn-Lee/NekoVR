@@ -17,9 +17,7 @@ const hook = readFileSync(
 
 describe('authoritative personal training surface', () => {
   it('keeps the subscription mounted while navigating tabs', () => {
-    assert.ok(
-      page.indexOf('usePersonalTraining()') < page.indexOf('activeTab ===')
-    );
+    assert.ok(page.indexOf('usePersonalTraining()') < page.indexOf('activeTab ==='));
   });
 
   it('exposes the full staged job and lifecycle controls', () => {
