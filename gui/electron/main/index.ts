@@ -13,10 +13,9 @@ import {
 } from 'electron';
 import { IPC_CHANNELS, ServerStatusEvent } from '../shared';
 import path, { dirname, join } from 'path';
-import open from 'open';
 import trayIcon from '../../../assets/img/ico.png?asset';
 import { readFile, stat, mkdir, writeFile } from 'fs/promises';
-import { copyFileSync, existsSync } from 'node:fs';
+import { copyFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { getPlatform, handleIpc, isPortAvailable } from './utils';
 import {
@@ -32,6 +31,12 @@ import {
 import { initStores } from './store';
 import { closeLogger, logger } from './logger';
 import { resolveManagedDatasetArchive } from './dataset-paths';
+import { authorizeExistingPath } from './filesystem-authorization';
+import {
+  handleExternalNavigation,
+  handleExternalWindowOpen,
+  openApprovedExternalUrl,
+} from './external-url-policy';
 
 import { spawn } from 'node:child_process';
 import { discordPresence } from './presence';
@@ -103,29 +108,26 @@ handleIpc(IPC_CHANNELS.GET_FOLDER, (e, folder) => {
 });
 
 handleIpc(IPC_CHANNELS.OPEN_FILE, (e, requestedFile) => {
-  const requestedPath = path.resolve(requestedFile);
-  const allowedRoots = [
-    getServerDataFolder(),
-    getGuiDataFolder(),
-    getLogsFolder(),
-    getDatasetsFolder(),
-  ];
-  const isAllowed = allowedRoots.some((root) => {
-    const relative = path.relative(path.resolve(root), requestedPath);
-    return (
-      relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
-    );
+  const safePath = authorizeExistingPath({
+    requestedPath: requestedFile,
+    allowedRoots: [
+      getServerDataFolder(),
+      getGuiDataFolder(),
+      getLogsFolder(),
+      getDatasetsFolder(),
+    ],
+    targetTypes: ['directory', 'regular-file'],
   });
-  if (!isAllowed) {
-    logger.error({ path: requestedPath }, 'blocked unauthorized path');
+  if (!safePath) {
+    logger.error({ path: requestedFile }, 'blocked unauthorized path');
     return;
   }
-  void shell.openPath(requestedPath);
+  void shell.openPath(safePath);
 });
 
 handleIpc(IPC_CHANNELS.REVEAL_DATASET, async (e, sessionId) => {
   const safePath = resolveManagedDatasetArchive(getDatasetsFolder(), sessionId);
-  if (!safePath || !existsSync(safePath)) {
+  if (!safePath) {
     logger.error(
       { sessionId },
       'blocked unauthorized or missing dataset reveal request'
@@ -138,7 +140,7 @@ handleIpc(IPC_CHANNELS.REVEAL_DATASET, async (e, sessionId) => {
 
 handleIpc(IPC_CHANNELS.EXPORT_DATASET, async (e, sessionId) => {
   const safePath = resolveManagedDatasetArchive(getDatasetsFolder(), sessionId);
-  if (!safePath || !existsSync(safePath)) {
+  if (!safePath) {
     logger.error({ sessionId }, 'dataset file not found or unauthorized for export');
     return { success: false, error: 'Dataset file not found or unauthorized' };
   }
@@ -161,16 +163,12 @@ handleIpc(IPC_CHANNELS.EXPORT_DATASET, async (e, sessionId) => {
   }
 });
 
-handleIpc(IPC_CHANNELS.OPEN_URL, (e, url) => {
-  const allowedUrls = [
-    /^steam:\/\//,
-    /^ms-settings:network$/,
-    /^https:\/\/(?:.+\.)?slimevr\.dev(?:\/.*)?$/,
-    /^https:\/\/github\.com\/SlimeVR(?:\/.*)?$/,
-    /^https:\/\/discord\.gg\/slimevr$/,
-  ];
-  if (allowedUrls.some((allowed) => allowed.test(url))) void open(url);
-  else logger.error({ url }, 'attempted to open non-allowlisted URL');
+handleIpc(IPC_CHANNELS.OPEN_URL, async (e, url) => {
+  const opened = await openApprovedExternalUrl(url, (approvedUrl) =>
+    shell.openExternal(approvedUrl)
+  );
+  if (!opened) logger.error({ url }, 'attempted to open non-allowlisted URL');
+  return opened;
 });
 
 handleIpc(IPC_CHANNELS.OS_STATS, async () => {
@@ -297,6 +295,15 @@ function createWindow() {
     }
   });
 
+  mainWindow.webContents.on('will-navigate', (event, url) =>
+    handleExternalNavigation(event, url, (approvedUrl) =>
+      shell.openExternal(approvedUrl)
+    )
+  );
+  mainWindow.webContents.setWindowOpenHandler(({ url }) =>
+    handleExternalWindowOpen(url, (approvedUrl) => shell.openExternal(approvedUrl))
+  );
+
   if (process.env.ELECTRON_RENDERER_URL) {
     mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
     mainWindow.webContents.openDevTools();
@@ -308,7 +315,7 @@ function createWindow() {
     mainWindow = null;
   });
 
-  handleIpc('window-actions', (e, action) => {
+  handleIpc(IPC_CHANNELS.WINDOW_ACTIONS, (e, action) => {
     if (mainWindow === null) return;
     switch (action) {
       case 'close':
@@ -327,8 +334,8 @@ function createWindow() {
     }
   });
 
-  handleIpc('open-dialog', (e, options) => dialog.showOpenDialog(options));
-  handleIpc('save-dialog', (e, options) => dialog.showSaveDialog(options));
+  handleIpc(IPC_CHANNELS.OPEN_DIALOG, (e, options) => dialog.showOpenDialog(options));
+  handleIpc(IPC_CHANNELS.SAVE_DIALOG, (e, options) => dialog.showSaveDialog(options));
 
   const tray = new Tray(icon);
   tray.setToolTip('NekoVR');

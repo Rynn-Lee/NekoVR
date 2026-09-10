@@ -63,6 +63,19 @@ describe('AI model control-plane requests', () => {
 });
 
 describe('localized accessible AI model surface', () => {
+  it('gates production correction on authoritative readiness and labels diagnostics', () => {
+    const page = readFileSync(
+      'src/components/ai-drift/AIModelControlPanel.tsx',
+      'utf8'
+    );
+    assert.match(page, /runtime\?\.inferenceReady === true/);
+    assert.match(page, /runtime\?\.effectiveCorrectionEnabled === true/);
+    assert.match(page, /\(!configuration\.enabled && !inferenceReady\)/);
+    assert.match(page, /ai_model-action-enable-locked/);
+    assert.match(page, /ai_model-action-load-diagnostic/);
+    assert.match(page, /ai_model-history-switch-diagnostic/);
+  });
+
   it('keeps English and Russian AI control-plane message IDs in sync', () => {
     const ids = (path: string) =>
       new Set(

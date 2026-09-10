@@ -2,6 +2,7 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   AIExecutionProvider,
+  AIReadinessBlockingReason,
   AIModelConfigurationStateT,
   AIModelDescriptorT,
   AIModelHistoryEntryT,
@@ -35,12 +36,23 @@ describe('authoritative AI model state reducer', () => {
     runtime.activeProvider = AIExecutionProvider.CUDA;
     runtime.configuration = new AIModelConfigurationStateT();
     runtime.configuration.enabled = true;
+    runtime.inferenceReady = false;
+    runtime.readinessBlockingReason =
+      AIReadinessBlockingReason.INFERENCE_READY_MODEL_MISMATCH;
+    runtime.readinessDetail = 'Evidence belongs to another model';
+    runtime.effectiveCorrectionEnabled = false;
     const authoritative = aiModelReducer(acknowledged, {
       type: 'runtime',
       response: runtime,
     });
     assert.equal(authoritative.runtime?.activeProvider, AIExecutionProvider.CUDA);
     assert.equal(authoritative.runtime?.configuration?.enabled, true);
+    assert.equal(authoritative.runtime?.inferenceReady, false);
+    assert.equal(authoritative.runtime?.effectiveCorrectionEnabled, false);
+    assert.equal(
+      authoritative.runtime?.readinessBlockingReason,
+      AIReadinessBlockingReason.INFERENCE_READY_MODEL_MISMATCH
+    );
   });
 
   it('uses only the latest server catalog response as model inventory', () => {

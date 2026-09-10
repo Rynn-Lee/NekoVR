@@ -139,6 +139,16 @@ private fun generatePilot(output: Path, name: String, trackerCount: Int, mixedTr
 	val imuState = snapshot(imus.first(), roles.first())
 	val hmdState = snapshot(hmd, TrackerPosition.HEAD)
 	val requestNs = clockNs
+	publisher.publish(
+		ResetEvent(
+			requestId = "dataset-ready-simulated-reset",
+			kind = ResetKind.YAW,
+			outcome = ResetOutcome.REQUESTED,
+			source = "dataset-ready-simulated-pilot",
+			requestMonotonicNs = requestNs,
+			bodyParts = listOf(roles.first().bodyPart),
+		),
+	)
 	val label = ResetLabelCalculator.buildLabelRecord(
 		trackerId = imus.first().id,
 		trackerPosition = roles.first(),

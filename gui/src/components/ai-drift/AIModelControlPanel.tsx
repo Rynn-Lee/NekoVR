@@ -52,6 +52,9 @@ export function AIModelControlPanel({ control }: { control: AIModelControl }) {
   const electron = useElectron();
   const configuration = control.configuration;
   const runtime = control.runtime;
+  const inferenceReady = runtime?.inferenceReady === true;
+  const effectiveCorrectionEnabled =
+    runtime?.effectiveCorrectionEnabled === true;
   const [draft, setDraft] = useState<AIConfigurationDraft | null>(null);
   const [mappings, setMappings] = useState<AITrackerSlotMappingT[]>([]);
   const [selectedModelHash, setSelectedModelHash] = useState('');
@@ -238,10 +241,50 @@ export function AIModelControlPanel({ control }: { control: AIModelControl }) {
         </span>
       </div>
 
+      <div
+        className={`rounded-lg border p-3 text-xs ${
+          inferenceReady
+            ? 'border-status-success bg-status-success/10 text-status-success'
+            : 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+        }`}
+        role="status"
+      >
+        <strong>
+          {l10n.getString(
+            inferenceReady
+              ? 'ai_model-readiness-ready'
+              : 'ai_model-readiness-locked'
+          )}
+        </strong>{' '}
+        {modelText(runtime?.readinessDetail)}
+        {modelText(runtime?.inferenceReadyModelSha256) && (
+          <span className="block break-all font-mono text-[10px]">
+            {l10n.getString('ai_model-readiness-evidence-model')}:{' '}
+            {modelText(runtime?.inferenceReadyModelSha256)}
+          </span>
+        )}
+        <span className="block text-[11px]">
+          {l10n.getString('ai_model-readiness-persisted-intent')}:{' '}
+          {configuration?.enabled
+            ? l10n.getString('ai_model-state-on')
+            : l10n.getString('ai_model-state-off')}
+          {' · '}
+          {l10n.getString('ai_model-readiness-effective-state')}:{' '}
+          {effectiveCorrectionEnabled
+            ? l10n.getString('ai_model-state-on')
+            : l10n.getString('ai_model-state-off')}
+        </span>
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
         <Button
-          variant={configuration?.enabled ? 'destructive' : 'primary'}
-          disabled={!control.connected || !configuration || Boolean(busy)}
+          variant={effectiveCorrectionEnabled ? 'destructive' : 'primary'}
+          disabled={
+            !control.connected ||
+            !configuration ||
+            Boolean(busy) ||
+            (!configuration.enabled && !inferenceReady)
+          }
           loading={busy === 'enabled'}
           onClick={() =>
             run(
@@ -253,8 +296,10 @@ export function AIModelControlPanel({ control }: { control: AIModelControl }) {
         >
           {l10n.getString(
             configuration?.enabled
-              ? 'ai_model-action-disable'
-              : 'ai_model-action-enable'
+              ? 'ai_model-action-disable-intent'
+              : inferenceReady
+                ? 'ai_model-action-enable'
+                : 'ai_model-action-enable-locked'
           )}
         </Button>
         <Button
@@ -373,7 +418,11 @@ export function AIModelControlPanel({ control }: { control: AIModelControl }) {
                         )
                       }
                     >
-                      {l10n.getString('ai_model-history-switch')}
+                      {l10n.getString(
+                        inferenceReady
+                          ? 'ai_model-history-switch'
+                          : 'ai_model-history-switch-diagnostic'
+                      )}
                     </Button>
                   </div>
                 </article>
@@ -455,7 +504,11 @@ export function AIModelControlPanel({ control }: { control: AIModelControl }) {
               run('activate', control.load(selectedModelHash, draft?.provider))
             }
           >
-            {l10n.getString('ai_model-action-activate')}
+            {l10n.getString(
+              inferenceReady
+                ? 'ai_model-action-activate'
+                : 'ai_model-action-load-diagnostic'
+            )}
           </Button>
         </div>
       </fieldset>

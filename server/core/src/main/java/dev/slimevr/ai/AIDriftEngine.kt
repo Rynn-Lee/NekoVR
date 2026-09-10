@@ -86,6 +86,11 @@ data class AIRuntimeStatus(
 	val metrics: AIRuntimeMetrics,
 	val trackers: List<TrackerRuntimeStatus>,
 	val lastError: AIRuntimeError?,
+	val inferenceReady: Boolean,
+	val inferenceReadyModelSha256: String?,
+	val readinessBlockingReason: String?,
+	val readinessDetail: String,
+	val effectiveCorrectionEnabled: Boolean,
 )
 
 class AIDriftEngine(
@@ -360,7 +365,11 @@ class AIDriftEngine(
 			safetyGate.reset(trackerId)
 			trackerRejections[trackerId] = rejection
 			trackerApplied[trackerId] = false
-			return DriftCorrectionResult(rejectionReason = rejection, provider = active?.provider?.name, epoch = epoch)
+			return DriftCorrectionResult(
+				rejectionReason = rejection, provider = active?.provider?.name, epoch = epoch,
+				modelHash = active?.metadata?.modelSha256, modelVersion = active?.metadata?.modelVersion,
+				featureSchemaSha256 = active?.metadata?.featureSchemaSha256, gateOutcome = "REJECTED",
+			)
 		}
 		checkNotNull(active)
 		if (active.worker.consecutiveInferenceErrorCount >= config.watchdogFailureThreshold.coerceAtLeast(1)) {
@@ -375,6 +384,9 @@ class AIDriftEngine(
 				modelHash = active.metadata.modelSha256,
 				provider = active.provider.name,
 				epoch = epoch,
+				featureSchemaSha256 = active.metadata.featureSchemaSha256,
+				modelVersion = active.metadata.modelVersion,
+				gateOutcome = "WATCHDOG_TRIPPED",
 			)
 		}
 		val latest = active.worker.latest(trackerId, epoch)
@@ -407,6 +419,18 @@ class AIDriftEngine(
 			historyValid = latest != null,
 			latencyMicros = latest?.latencyMicros,
 			epoch = epoch,
+			featureSchemaSha256 = active.metadata.featureSchemaSha256,
+			modelVersion = active.metadata.modelVersion,
+			bodyRoleId = latest?.bodyRoleId,
+			slot = latest?.slot,
+			confidence = latest?.confidence,
+			driftRate = latest?.driftRate,
+			gateOutcome = when {
+				applied -> "APPLIED"
+				shadowed -> "SHADOWED"
+				else -> "REJECTED"
+			},
+			inferenceSequence = latest?.sequence,
 		)
 	}
 
@@ -434,12 +458,25 @@ class AIDriftEngine(
 		val worker = active?.worker
 		val outputs = worker?.latestOutputs().orEmpty()
 		val confidences = outputs.values.map { it.confidence }.filter(Float::isFinite)
-		val authorization = active?.takeIf { config.enabled && !config.shadowMode }
-			?.let { activeCorrectionAuthorization(it.metadata.modelSha256) }
+		val authorization = active?.let { activeCorrectionAuthorization(it.metadata.modelSha256) }
+		val effectiveCorrectionEnabled = active != null &&
+			config.enabled &&
+			!config.shadowMode &&
+			authorization?.allowed == true &&
+			!watchdogTripped
+		val readinessBlockingReason = when {
+			active == null -> "NO_ACTIVE_MODEL"
+			runtime == null -> "RUNTIME_UNAVAILABLE"
+			watchdogTripped -> "WATCHDOG_TRIPPED"
+			config.shadowMode -> "SHADOW_MODE"
+			!config.enabled -> "ACTIVE_CORRECTION_OPT_IN_DISABLED"
+			authorization?.allowed == false -> authorization.rejectionReason
+			else -> null
+		}
 		val lastError = when {
 			worker?.lastError != null -> AIRuntimeError("INFERENCE_ERROR", worker.lastError!!)
 			lastLoadError != null -> AIRuntimeError(lastLoadError!!.code.name, lastLoadError!!.message ?: lastLoadError!!.code.name)
-			authorization?.allowed == false -> AIRuntimeError(authorization.rejectionReason ?: "ACTIVE_CORRECTION_GATED", "Active correction is gated")
+			config.enabled && !config.shadowMode && authorization?.allowed == false -> AIRuntimeError(authorization.rejectionReason ?: "ACTIVE_CORRECTION_GATED", authorization.detail ?: "Active correction is gated")
 			else -> null
 		}
 		val health = when {
@@ -482,6 +519,18 @@ class AIDriftEngine(
 				)
 			},
 			lastError = lastError,
+			inferenceReady = authorization?.inferenceReady == true,
+			inferenceReadyModelSha256 = authorization?.readyModelSha256,
+			readinessBlockingReason = readinessBlockingReason,
+			readinessDetail = authorization?.detail ?: when (readinessBlockingReason) {
+				"NO_ACTIVE_MODEL" -> "Load a validated model for diagnostic inference before enabling correction"
+				"RUNTIME_UNAVAILABLE" -> "The packaged inference runtime is unavailable"
+				"WATCHDOG_TRIPPED" -> "Inference watchdog tripped; correction is fail-open identity"
+				"SHADOW_MODE" -> "The model is loaded in diagnostic shadow mode"
+				"ACTIVE_CORRECTION_OPT_IN_DISABLED" -> "Correction intent is disabled"
+				else -> "Inference readiness has not been established"
+			},
+			effectiveCorrectionEnabled = effectiveCorrectionEnabled,
 		)
 	}
 

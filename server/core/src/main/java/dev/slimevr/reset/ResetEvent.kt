@@ -45,6 +45,8 @@ enum class SupervisionAction {
 	EXCLUDE,
 }
 
+enum class ResetChannelValidity { UNAVAILABLE, INVALID, STALE, VALID }
+
 data class SupervisionDecision(
 	val action: SupervisionAction,
 	val weight: Float,
@@ -75,6 +77,9 @@ data class TrackerResetStateSnapshot(
 	val calibrationEpoch: Long,
 	val sampleAgeNs: Long,
 	val packetGapCount: Long,
+	val rawOrientationValidity: ResetChannelValidity = ResetChannelValidity.VALID,
+	val calibratedPreAiValidity: ResetChannelValidity = ResetChannelValidity.VALID,
+	val adjustedOrientationValidity: ResetChannelValidity = ResetChannelValidity.VALID,
 )
 
 data class ResetLabelRecord(
@@ -167,7 +172,7 @@ object ResetLabelCalculator {
 		postEndFrame: Long = 0L,
 		requestId: String? = null,
 	): ResetLabelRecord {
-		val (correction, yaw) = computeCorrection(preState.calibratedPreAiOrientation, postState.calibratedPreAiOrientation)
+		val (correction, yaw) = computeCorrection(preState.adjustedOrientation, postState.adjustedOrientation)
 		val hmdValid = isValidHmdReference(hmdPre, hmdPost)
                 val flags = computeQualityFlags(
                         hmdValid = hmdValid,
@@ -198,8 +203,8 @@ object ResetLabelCalculator {
 			qualityFlags = flags,
 			preResetState = preState,
 			postResetState = postState,
-			hmdReferenceBefore = hmdPre?.calibratedPreAiOrientation ?: Quaternion.IDENTITY,
-                        hmdReferenceAfter = hmdPost?.calibratedPreAiOrientation ?: Quaternion.IDENTITY,
+			hmdReferenceBefore = hmdPre?.adjustedOrientation ?: Quaternion.IDENTITY,
+			hmdReferenceAfter = hmdPost?.adjustedOrientation ?: Quaternion.IDENTITY,
                         hmdValid = hmdValid,
                         hmdSampleAgeBeforeNs = hmdPre?.sampleAgeNs ?: Long.MAX_VALUE,
                         hmdSampleAgeAfterNs = hmdPost?.sampleAgeNs ?: Long.MAX_VALUE,
@@ -211,7 +216,7 @@ object ResetLabelCalculator {
 	}
 
 	/**
-	 * Computes the canonical normalized pre-AI correction: q_target = q_post_preAI * inv(q_pre_preAI).
+	 * Computes the canonical normalized adjusted correction: q_target = q_post_adjusted * inv(q_pre_adjusted).
 	 * Enforces quaternion sign equivalence (canonical w >= 0) and computes diagnostic yaw.
 	 */
 	fun computeCorrection(qPre: Quaternion, qPost: Quaternion): Pair<Quaternion, Float> {
@@ -280,6 +285,12 @@ object ResetLabelCalculator {
 			!isFiniteQuaternion(preState.adjustedOrientation) ||
 			!isFiniteQuaternion(postState.adjustedOrientation) ||
 			!isFiniteQuaternion(targetQuat)
+			|| preState.rawOrientationValidity != ResetChannelValidity.VALID
+			|| postState.rawOrientationValidity != ResetChannelValidity.VALID
+			|| preState.calibratedPreAiValidity != ResetChannelValidity.VALID
+			|| postState.calibratedPreAiValidity != ResetChannelValidity.VALID
+			|| preState.adjustedOrientationValidity != ResetChannelValidity.VALID
+			|| postState.adjustedOrientationValidity != ResetChannelValidity.VALID
 		) {
 			flags = flags or FLAG_INVALID_QUATERNIONS
 		}

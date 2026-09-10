@@ -45,6 +45,165 @@ class _HalfTable:
 
 
 class DatasetDecompressionTests(unittest.TestCase):
+    def _kotlin_fixture(self) -> Path:
+        fixture_dir = os.environ.get("NEKOVR_KOTLIN_DATASET_FIXTURES")
+        if not fixture_dir:
+            self.skipTest("aggregate baseline supplies Kotlin-generated archives")
+        return Path(fixture_dir) / "kotlin-conformance-v1.nvrdata"
+
+    @staticmethod
+    def _write_archive(path: Path, manifest: dict, telemetry: bytes, *,
+                       compression: int = zipfile.ZIP_STORED, extra: tuple[str, bytes] | None = None) -> None:
+        with zipfile.ZipFile(path, "w", compression=compression) as output:
+            output.writestr("manifest.json", json.dumps(manifest))
+            output.writestr("telemetry.fbs.zst", telemetry)
+            if extra is not None:
+                output.writestr(*extra)
+
+    def test_canonical_archive_mutations_are_rejected(self) -> None:
+        source = self._kotlin_fixture()
+        with zipfile.ZipFile(source) as archive:
+            manifest = json.loads(archive.read("manifest.json"))
+            telemetry = archive.read("telemetry.fbs.zst")
+        reader = DatasetReader()
+        payload = reader._decompress_zstd(telemetry)
+
+        with tempfile.TemporaryDirectory(prefix="nekovr-archive-mutations-") as directory:
+            root = Path(directory)
+            extra = root / "extra.nvrdata"
+            self._write_archive(extra, manifest, telemetry, extra=("unexpected.txt", b"no"))
+            with self.assertRaisesRegex(DatasetFormatError, "ZIP members must be exactly"):
+                reader.inspect_archive(extra)
+
+            for unsafe_name in ("/absolute", "../traversal", "C:/absolute"):
+                unsafe = root / f"unsafe-{len(unsafe_name)}-{unsafe_name[0].isalnum()}.nvrdata"
+                self._write_archive(unsafe, manifest, telemetry, extra=(unsafe_name, b"no"))
+                with self.subTest(unsafe_name=unsafe_name), self.assertRaises(DatasetFormatError):
+                    reader.inspect_archive(unsafe)
+
+            duplicate = root / "duplicate.nvrdata"
+            with zipfile.ZipFile(duplicate, "w", compression=zipfile.ZIP_STORED) as output:
+                output.writestr("manifest.json", json.dumps(manifest))
+                output.writestr("manifest.json", json.dumps(manifest))
+                output.writestr("telemetry.fbs.zst", telemetry)
+            with self.assertRaisesRegex(DatasetFormatError, "duplicate ZIP members"):
+                reader.inspect_archive(duplicate)
+
+            compressed_again = root / "compressed-again.nvrdata"
+            self._write_archive(compressed_again, manifest, telemetry, compression=zipfile.ZIP_DEFLATED)
+            with self.assertRaisesRegex(DatasetFormatError, "compressed again"):
+                reader.inspect_archive(compressed_again)
+
+            wrong_duration = root / "footer-duration.nvrdata"
+            changed_manifest = dict(manifest, durationNs=int(manifest["durationNs"]) + 1)
+            self._write_archive(wrong_duration, changed_manifest, telemetry)
+            with self.assertRaisesRegex(DatasetFormatError, "durations differ"):
+                reader.inspect_archive(wrong_duration)
+
+            wrong_counters = root / "footer-counters.nvrdata"
+            changed_manifest = dict(manifest)
+            changed_manifest["quality"] = dict(manifest["quality"], sampledFrames=99)
+            self._write_archive(wrong_counters, changed_manifest, telemetry)
+            with self.assertRaises(DatasetFormatError):
+                reader.inspect_archive(wrong_counters)
+
+            bad_footer = root / "footer-checksum.nvrdata"
+            footer = next(reader.footers(io.BytesIO(payload)))
+            mutated_payload = payload.replace(footer.telemetry_sha256.encode(), b"0" * 64, 1)
+            mutated_telemetry = compress_zstd(mutated_payload, write_content_size=False)
+            changed_manifest = dict(
+                manifest,
+                telemetrySha256=hashlib.sha256(mutated_telemetry).hexdigest(),
+                telemetryBytes=len(mutated_telemetry),
+            )
+            self._write_archive(bad_footer, changed_manifest, mutated_telemetry)
+            with self.assertRaisesRegex(DatasetFormatError, "footer checksum"):
+                reader.inspect_archive(bad_footer)
+
+            bad_registry = root / "registry-semantics.nvrdata"
+            mutated_payload = payload.replace(b"raw_orientation", b"bad_orientation", 1)
+            mutated_telemetry = compress_zstd(mutated_payload, write_content_size=False)
+            changed_manifest = dict(
+                manifest,
+                telemetrySha256=hashlib.sha256(mutated_telemetry).hexdigest(),
+                telemetryBytes=len(mutated_telemetry),
+            )
+            self._write_archive(bad_registry, changed_manifest, mutated_telemetry)
+            with self.assertRaisesRegex(DatasetFormatError, "canonical semantics"):
+                reader.inspect_archive(bad_registry)
+
+            wrong_schema = root / "schema.nvrdata"
+            self._write_archive(wrong_schema, dict(manifest, schemaMajor=2), telemetry)
+            with self.assertRaisesRegex(DatasetFormatError, "unsupported manifest schema"):
+                reader.inspect_archive(wrong_schema)
+
+            ordered_records = []
+            cursor = 0
+            while cursor < len(payload):
+                size = struct.unpack_from("<I", payload, cursor)[0]
+                ordered_records.append(payload[cursor:cursor + 4 + size])
+                cursor += 4 + size
+            ordered_records[0], ordered_records[1] = ordered_records[1], ordered_records[0]
+            mutated_telemetry = compress_zstd(b"".join(ordered_records), write_content_size=False)
+            changed_manifest = dict(
+                manifest,
+                telemetrySha256=hashlib.sha256(mutated_telemetry).hexdigest(),
+                telemetryBytes=len(mutated_telemetry),
+            )
+            wrong_order = root / "record-order.nvrdata"
+            self._write_archive(wrong_order, changed_manifest, mutated_telemetry)
+            with self.assertRaisesRegex(DatasetFormatError, "records must be"):
+                reader.inspect_archive(wrong_order)
+
+    def test_both_historical_prototypes_remain_structured_failures(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="nekovr-prototypes-") as directory:
+            for member, expected in (("telemetry.bin", "GUI prototype"), ("telemetry.zst", "server prototype")):
+                archive_path = Path(directory) / f"{member}.nvrdata"
+                with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_STORED) as archive:
+                    archive.writestr(member, b"prototype")
+                with self.subTest(member=member), self.assertRaisesRegex(DatasetFormatError, expected):
+                    DatasetReader().inspect_archive(archive_path)
+
+    def test_kotlin_archives_cover_standard_and_full_profiles(self) -> None:
+        source = self._kotlin_fixture()
+        fixture_dir = source.parent
+        profiles = set()
+        for archive_path in fixture_dir.glob("*.nvrdata"):
+            with zipfile.ZipFile(archive_path) as archive:
+                profiles.add(json.loads(archive.read("manifest.json"))["profile"])
+            self.assertTrue(DatasetReader().inspect_archive(archive_path)["valid"])
+        self.assertTrue({"STANDARD", "FULL_FIDELITY"}.issubset(profiles))
+
+    def test_simulated_pilot_reports_agree_across_kotlin_and_python(self) -> None:
+        fixture_dir = os.environ.get("NEKOVR_KOTLIN_DATASET_FIXTURES")
+        report_path = os.environ.get("NEKOVR_KOTLIN_DATASET_REPORT")
+        if not fixture_dir or not report_path:
+            self.skipTest("aggregate baseline supplies Kotlin pilot reports")
+        server_reports = json.loads(Path(report_path).read_text(encoding="utf-8"))["reports"]
+        reports_by_name = {
+            Path(report["archive"]).name: report for report in server_reports
+        }
+        expected_names = {"simulated-5-udp.nvrdata", "simulated-8-mixed.nvrdata"}
+        self.assertEqual(expected_names, set(reports_by_name))
+        for name in sorted(expected_names):
+            with self.subTest(archive=name):
+                server = reports_by_name[name]
+                python = DatasetReader().inspect_archive(Path(fixture_dir) / name)
+                self.assertTrue(server["valid"])
+                self.assertTrue(python["valid"])
+                for field in (
+                    "schemaMajor", "schemaMinor", "frames", "resetLabels",
+                    "rosterSize", "channelIds", "quality", "transports",
+                    "validResetWindows",
+                ):
+                    self.assertEqual(server[field], python[field], field)
+        self.assertEqual(5, reports_by_name["simulated-5-udp.nvrdata"]["rosterSize"])
+        self.assertEqual(8, reports_by_name["simulated-8-mixed.nvrdata"]["rosterSize"])
+        self.assertEqual(
+            ["UDP", "HID"],
+            reports_by_name["simulated-8-mixed.nvrdata"]["transports"],
+        )
+
     def test_unknown_content_size_stream_is_decoded(self) -> None:
         payload = (b"kotlin-streaming-record" * 1000) + b"!"
         telemetry = compress_zstd(payload, write_content_size=False)
@@ -115,7 +274,7 @@ class DatasetDecompressionTests(unittest.TestCase):
         self.assertEqual(expected["roster"]["ids"], [entry.session_tracker_id for entry in roster.trackers])
         self.assertEqual(
             (7, "WAIST", "BMI270", "UDP", "SLIMEVR", "ESP32", "0.6.1", "NekoVR",
-             (1, 2, 3, 4, 6, 8, 9, 21), "CALIBRATED", "device-a"),
+             (1, 2, 3, 4, 5, 6, 15, 16, 19, 44, 45), "CALIBRATED", "device-a"),
             (roster.trackers[0].device_local_tracker_number, roster.trackers[0].body_role,
              roster.trackers[0].imu_type, roster.trackers[0].transport, roster.trackers[0].board_type,
              roster.trackers[0].mcu_type, roster.trackers[0].firmware_version,
@@ -143,7 +302,7 @@ class DatasetDecompressionTests(unittest.TestCase):
         self.assertEqual((tracker.tracker_status, tracker.sample_sequence, tracker.sample_age_ns),
                          ("OK", 42, 3_000_000))
         native_expected = expected["native"]
-        for key, actual in zip(("temperature", "sequence", "state"), tracker.native_channels):
+        for key, actual in zip(("confidence", "driftRate"), tracker.native_channels):
             value = native_expected[key]
             self.assertEqual((actual.channel_id, actual.monotonic_ns, actual.integer_value,
                               actual.text_value, actual.validity, actual.provenance),
@@ -159,12 +318,24 @@ class DatasetDecompressionTests(unittest.TestCase):
                          (True, None, correction_expected["modelHash"], correction_expected["provider"],
                           correction_expected["slot"], True, correction_expected["latencyUs"],
                           correction_expected["provenance"]))
+        self.assertEqual((correction.input_schema_sha256, correction.model_version,
+                          correction.body_role_id, correction.mapping_tracker_id,
+                          correction.gate_outcome, correction.epoch, correction.inference_sequence),
+                         ("feature-schema-sha256", "1.2.0", 2, 7, "APPLIED", 6, 42))
+        self.assertAlmostEqual(correction.confidence, 0.91, delta=tolerance)
+        self.assertAlmostEqual(correction.drift_rate, 0.0125, delta=tolerance)
+        self._assert_floats(frame_expected["postAdjusted"], correction.final_output_xyzw, tolerance)
         self._assert_floats(frame_expected["hmdPosition"], frame.hmd.position_xyz, tolerance)
         self.assertEqual((frame.hmd.validity, frame.hmd.sample_age_ns), (3, 2_000_000))
         self.assertEqual(frame.context_samples[0].session_tracker_id, "controller-1")
+        self._assert_floats(frame_expected["controllerPosition"], frame.context_samples[0].position_xyz, tolerance)
+        self.assertEqual((frame.context_samples[0].position_validity, frame.context_samples[0].position_provenance), (3, 1))
+        self.assertEqual(frame.skeleton_bones[0].body_role, "LEFT_HAND")
+        self.assertAlmostEqual(frame.body_context.height, 1.72, delta=tolerance)
+        self.assertAlmostEqual(frame.floor_context.height, 0.015, delta=tolerance)
         self.assertEqual(list(frame.activity.__dict__.values()), frame_expected["activity"])
 
-        event = next(reader.events(io.BytesIO(payload)))
+        event = next(event for event in reader.events(io.BytesIO(payload)) if event.reset_outcome == "APPLIED")
         self.assertEqual((event.type, event.event_index, event.request_id, event.affected_body_parts),
                          ("RESET", expected["event"]["index"], expected["event"]["requestId"],
                           tuple(expected["event"]["parts"])))
@@ -179,8 +350,9 @@ class DatasetDecompressionTests(unittest.TestCase):
         self.assertEqual((label.hmd_sample_age_before_ns, label.hmd_sample_age_after_ns),
                          (2_000_000, 3_000_000))
 
-        composed = self._normalize(self._multiply(label.raw_after_xyzw, self._inverse(label.raw_before_xyzw)))
-        reverse = self._normalize(self._multiply(self._inverse(label.raw_before_xyzw), label.raw_after_xyzw))
+        self.assertEqual((label.reset_epoch_before, label.calibration_epoch_before), (3, 5))
+        composed = self._normalize(self._multiply(label.adjusted_after_xyzw, self._inverse(label.adjusted_before_xyzw)))
+        reverse = self._normalize(self._multiply(self._inverse(label.adjusted_before_xyzw), label.adjusted_after_xyzw))
         self._assert_floats(label.correction_xyzw, composed, tolerance)
         self.assertGreater(abs(label.correction_xyzw[2] - reverse[2]), 0.9)
 

@@ -2,20 +2,20 @@
   "format": "NekoVR deterministic Kotlin/Python v1 conformance source",
   "generator": "dev.slimevr.dataset.DatasetConformanceFixture",
   "archive": "kotlin-conformance-v1.nvrdata",
-  "archiveSha256": "44ee28c44a244c6d77c5b6a36e4cebe994d26612dd9a8f2cb2e6a480bebf01e0",
+  "archiveSha256": "25f41c1162c0e4c94a37ab1834bd58badecb95ddaccc179015458db3914c2167",
   "floatAbsoluteTolerance": 0.001,
   "sessionId": "kotlin-conformance-v1",
   "recordTypes": [0, 1, 2, 3, 4],
   "recordSequences": [0, 1, 2, 3, 4],
   "header": {
     "schemaMajor": 1,
-    "schemaMinor": 2,
+    "schemaMinor": 4,
     "createdUtc": "2026-01-02T03:04:05Z",
     "applicationVersion": "conformance-1",
     "applicationCommit": "0123456789abcdef",
     "profile": 2,
     "canonicalRateHz": 50,
-    "channelCount": 45
+    "channelCount": 47
   },
   "roster": {"revision": 3, "ids": ["tracker-1", "controller-1", "hmd-1"]},
   "frame": {
@@ -32,12 +32,12 @@
     "validity": [3, 2, 1],
     "provenance": [2, 6],
     "hmdPosition": [0.125, 1.75, -0.5],
+    "controllerPosition": [-0.4, 1.2, 0.3],
     "activity": [6, 0.875, 10, 14, 5]
   },
   "native": {
-    "temperature": [8, 1000000000, [36.625], null, null, 3, 1],
-    "sequence": [9, 1000000000, [], 42, null, 3, 2],
-    "state": [21, 1000000000, [], null, "CALIBRATED", 2, 2]
+    "confidence": [15, 1000000000, [0.875], null, null, 3, 2],
+    "driftRate": [16, 1000000000, [30.5], null, null, 3, 2]
   },
   "correction": {
     "prediction": [0.0, 0.70710677, 0.0, 0.70710677],

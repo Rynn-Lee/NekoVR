@@ -22,6 +22,30 @@ REQUIRED_SERVER_EVIDENCE = (
     "memory-soak",
 )
 
+DIRECT_SERVER_TESTS = {
+    "schema": (
+        "dev.slimevr.unit.DatasetArchiveValidatorTests",
+        "dev.slimevr.unit.DatasetConformanceFixtureTests",
+        "dev.slimevr.unit.DatasetTelemetryChecksumTests",
+    ),
+    "numerical": ("dev.slimevr.unit.FP16BinaryPackerTests",),
+    "metadata": (
+        "dev.slimevr.unit.DatasetRecordingServiceTests.testMixedWiFiAndHIDnRFOriginTrackers",
+        "dev.slimevr.unit.DatasetReplayTests",
+    ),
+    "reset-label": (
+        "dev.slimevr.unit.ResetLabelBindingsTests",
+        "dev.slimevr.unit.ResetSupervisionTests",
+    ),
+    "crash-recovery": (
+        "dev.slimevr.unit.DatasetRecordingServiceTests.testForcedCrashAndStartupRecovery",
+        "dev.slimevr.unit.DatasetRecordingServiceTests.testRecoveryPreservesDurableManifestAndProducesValidArchive",
+    ),
+    "memory-soak": (
+        "dev.slimevr.unit.DatasetRecordingServiceTests.testLongSoakRecordingMemoryAndWatermark",
+    ),
+}
+
 
 def run(command: list[str], cwd: Path, env: dict[str, str] | None = None) -> tuple[bool, str]:
     completed = subprocess.run(command, cwd=cwd, env=env, text=True)
@@ -96,24 +120,33 @@ def main() -> int:
     ]
     check_results: dict[str, tuple[bool, str]] = {}
     gradle = str(root / ("gradlew.bat" if os.name == "nt" else "gradlew"))
+    pnpm = "pnpm.cmd" if os.name == "nt" else "pnpm"
 
     if args.skip_checks:
         for evidence_id in (*REQUIRED_SERVER_EVIDENCE, "rpc-ui", "baseline"):
             check_results[evidence_id] = (False, "skipped; diagnostic reports never pass the gate")
     else:
-        core_ok, core_command = run([gradle, ":server:core:test"], root)
-        for evidence_id in REQUIRED_SERVER_EVIDENCE:
-            check_results[evidence_id] = (core_ok, core_command)
-        gui_test_ok, gui_test_command = run(["pnpm", "-C", "gui", "test"], root)
-        gui_lint_ok, gui_lint_command = run(["pnpm", "-C", "gui", "lint"], root)
-        gui_build_ok, gui_build_command = run(["pnpm", "-C", "gui", "build"], root)
-        check_results["rpc-ui"] = (
-            core_ok and gui_test_ok,
-            f"{core_command}; {gui_test_command}",
+        for evidence_id, test_patterns in DIRECT_SERVER_TESTS.items():
+            command = [gradle, ":server:core:test"]
+            for pattern in test_patterns:
+                command.extend(("--tests", pattern))
+            check_results[evidence_id] = run(command, root)
+        rpc_ok, rpc_command = run(
+            [
+                gradle,
+                ":server:core:test",
+                "--tests",
+                "dev.slimevr.unit.DatasetRPCHandlerTests",
+            ],
+            root,
         )
-        check_results["baseline"] = (
-            core_ok and gui_lint_ok and gui_build_ok,
-            f"{core_command}; {gui_lint_command}; {gui_build_command}",
+        gui_test_ok, gui_test_command = run([pnpm, "-C", "gui", "test"], root)
+        check_results["rpc-ui"] = (
+            rpc_ok and gui_test_ok,
+            f"{rpc_command}; {gui_test_command}",
+        )
+        check_results["baseline"] = run(
+            ["node", "scripts/foundation-baseline.mjs"], root
         )
 
     server_reports: list[dict] = []

@@ -117,13 +117,20 @@ object InferenceReadyReportStore {
 data class ActiveCorrectionAuthorization(
 	val allowed: Boolean,
 	val rejectionReason: String?,
+	val inferenceReady: Boolean = allowed,
+	val readyModelSha256: String? = null,
+	val detail: String? = rejectionReason,
 ) {
 	companion object {
-		fun evaluate(featureFlagEnabled: Boolean, status: InferenceReadyStatus, activeModelSha256: String): ActiveCorrectionAuthorization = when {
-			!featureFlagEnabled -> ActiveCorrectionAuthorization(false, "ACTIVE_CORRECTION_OPT_IN_DISABLED")
-			!status.ready -> ActiveCorrectionAuthorization(false, "INFERENCE_READY_GATE_PENDING")
-			status.report?.modelSha256 != activeModelSha256 -> ActiveCorrectionAuthorization(false, "INFERENCE_READY_MODEL_MISMATCH")
-			else -> ActiveCorrectionAuthorization(true, null)
+		fun evaluate(featureFlagEnabled: Boolean, status: InferenceReadyStatus, activeModelSha256: String): ActiveCorrectionAuthorization {
+			val readyHash = status.report?.modelSha256
+			val hashAgrees = status.ready && readyHash == activeModelSha256
+			return when {
+				!status.ready -> ActiveCorrectionAuthorization(false, "INFERENCE_READY_GATE_PENDING", false, readyHash, status.detail)
+				!hashAgrees -> ActiveCorrectionAuthorization(false, "INFERENCE_READY_MODEL_MISMATCH", false, readyHash, "Inference-ready evidence belongs to ${readyHash ?: "no model"}, not $activeModelSha256")
+				!featureFlagEnabled -> ActiveCorrectionAuthorization(false, "ACTIVE_CORRECTION_OPT_IN_DISABLED", true, readyHash, "Active correction requires explicit server opt-in")
+				else -> ActiveCorrectionAuthorization(true, null, true, readyHash, status.detail)
+			}
 		}
 	}
 }

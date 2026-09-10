@@ -66,6 +66,10 @@ class ModelRPCHandlerTests {
 			assertEquals(120, status.configuration().contextFrames())
 			assertEquals(0.75f, status.configuration().confidenceThreshold())
 			assertNotNull(status.metrics())
+			assertFalse(status.inferenceReady())
+			assertFalse(status.effectiveCorrectionEnabled())
+			assertEquals(AIReadinessBlockingReason.NO_ACTIVE_MODEL, status.readinessBlockingReason())
+			assertTrue(status.readinessDetail().contains("Load a validated model"))
 		} finally {
 			engine.close()
 			deleteTree(root)
@@ -126,7 +130,10 @@ class ModelRPCHandlerTests {
 		private val responses = mutableListOf<ByteBuffer>()
 
 		override fun send(bytes: ByteBuffer) {
-			responses += ByteBuffer.allocate(bytes.remaining()).also { copy -> copy.put(bytes.duplicate()); copy.flip() }
+			responses += ByteBuffer.allocate(bytes.remaining()).also { copy ->
+				copy.put(bytes.duplicate())
+				copy.flip()
+			}
 		}
 
 		fun lastHeader(): RpcMessageHeader = MessageBundle.getRootAsMessageBundle(responses.last().duplicate()).rpcMsgs(0)

@@ -2,6 +2,7 @@ package dev.slimevr.tracking.trackers.udp
 
 import dev.slimevr.tracking.trackers.TrackerPosition
 import dev.slimevr.tracking.trackers.TrackerStatus
+import dev.slimevr.tracking.trackers.NativeTelemetryChannels
 import io.github.axisangles.ktmath.Quaternion
 import io.github.axisangles.ktmath.Vector3
 import java.io.IOException
@@ -437,6 +438,8 @@ data class UDPPacket29SensorTelemetry(
 	var charging: Boolean? = null,
 	var powerMode: Int? = null,
 	var resetReason: Int? = null,
+	var configuredSampleRateHz: Float? = null,
+	var sleepState: Int? = null,
 ) : UDPPacket(29), SensorSpecificPacket {
 	override fun readData(buf: ByteBuffer) {
 		sensorId = buf.get().toInt() and 0xff
@@ -456,21 +459,25 @@ data class UDPPacket29SensorTelemetry(
 		if (has(CHARGING)) charging = buf.get().toInt() != 0
 		if (has(POWER_MODE)) powerMode = buf.get().toInt() and 0xff
 		if (has(RESET_REASON)) resetReason = buf.get().toInt() and 0xff
+		if (has(CONFIGURED_SAMPLE_RATE)) configuredSampleRateHz = buf.float
+		if (has(SLEEP_STATE)) sleepState = buf.get().toInt() and 0xff
 	}
 
 	private fun has(flag: Long) = presentMask and flag != 0L
 
 	companion object {
-		const val SEQUENCE = 1L shl 0
-		const val DEVICE_TIMESTAMP = 1L shl 1
-		const val RAW_GYRO = 1L shl 2
-		const val MAGNETIC = 1L shl 3
-		const val UPTIME = 1L shl 4
-		const val PACKET_COUNTERS = 1L shl 5
-		const val CALIBRATION_QUALITY = 1L shl 6
-		const val CHARGING = 1L shl 7
-		const val POWER_MODE = 1L shl 8
-		const val RESET_REASON = 1L shl 9
+		const val SEQUENCE = NativeTelemetryChannels.UDP_SEQUENCE
+		const val DEVICE_TIMESTAMP = NativeTelemetryChannels.UDP_DEVICE_TIMESTAMP
+		const val RAW_GYRO = NativeTelemetryChannels.UDP_RAW_GYRO
+		const val MAGNETIC = NativeTelemetryChannels.UDP_MAGNETIC
+		const val UPTIME = NativeTelemetryChannels.UDP_UPTIME
+		const val PACKET_COUNTERS = NativeTelemetryChannels.UDP_PACKET_COUNTERS
+		const val CALIBRATION_QUALITY = NativeTelemetryChannels.UDP_CALIBRATION_QUALITY
+		const val CHARGING = NativeTelemetryChannels.UDP_CHARGING
+		const val POWER_MODE = NativeTelemetryChannels.UDP_POWER_MODE
+		const val RESET_REASON = NativeTelemetryChannels.UDP_RESET_REASON
+		const val CONFIGURED_SAMPLE_RATE = NativeTelemetryChannels.UDP_CONFIGURED_SAMPLE_RATE
+		const val SLEEP_STATE = NativeTelemetryChannels.UDP_SLEEP_STATE
 	}
 }
 

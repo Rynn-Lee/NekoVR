@@ -25,6 +25,9 @@ class TrackerResetsHandler(
 
 	@Volatile
 	var lastAiCorrection: DriftCorrectionResult = DriftCorrectionResult()
+	var lastLegacyCorrection: Quaternion = Quaternion.IDENTITY
+		private set
+	var lastLegacyCorrectionApplied: Boolean = false
 		private set
 	var lastPreAiRotation: Quaternion = Quaternion.IDENTITY
 		private set
@@ -306,7 +309,9 @@ class TrackerResetsHandler(
 	/** Explicit post-calibration correction stage; exposed internally for composition-policy tests. */
 	internal fun applyCorrectionStages(calibratedRotation: Quaternion, legacyCorrection: Quaternion): Quaternion {
 		var preAiRotation = calibratedRotation
-		if (driftCorrectionSource.legacyDriftCompensationMode(tracker.id) == LegacyDriftCompensationMode.COMPOSE) {
+		lastLegacyCorrection = legacyCorrection
+		lastLegacyCorrectionApplied = driftCorrectionSource.legacyDriftCompensationMode(tracker.id) == LegacyDriftCompensationMode.COMPOSE
+		if (lastLegacyCorrectionApplied) {
 			preAiRotation = legacyCorrection * preAiRotation
 		}
 

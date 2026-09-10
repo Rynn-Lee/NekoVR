@@ -3,7 +3,7 @@ package dev.slimevr.dataset
 import kotlinx.serialization.Serializable
 
 const val DATASET_SCHEMA_MAJOR: Int = 1
-const val DATASET_SCHEMA_MINOR: Int = 2
+const val DATASET_SCHEMA_MINOR: Int = 4
 const val CANONICAL_SAMPLE_RATE_HZ: Int = 50
 const val CANONICAL_SAMPLE_INTERVAL_NS: Long = 20_000_000L
 
@@ -115,6 +115,8 @@ object TelemetryChannelRegistry {
 		TelemetryChannel(43, "history_validity", "boolean", "model", "50 Hz", "bool", CollectionProfile.STANDARD, setOf(ChannelProvenance.MODEL_DERIVED, ChannelProvenance.UNAVAILABLE)),
 		TelemetryChannel(44, "body_role", "enum", "body", "event", "string", CollectionProfile.MINIMUM, setOf(ChannelProvenance.USER_ANNOTATED, ChannelProvenance.SERVER_DERIVED)),
 		TelemetryChannel(45, "tracker_status", "enum", "server", "50 Hz", "string", CollectionProfile.MINIMUM, setOf(ChannelProvenance.SERVER_DERIVED)),
+		TelemetryChannel(46, "configured_sample_rate", "Hz", "device", "change", "fp32", CollectionProfile.STANDARD, measured),
+		TelemetryChannel(47, "sleep_state", "enum", "device", "change", "string", CollectionProfile.STANDARD, measured),
 	)
 
 	val byId: Map<Int, TelemetryChannel> = channels.associateBy { it.id }
@@ -122,6 +124,30 @@ object TelemetryChannelRegistry {
 	fun requiredFor(profile: CollectionProfile): Set<Int> = channels
 		.filter { it.minimumProfile.ordinal <= profile.ordinal }
 		.mapTo(linkedSetOf()) { it.id }
+
+	/** Inputs which every physical IMU must genuinely be able to produce. */
+	fun requiredPerTracker(profile: CollectionProfile): Set<Int> = when (profile) {
+		CollectionProfile.MINIMUM -> setOf(1, 2, 3, 19, 44, 45)
+		CollectionProfile.STANDARD -> requiredPerTracker(CollectionProfile.MINIMUM) + setOf(4, 5, 6)
+		CollectionProfile.FULL_FIDELITY -> requiredPerTracker(CollectionProfile.STANDARD) + setOf(15, 16)
+	}
+
+	/** Session-wide context can be supplied by any rostered HMD/controller/context source. */
+	fun requiredContext(profile: CollectionProfile): Set<Int> = when (profile) {
+		CollectionProfile.MINIMUM -> emptySet()
+		CollectionProfile.STANDARD -> setOf(39)
+		CollectionProfile.FULL_FIDELITY -> setOf(36, 37, 38, 39)
+	}
+
+	fun requireSupportedProfile(profile: CollectionProfile, roster: List<SessionTrackerMetadata>) {
+		val physical = roster.filter { it.imuType !in setOf("UNKNOWN", "NONE") }
+		val perTracker = requiredPerTracker(profile)
+		val incomplete = physical.filter { !it.capabilities.containsAll(perTracker) }
+		require(incomplete.isEmpty()) { "$profile is unsupported by ${incomplete.size} physical tracker(s): missing required per-tracker inputs" }
+		val availableContext = roster.flatMapTo(linkedSetOf()) { it.capabilities }
+		val missingContext = requiredContext(profile) - availableContext
+		require(missingContext.isEmpty()) { "$profile is missing required session context channels $missingContext" }
+	}
 }
 
 data class Vector3Sample(val x: Float, val y: Float, val z: Float)
@@ -148,6 +174,19 @@ data class CorrectionTelemetry(
 	val historyValid: Boolean = false,
 	val latencyMicros: Long? = null,
 	val provenance: ChannelProvenance = ChannelProvenance.UNAVAILABLE,
+	val legacyCorrection: QuaternionSample = QuaternionSample(0f, 0f, 0f, 1f),
+	val legacyApplied: Boolean = false,
+	val legacyProvenance: ChannelProvenance = ChannelProvenance.UNAVAILABLE,
+	val inputSchemaSha256: String? = null,
+	val modelVersion: String? = null,
+	val bodyRoleId: Int? = null,
+	val mappingTrackerId: Int? = null,
+	val confidence: Float? = null,
+	val driftRate: Float? = null,
+	val gateOutcome: String = "UNAVAILABLE",
+	val epoch: Long = 0L,
+	val inferenceSequence: Long? = null,
+	val finalOutput: QuaternionSample = QuaternionSample(0f, 0f, 0f, 1f),
 )
 
 data class TrackerFrameSample(
@@ -169,6 +208,32 @@ data class TrackerFrameSample(
 	val sampleAgeNs: Long,
 	val correction: CorrectionTelemetry,
 	val nativeChannels: List<NativeChannelSample> = emptyList(),
+	val position: Vector3Sample = Vector3Sample(0f, 0f, 0f),
+	val positionValidity: ChannelValidity = ChannelValidity.UNAVAILABLE,
+	val positionProvenance: ChannelProvenance = ChannelProvenance.UNAVAILABLE,
+)
+
+data class SkeletonBoneSample(
+	val bodyRole: String,
+	val orientation: QuaternionSample,
+	val position: Vector3Sample,
+	val validity: ChannelValidity,
+	val provenance: ChannelProvenance = ChannelProvenance.SERVER_DERIVED,
+)
+
+data class BodyContextSample(
+	val center: Vector3Sample,
+	val height: Float,
+	val confidence: Float,
+	val validity: ChannelValidity,
+	val provenance: ChannelProvenance = ChannelProvenance.SERVER_DERIVED,
+)
+
+data class FloorContextSample(
+	val height: Float,
+	val confidence: Float,
+	val validity: ChannelValidity,
+	val provenance: ChannelProvenance = ChannelProvenance.SERVER_DERIVED,
 )
 
 data class ReferenceFrameSample(
@@ -194,6 +259,9 @@ data class SessionFrame(
 	val trackers: List<TrackerFrameSample>,
 	val contextSamples: List<TrackerFrameSample> = emptyList(),
 	val activity: ActivitySample = ActivitySample(ActivityType.UNKNOWN, 0f, frameIndex, frameIndex),
+	val skeletonBones: List<SkeletonBoneSample> = emptyList(),
+	val bodyContext: BodyContextSample? = null,
+	val floorContext: FloorContextSample? = null,
 )
 
 @Serializable
@@ -272,4 +340,18 @@ data class DatasetResetLabel(
 	val bodyRole: String = "UNASSIGNED",
 	val hmdSampleAgeBeforeNs: Long = 0L,
 	val hmdSampleAgeAfterNs: Long = 0L,
+	val adjustedOrientationBefore: QuaternionSample = QuaternionSample(0f, 0f, 0f, 1f),
+	val adjustedOrientationAfter: QuaternionSample = QuaternionSample(0f, 0f, 0f, 1f),
+	val rawValidityBefore: ChannelValidity = ChannelValidity.UNAVAILABLE,
+	val rawValidityAfter: ChannelValidity = ChannelValidity.UNAVAILABLE,
+	val calibratedPreAiValidityBefore: ChannelValidity = ChannelValidity.UNAVAILABLE,
+	val calibratedPreAiValidityAfter: ChannelValidity = ChannelValidity.UNAVAILABLE,
+	val adjustedValidityBefore: ChannelValidity = ChannelValidity.UNAVAILABLE,
+	val adjustedValidityAfter: ChannelValidity = ChannelValidity.UNAVAILABLE,
+	val statusBefore: String = "UNKNOWN",
+	val statusAfter: String = "UNKNOWN",
+	val sampleAgeBeforeNs: Long = 0L,
+	val sampleAgeAfterNs: Long = 0L,
+	val resetEpochBefore: Long = 0L,
+	val calibrationEpochBefore: Long = 0L,
 )

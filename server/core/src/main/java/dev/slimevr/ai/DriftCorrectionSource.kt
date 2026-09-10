@@ -18,6 +18,14 @@ data class DriftCorrectionResult(
 	val historyValid: Boolean = false,
 	val latencyMicros: Long? = null,
 	val epoch: Long = 0L,
+	val featureSchemaSha256: String? = null,
+	val modelVersion: String? = null,
+	val bodyRoleId: Int? = null,
+	val slot: Int? = null,
+	val confidence: Float? = null,
+	val driftRate: Float? = null,
+	val gateOutcome: String = rejectionReason ?: if (applied) "APPLIED" else "UNAVAILABLE",
+	val inferenceSequence: Long? = null,
 )
 
 interface DriftCorrectionSource {

@@ -14,8 +14,12 @@ data class HIDTelemetrySample(
 	val packetReordered: Long? = null,
 	val packetDuplicates: Long? = null,
 	val packetCorrupt: Long? = null,
+	val packetsReceived: Int? = null,
+	val packetsLost: Int? = null,
+	val packetLoss: Float? = null,
 	val charging: Boolean? = null,
 	val uptimeMs: Long? = null,
+	val sleepState: String? = null,
 )
 
 fun Tracker.negotiateHIDTelemetry(capabilities: HIDTelemetryCapabilities) {
@@ -30,6 +34,10 @@ fun Tracker.applyHIDTelemetry(sample: HIDTelemetrySample) {
 	sample.packetReordered?.let { packetReordered = it }
 	sample.packetDuplicates?.let { packetDuplicates = it }
 	sample.packetCorrupt?.let { packetCorrupt = it }
+	sample.packetsReceived?.let { packetsReceived = it }
+	sample.packetsLost?.let { packetsLost = it }
+	sample.packetLoss?.let { packetLoss = it }
 	sample.charging?.let { charging = it }
 	sample.uptimeMs?.let { deviceUptimeMs = it }
+	sample.sleepState?.let { sleepState = it }
 }

@@ -445,6 +445,20 @@ class RPCModelHandler(
 			confidence = tracker.confidence ?: 0f; correctionApplied = tracker.correctionApplied; rejectionReason = tracker.rejectionReason.orEmpty()
 		} }.toTypedArray()
 		lastErrorCode = this@toRpc.lastError?.code.orEmpty(); lastError = this@toRpc.lastError?.message.orEmpty()
+		inferenceReady = this@toRpc.inferenceReady
+		inferenceReadyModelSha256 = this@toRpc.inferenceReadyModelSha256.orEmpty()
+		readinessBlockingReason = when (this@toRpc.readinessBlockingReason) {
+			"NO_ACTIVE_MODEL" -> AIReadinessBlockingReason.NO_ACTIVE_MODEL
+			"ACTIVE_CORRECTION_OPT_IN_DISABLED" -> AIReadinessBlockingReason.ACTIVE_CORRECTION_OPT_IN_DISABLED
+			"INFERENCE_READY_GATE_PENDING" -> AIReadinessBlockingReason.INFERENCE_READY_GATE_PENDING
+			"INFERENCE_READY_MODEL_MISMATCH" -> AIReadinessBlockingReason.INFERENCE_READY_MODEL_MISMATCH
+			"RUNTIME_UNAVAILABLE" -> AIReadinessBlockingReason.RUNTIME_UNAVAILABLE
+			"WATCHDOG_TRIPPED" -> AIReadinessBlockingReason.WATCHDOG_TRIPPED
+			"SHADOW_MODE" -> AIReadinessBlockingReason.SHADOW_MODE
+			else -> AIReadinessBlockingReason.NONE
+		}
+		readinessDetail = this@toRpc.readinessDetail
+		effectiveCorrectionEnabled = this@toRpc.effectiveCorrectionEnabled
 	}
 
 	private fun InferenceLatencyPercentiles.toRpc() = AILatencyPercentilesT().also {

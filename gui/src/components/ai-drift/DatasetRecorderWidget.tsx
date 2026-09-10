@@ -142,6 +142,11 @@ export function DatasetRecorderWidget({
   const isDatasetReady = readinessFindings.some(
     (finding) => text(finding.code) === 'DATASET_READY'
   );
+  const datasetReadyReason = text(
+    readinessFindings.find(
+      (finding) => text(finding.code) === 'DATASET_READY_GATE_PENDING'
+    )?.message
+  );
 
   const handleReveal = async (sessionId: string) => {
     try {
@@ -205,7 +210,10 @@ export function DatasetRecorderWidget({
           <div className="flex flex-col gap-1 pl-6">
             {readinessFindings.map((f, i) => {
               const findingKey = `dataset_recorder-finding-${f.code}`;
-              const localizedMsg = l10n.getString(findingKey) || f.message;
+              const localizedMsg =
+                text(f.code) === 'DATASET_READY_GATE_PENDING'
+                  ? text(f.message)
+                  : l10n.getString(findingKey) || text(f.message);
               return (
                 <div key={i} className="flex items-center gap-2 text-[11px]">
                   <span
@@ -377,6 +385,14 @@ export function DatasetRecorderWidget({
                   </span>
                 </button>
               </div>
+              {!isDatasetReady && datasetReadyReason && (
+                <span
+                  className="max-w-xl text-[10px] text-amber-400"
+                  role="status"
+                >
+                  {datasetReadyReason}
+                </span>
+              )}
             </div>
 
             {/* Pseudonym Input */}

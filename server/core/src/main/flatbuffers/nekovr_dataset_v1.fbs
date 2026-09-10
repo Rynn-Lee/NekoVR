@@ -58,7 +58,7 @@ table ChannelDescriptor {
 
 table FileHeader {
   schema_major:ushort = 1;
-  schema_minor:ushort = 2;
+  schema_minor:ushort = 4;
   session_id:string;
   created_utc:string;
   application_version:string;
@@ -103,6 +103,19 @@ table CorrectionState {
   history_valid:bool;
   latency_us:ulong;
   provenance:Provenance;
+  legacy_correction:Quatf;
+  legacy_applied:bool;
+  legacy_provenance:Provenance;
+  input_schema_sha256:string;
+  model_version:string;
+  body_role_id:int = -1;
+  mapping_tracker_id:int = -1;
+  confidence:float;
+  drift_rate:float;
+  gate_outcome:string;
+  epoch:ulong;
+  inference_sequence:ulong;
+  final_output:Quatf;
 }
 
 table TrackerSample {
@@ -124,6 +137,32 @@ table TrackerSample {
   sample_age_ns:ulong;
   correction:CorrectionState;
   native_channels:[ChannelValue];
+  position:Vec3f;
+  position_validity:Validity;
+  position_provenance:Provenance;
+}
+
+table SkeletonBoneSample {
+  body_role:string;
+  orientation:Quatf;
+  position:Vec3f;
+  validity:Validity;
+  provenance:Provenance;
+}
+
+table BodyContextSample {
+  center:Vec3f;
+  height:float;
+  confidence:float;
+  validity:Validity;
+  provenance:Provenance;
+}
+
+table FloorContextSample {
+  height:float;
+  confidence:float;
+  validity:Validity;
+  provenance:Provenance;
 }
 
 table ChannelValue {
@@ -152,6 +191,9 @@ table Frame {
   trackers:[TrackerSample];
   context_samples:[TrackerSample];
   activity:ActivityInterval;
+  skeleton_bones:[SkeletonBoneSample];
+  body_context:BodyContextSample;
+  floor_context:FloorContextSample;
 }
 
 table FrameBatch { first_frame:ulong; frames:[Frame]; }
@@ -216,6 +258,22 @@ table ResetLabel {
   body_role:string;
   hmd_sample_age_before_ns:ulong;
   hmd_sample_age_after_ns:ulong;
+  adjusted_orientation_before:Quatf;
+  adjusted_orientation_after:Quatf;
+  raw_validity_before:Validity;
+  raw_validity_after:Validity;
+  calibrated_pre_ai_validity_before:Validity;
+  calibrated_pre_ai_validity_after:Validity;
+  adjusted_validity_before:Validity;
+  adjusted_validity_after:Validity;
+  status_before:string;
+  status_after:string;
+  sample_age_before_ns:ulong;
+  sample_age_after_ns:ulong;
+  reset_epoch_before:ulong;
+  calibration_epoch_before:ulong;
+  reset_epoch_after:ulong;
+  calibration_epoch_after:ulong;
 }
 
 table EventBatch { events:[DatasetEvent]; reset_labels:[ResetLabel]; }

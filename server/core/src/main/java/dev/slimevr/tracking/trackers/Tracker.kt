@@ -163,6 +163,8 @@ class Tracker @JvmOverloads constructor(
 	var fusionStatus: Int? = null
 	var powerMode: String? = null
 	var resetReason: String? = null
+	var configuredSampleRateHz: Float? = null
+	var sleepState: String? = null
 	var lastDataMonotonicNs: Long = System.nanoTime()
 
 	/**
@@ -557,6 +559,12 @@ class Tracker @JvmOverloads constructor(
 		val raw = getRawRotation()
 		val preAi = resetsHandler.getCalibratedPreAiRotation()
 		val adjusted = getRotation()
+		fun validity(value: Quaternion): dev.slimevr.reset.ResetChannelValidity = when {
+			!value.w.isFinite() || !value.x.isFinite() || !value.y.isFinite() || !value.z.isFinite() || value.lenSq() !in 0.98f..1.02f -> dev.slimevr.reset.ResetChannelValidity.INVALID
+			status == TrackerStatus.TIMED_OUT -> dev.slimevr.reset.ResetChannelValidity.STALE
+			!status.sendData -> dev.slimevr.reset.ResetChannelValidity.UNAVAILABLE
+			else -> dev.slimevr.reset.ResetChannelValidity.VALID
+		}
 		return dev.slimevr.reset.TrackerResetStateSnapshot(
 			trackerId = id,
 			trackerPosition = trackerPosition,
@@ -571,6 +579,9 @@ class Tracker @JvmOverloads constructor(
 			calibrationEpoch = resetsHandler.calibrationEpoch,
 			sampleAgeNs = (nowMonotonicNs - lastDataMonotonicNs).coerceAtLeast(0L),
 			packetGapCount = packetGaps,
+			rawOrientationValidity = validity(raw),
+			calibratedPreAiValidity = validity(preAi),
+			adjustedOrientationValidity = validity(adjusted),
 		)
 	}
 

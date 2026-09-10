@@ -5,6 +5,7 @@ import dev.slimevr.tracking.trackers.Tracker
 import dev.slimevr.tracking.trackers.TrackerPosition
 import dev.slimevr.tracking.trackers.TrackerStatus
 import dev.slimevr.tracking.trackers.TrackerUtils
+import dev.slimevr.tracking.trackers.NativeTelemetryChannels
 import io.github.axisangles.ktmath.Quaternion
 import io.github.axisangles.ktmath.Vector3
 import java.nio.charset.StandardCharsets
@@ -31,7 +32,7 @@ class SessionTrackerRegistry(
 	private val metadataByTracker = linkedMapOf<Int, SessionTrackerMetadata>()
 
 	init {
-		trackers.filter(Tracker::isImu).forEach(::register)
+		trackers.filter { it.isImu() || it.isHmd || it.hasRotation || it.hasPosition }.forEach(::register)
 	}
 
 	val initialRoster: List<SessionTrackerMetadata> = metadataByTracker.values.toList()
@@ -43,27 +44,21 @@ class SessionTrackerRegistry(
 		perSessionSaltBase64 = if (privacy.hashHardwareIdentifiers) Base64.getEncoder().encodeToString(salt) else null,
 	)
 
-	fun idFor(tracker: Tracker): String = ids[tracker.id] ?: register(tracker).sessionTrackerId
+	fun idFor(tracker: Tracker): String = requireNotNull(ids[tracker.id]) {
+		"tracker ${tracker.id} was not frozen into the initial dataset roster"
+	}
 
 	fun idForTrackerId(trackerId: Int): String? = ids[trackerId]
 
-	fun metadataFor(tracker: Tracker): SessionTrackerMetadata = metadataByTracker[tracker.id] ?: register(tracker)
+	fun metadataFor(tracker: Tracker): SessionTrackerMetadata? = metadataByTracker[tracker.id]
+
+	fun contains(tracker: Tracker): Boolean = tracker.id in ids
 
 	private fun register(tracker: Tracker): SessionTrackerMetadata {
 		val sessionId = UUID.randomUUID().toString()
 		ids[tracker.id] = sessionId
 		val device = tracker.device
-		val capabilities = linkedSetOf(1, 2, 3, 19).apply {
-			if (tracker.hasAcceleration) addAll(listOf(4, 5))
-			if (device?.magSupport == true) add(7)
-			if (tracker.temperature != null) add(8)
-			if (tracker.sampleSequence != null) add(9)
-			if (tracker.packetLoss != null) add(10)
-			if (tracker.signalStrength != null) add(11)
-			if (tracker.ping != null) add(12)
-			if (tracker.batteryLevel != null) add(13)
-			addAll(tracker.telemetryCapabilities)
-		}
+		val capabilities = liveCapabilities(tracker)
 		val rawIdentifier = device?.hardwareIdentifier?.takeUnless { it == "Unknown" }
 		val pseudonymous = if (privacy.hashHardwareIdentifiers && rawIdentifier != null) hmac(rawIdentifier) else null
 		return SessionTrackerMetadata(
@@ -82,6 +77,24 @@ class SessionTrackerRegistry(
 		).also { metadataByTracker[tracker.id] = it }
 	}
 
+	fun liveCapabilities(tracker: Tracker): Set<Int> = linkedSetOf<Int>().apply {
+		val device = tracker.device
+		if (tracker.hasRotation) addAll(listOf(1, 2, 3))
+		addAll(listOf(19, 44, 45))
+			if (tracker.hasAcceleration) addAll(listOf(4, 5))
+			if (tracker.hasRotation) add(6)
+			if (tracker.hasPosition) add(38)
+			if (tracker.isHmd) addAll(listOf(37, 39)) else if (tracker.hasPosition) add(36)
+			if (device?.magSupport == true) add(7)
+			if (tracker.temperature != null) add(8)
+			if (tracker.sampleSequence != null) add(9)
+			if (tracker.packetLoss != null) add(10)
+			if (tracker.signalStrength != null) add(11)
+			if (tracker.ping != null) add(12)
+			if (tracker.batteryLevel != null) add(13)
+			addAll(tracker.telemetryCapabilities)
+		}
+
 	private fun hmac(value: String): String {
 		val mac = Mac.getInstance("HmacSHA256")
 		mac.init(SecretKeySpec(salt, "HmacSHA256"))
@@ -96,13 +109,18 @@ class SessionSnapshotFactory(private val registry: SessionTrackerRegistry) {
 	private val previous = mutableMapOf<Int, PreviousOrientation>()
 	private val topology = mutableMapOf<Int, Topology>()
 	private val nativeValues = mutableMapOf<Pair<Int, Int>, Any?>()
+	private val previousArrivalNs = mutableMapOf<Int, Long>()
+	private val rejectedUnrostered = mutableSetOf<Int>()
 	private var previousHmdPosition: Vector3Sample? = null
+	private var previousActivity: ActivityType? = null
 
 	fun snapshot(trackers: List<Tracker>, frameIndex: Long, nowNs: Long, deltaNs: Long): Pair<SessionFrame, List<DatasetEvent>> {
-		val physical = trackers.filter(Tracker::isImu)
-		val events = topologyEvents(physical, frameIndex, nowNs)
+		val sampleProducers = trackers.filter { it.isImu() || it.isHmd || it.hasRotation || it.hasPosition }
+		val events = topologyEvents(sampleProducers, frameIndex, nowNs)
+		val physical = sampleProducers.filter { it.isImu() && registry.contains(it) }
 		val trackerSamples = physical.map { trackerSample(it, nowNs) }
-		val context = trackers.filter { !it.isImu() && (it.hasRotation || it.hasPosition) }.map { contextSample(it, nowNs) }
+		val contextTrackers = sampleProducers.filter { !it.isImu() && registry.contains(it) }
+		val context = contextTrackers.map { contextSample(it, nowNs) }
 		val hmdTracker = TrackerUtils.getTrackerForSkeleton(trackers, TrackerPosition.HEAD)
 		val hmd = hmdTracker?.let { referenceSample(it, nowNs) } ?: ReferenceFrameSample(
 			QuaternionSample(0f, 0f, 0f, 1f),
@@ -110,8 +128,12 @@ class SessionSnapshotFactory(private val registry: SessionTrackerRegistry) {
 			ChannelValidity.UNAVAILABLE,
 			0,
 		)
+		val bones = contextTrackers.filter { it.hasRotation || it.hasPosition }.map { skeletonBone(it) }
+		val validPositions = context.filter { it.positionValidity == ChannelValidity.VALID }.map { it.position }
+		val body = bodyContext(validPositions)
+		val floor = floorContext(validPositions)
 		val activity = deriveActivity(hmd, frameIndex, deltaNs)
-		return SessionFrame(frameIndex, nowNs, deltaNs, hmd, trackerSamples, context, activity) to events
+		return SessionFrame(frameIndex, nowNs, deltaNs, hmd, trackerSamples, context, activity, bones, body, floor) to events
 	}
 
 	private fun referenceSample(tracker: Tracker, nowNs: Long): ReferenceFrameSample {
@@ -139,7 +161,7 @@ class SessionSnapshotFactory(private val registry: SessionTrackerRegistry) {
 		val accelValid = tracker.hasAcceleration && finite(rawAcceleration) && finite(linearAcceleration)
 		val angular = measuredOrDerivedAngularVelocity(tracker, raw, nowNs, orientationValid)
 		val magnetic = vector(tracker.getRawMagVector())
-		val correction = correction(tracker.resetsHandler.lastAiCorrection)
+		val correction = correction(tracker, tracker.resetsHandler.lastAiCorrection, final)
 		return TrackerFrameSample(
 			sessionTrackerId = registry.idFor(tracker),
 			rawOrientation = raw,
@@ -159,6 +181,9 @@ class SessionSnapshotFactory(private val registry: SessionTrackerRegistry) {
 			sampleAgeNs = (nowNs - tracker.lastDataMonotonicNs).coerceAtLeast(0L),
 			correction = correction,
 			nativeChannels = nativeChannels(tracker, nowNs),
+			position = vector(tracker.position),
+			positionValidity = if (tracker.hasPosition && finite(vector(tracker.position))) ChannelValidity.VALID else ChannelValidity.UNAVAILABLE,
+			positionProvenance = if (!tracker.hasPosition) ChannelProvenance.UNAVAILABLE else if (tracker.isComputed) ChannelProvenance.SERVER_DERIVED else ChannelProvenance.MEASURED,
 		)
 	}
 
@@ -171,6 +196,10 @@ class SessionSnapshotFactory(private val registry: SessionTrackerRegistry) {
 			ChannelValidity.UNAVAILABLE, ChannelValidity.UNAVAILABLE,
 			ChannelProvenance.UNAVAILABLE, ChannelProvenance.UNAVAILABLE, tracker.status.name,
 			tracker.sampleSequence ?: 0, (nowNs - tracker.lastDataMonotonicNs).coerceAtLeast(0L), CorrectionTelemetry(),
+			nativeChannels = nativeChannels(tracker, nowNs),
+			position = vector(tracker.position),
+			positionValidity = if (tracker.hasPosition && finite(vector(tracker.position))) ChannelValidity.VALID else ChannelValidity.UNAVAILABLE,
+			positionProvenance = if (!tracker.hasPosition) ChannelProvenance.UNAVAILABLE else if (tracker.isComputed) ChannelProvenance.SERVER_DERIVED else ChannelProvenance.MEASURED,
 		)
 	}
 
@@ -192,31 +221,50 @@ class SessionSnapshotFactory(private val registry: SessionTrackerRegistry) {
 		if (sinHalf < 1e-6 || angle < 1e-6) return Vector3Sample(0f, 0f, 0f) to ChannelProvenance.SERVER_DERIVED
 		val scale = (angle / sinHalf / dt).toFloat()
 		val value = Vector3Sample(q.x * scale, q.y * scale, q.z * scale)
-		return if (finite(value) && listOf(value.x, value.y, value.z).all { it in -64f..64f }) value to ChannelProvenance.SERVER_DERIVED
-		else Vector3Sample(0f, 0f, 0f) to ChannelProvenance.UNAVAILABLE
+		return if (finite(value) && listOf(value.x, value.y, value.z).all { it in -64f..64f }) {
+			value to ChannelProvenance.SERVER_DERIVED
+		} else {
+			Vector3Sample(0f, 0f, 0f) to ChannelProvenance.UNAVAILABLE
+		}
 	}
 
 	private fun nativeChannels(tracker: Tracker, nowNs: Long): List<NativeChannelSample> {
+		val arrival = tracker.lastDataMonotonicNs
+		val oldArrival = previousArrivalNs[tracker.id]
+		val jitter = if (oldArrival != null && arrival > oldArrival) {
+			previousArrivalNs[tracker.id] = arrival
+			val expectedNs = tracker.configuredSampleRateHz?.takeIf { it > 0f }?.let { (1_000_000_000.0 / it).toLong() }
+				?: tracker.tps.takeIf { it > 0f }?.let { (1_000_000_000.0 / it).toLong() }
+			expectedNs?.let { kotlin.math.abs((arrival - oldArrival) - it) }
+		} else {
+			if (oldArrival == null) previousArrivalNs[tracker.id] = arrival
+			null
+		}
 		val values = listOfNotNull(
 			tracker.temperature?.let { 8 to it }, tracker.sampleSequence?.let { 9 to it }, tracker.packetLoss?.let { 10 to it },
 			tracker.signalStrength?.let { 11 to it }, tracker.ping?.let { 12 to it }, tracker.batteryLevel?.let { 13 to it },
 			tracker.charging?.let { 14 to it }, tracker.deviceTimestamp?.let { 15 to it }, tracker.rawAngularVelocity?.let { 16 to it },
 			tracker.firmwareFeatures?.let { 20 to it },
-			(21 to tracker.magStatus.name), tracker.calibrationQuality?.let { 22 to it }, tracker.fusionStatus?.let { 23 to it },
+			tracker.magStatus.name.takeIf { tracker.device?.magSupport == true || 21 in tracker.telemetryCapabilities }?.let { 21 to it },
+			tracker.calibrationQuality?.let { 22 to it }, tracker.fusionStatus?.let { 23 to it },
 			tracker.packetsReceived?.let { 24 to it }, tracker.packetsLost?.let { 25 to it },
 			tracker.packetGaps.takeIf { it > 0 || 26 in tracker.telemetryCapabilities }?.let { 26 to it },
 			tracker.packetReordered.takeIf { it > 0 || 27 in tracker.telemetryCapabilities }?.let { 27 to it },
 			tracker.packetDuplicates.takeIf { it > 0 || 28 in tracker.telemetryCapabilities }?.let { 28 to it },
 			tracker.packetCorrupt.takeIf { it > 0 || 29 in tracker.telemetryCapabilities }?.let { 29 to it },
 			tracker.batteryVoltage?.let { 30 to it }, tracker.powerMode?.let { 31 to it }, tracker.deviceUptimeMs?.let { 32 to it },
-			tracker.resetReason?.let { 33 to it }, (34 to tracker.tps),
+			tracker.resetReason?.let { 33 to it }, tracker.tps.takeIf { it > 0f }?.let { 34 to it },
+			jitter?.let { NativeTelemetryChannels.INTER_ARRIVAL_JITTER to it },
+			tracker.configuredSampleRateHz?.let { NativeTelemetryChannels.CONFIGURED_SAMPLE_RATE to it },
+			tracker.sleepState?.let { NativeTelemetryChannels.SLEEP_STATE to it },
 		)
 		return values.mapNotNull { (channel, value) ->
 			val key = tracker.id to channel
 			if (nativeValues.put(key, value) == value && channel !in setOf(9, 15, 16)) return@mapNotNull null
 			when (value) {
 				is Vector3 -> NativeChannelSample(channel, nowNs, values = listOf(value.x, value.y, value.z), validity = ChannelValidity.VALID, provenance = ChannelProvenance.MEASURED)
-				is Float -> NativeChannelSample(channel, nowNs, values = listOf(value), validity = ChannelValidity.VALID, provenance = ChannelProvenance.FIRMWARE_REPORTED)
+				is Float -> NativeChannelSample(channel, nowNs, values = listOf(value), validity = ChannelValidity.VALID, provenance = if (channel == 34) ChannelProvenance.SERVER_DERIVED else ChannelProvenance.FIRMWARE_REPORTED)
+				is Long -> NativeChannelSample(channel, nowNs, integerValue = value, validity = ChannelValidity.VALID, provenance = if (channel == 35) ChannelProvenance.SERVER_DERIVED else ChannelProvenance.FIRMWARE_REPORTED)
 				is Number -> NativeChannelSample(channel, nowNs, integerValue = value.toLong(), validity = ChannelValidity.VALID, provenance = ChannelProvenance.FIRMWARE_REPORTED)
 				is Boolean -> NativeChannelSample(channel, nowNs, integerValue = if (value) 1 else 0, validity = ChannelValidity.VALID, provenance = ChannelProvenance.FIRMWARE_REPORTED)
 				is String -> NativeChannelSample(channel, nowNs, textValue = value, validity = ChannelValidity.VALID, provenance = ChannelProvenance.FIRMWARE_REPORTED)
@@ -228,10 +276,15 @@ class SessionSnapshotFactory(private val registry: SessionTrackerRegistry) {
 	private fun topologyEvents(trackers: List<Tracker>, frameIndex: Long, nowNs: Long): List<DatasetEvent> = buildList {
 		for (tracker in trackers) {
 			val metadata = registry.metadataFor(tracker)
-			val current = Topology(tracker.status.name, tracker.trackerPosition?.designation ?: "UNASSIGNED", if (tracker.hasCompletedRestCalibration == true) "REST_CALIBRATED" else "UNKNOWN", metadata.capabilities)
+			if (metadata == null) {
+				if (rejectedUnrostered.add(tracker.id)) add(DatasetEvent("CAPABILITY_CHANGE", nowNs, frameIndex, detail = "UNROSTERED_SAMPLE_SOURCE_REJECTED:${tracker.id}"))
+				continue
+			}
+			val current = Topology(tracker.status.name, tracker.trackerPosition?.designation ?: "UNASSIGNED", if (tracker.hasCompletedRestCalibration == true) "REST_CALIBRATED" else "UNKNOWN", registry.liveCapabilities(tracker))
 			val old = topology.put(tracker.id, current)
-			if (old == null) add(DatasetEvent("CONNECT", nowNs, frameIndex, metadata.sessionTrackerId, newValue = current.status))
-			else {
+			if (old == null) {
+				add(DatasetEvent("CONNECT", nowNs, frameIndex, metadata.sessionTrackerId, newValue = current.status))
+			} else {
 				if (old.status != current.status) add(DatasetEvent(if (tracker.status == TrackerStatus.DISCONNECTED) "DISCONNECT" else "CONNECT", nowNs, frameIndex, metadata.sessionTrackerId, old.status, current.status))
 				if (old.role != current.role) add(DatasetEvent("ASSIGNMENT", nowNs, frameIndex, metadata.sessionTrackerId, old.role, current.role))
 				if (old.calibration != current.calibration) add(DatasetEvent("CALIBRATION", nowNs, frameIndex, metadata.sessionTrackerId, old.calibration, current.calibration))
@@ -240,30 +293,65 @@ class SessionSnapshotFactory(private val registry: SessionTrackerRegistry) {
 		}
 	}
 
-	private fun correction(value: DriftCorrectionResult) = CorrectionTelemetry(
+	private fun skeletonBone(tracker: Tracker): SkeletonBoneSample {
+		val rotation = quaternion(tracker.getRotation())
+		val position = vector(tracker.position)
+		val valid = tracker.status.sendData && finite(rotation) && (!tracker.hasPosition || finite(position))
+		return SkeletonBoneSample(
+			tracker.trackerPosition?.designation ?: "UNASSIGNED",
+			if (finite(rotation)) normalize(rotation) else QuaternionSample(0f, 0f, 0f, 1f),
+			if (finite(position)) position else Vector3Sample(0f, 0f, 0f),
+			if (valid) ChannelValidity.VALID else ChannelValidity.INVALID,
+		)
+	}
+
+	private fun bodyContext(positions: List<Vector3Sample>): BodyContextSample? {
+		if (positions.isEmpty()) return null
+		val center = Vector3Sample(positions.map { it.x }.average().toFloat(), positions.map { it.y }.average().toFloat(), positions.map { it.z }.average().toFloat())
+		val height = (positions.maxOf { it.y } - positions.minOf { it.y }).coerceAtLeast(0f)
+		return BodyContextSample(center, height, (positions.size / 4f).coerceAtMost(1f), ChannelValidity.VALID)
+	}
+
+	private fun floorContext(positions: List<Vector3Sample>): FloorContextSample? = positions.minOfOrNull { it.y }?.let {
+		FloorContextSample(it, (positions.size / 2f).coerceAtMost(1f), ChannelValidity.VALID)
+	}
+
+	private fun correction(tracker: Tracker, value: DriftCorrectionResult, finalOutput: QuaternionSample) = CorrectionTelemetry(
 		prediction = quaternion(value.prediction), appliedCorrection = quaternion(value.correction), applied = value.applied,
 		rejectionReason = value.rejectionReason, modelHash = value.modelHash, provider = value.provider,
-		historyValid = value.historyValid, latencyMicros = value.latencyMicros,
+		slot = value.slot ?: -1, historyValid = value.historyValid, latencyMicros = value.latencyMicros,
 		provenance = if (value.applied || value.modelHash != null) ChannelProvenance.MODEL_DERIVED else ChannelProvenance.UNAVAILABLE,
+		legacyCorrection = quaternion(tracker.resetsHandler.lastLegacyCorrection),
+		legacyApplied = tracker.resetsHandler.lastLegacyCorrectionApplied,
+		legacyProvenance = if (tracker.resetsHandler.lastLegacyCorrectionApplied) ChannelProvenance.LEGACY_ESTIMATE else ChannelProvenance.UNAVAILABLE,
+		inputSchemaSha256 = value.featureSchemaSha256, modelVersion = value.modelVersion,
+		bodyRoleId = value.bodyRoleId, mappingTrackerId = tracker.id,
+		confidence = value.confidence, driftRate = value.driftRate, gateOutcome = value.gateOutcome,
+		epoch = value.epoch, inferenceSequence = value.inferenceSequence, finalOutput = finalOutput,
 	)
 
 	private fun deriveActivity(hmd: ReferenceFrameSample, frame: Long, deltaNs: Long): ActivitySample {
 		if (hmd.validity != ChannelValidity.VALID) return ActivitySample(ActivityType.UNKNOWN, 0f, frame, frame)
 		val previousPosition = previousHmdPosition.also { previousHmdPosition = hmd.position }
-		val speed = if (previousPosition == null || deltaNs <= 0) 0f else {
+		val speed = if (previousPosition == null || deltaNs <= 0) {
+			0f
+		} else {
 			val dx = hmd.position.x - previousPosition.x
 			val dy = hmd.position.y - previousPosition.y
 			val dz = hmd.position.z - previousPosition.z
 			(sqrt((dx * dx + dy * dy + dz * dz).toDouble()) / (deltaNs / 1e9)).toFloat()
 		}
-		return when {
+		val classified = when {
 			hmd.position.y < 0.65f -> ActivitySample(ActivityType.LYING, 0.7f, frame, frame)
-			hmd.position.y < 1.15f -> ActivitySample(ActivityType.UNKNOWN, 0.35f, frame, frame)
+			hmd.position.y < 1.05f -> ActivitySample(ActivityType.SEATED, 0.65f, frame, frame)
+			hmd.position.y < 1.35f -> ActivitySample(ActivityType.CROUCHING, 0.6f, frame, frame)
 			speed > 1.5f -> ActivitySample(ActivityType.DANCE, 0.65f, frame, frame)
 			speed > 0.3f -> ActivitySample(ActivityType.LOCOMOTION, 0.65f, frame, frame)
 			speed < 0.04f -> ActivitySample(ActivityType.STATIONARY, 0.75f, frame, frame)
 			else -> ActivitySample(ActivityType.STANDING, 0.65f, frame, frame)
 		}
+		val old = previousActivity.also { previousActivity = classified.type }
+		return if (old != null && old != classified.type) ActivitySample(ActivityType.TRANSITION, 0.55f, frame, frame) else classified
 	}
 
 	private fun quaternion(value: Quaternion) = QuaternionSample(value.x, value.y, value.z, value.w)

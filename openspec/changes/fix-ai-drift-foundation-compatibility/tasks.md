@@ -30,56 +30,56 @@
 ## 5. Strengthen Canonical Archive Validation
 
 - [x] 5.1 Define and document the footer checksum byte scope so it is reproducible and non-self-referential, while retaining the manifest hash of the final compressed telemetry entry.
-- [ ] 5.2 Parse and validate the terminal footer in Kotlin and Python, including complete state, duration, counters, checksum, uniqueness, and agreement with manifest/decoded records.
-- [ ] 5.3 Validate exact canonical ZIP members and reject duplicate, absolute, traversal, unexpected, compressed-again, or oversized entries.
-- [ ] 5.4 Compare known channel descriptors by ID, name, unit, frame, cadence, precision, minimum profile, validity semantics, and allowed provenance in both validators.
-- [ ] 5.5 Preserve forward compatibility by accepting complete unknown optional descriptors while rejecting ID collisions and incompatible required semantics.
-- [ ] 5.6 Add positive and mutation-based negative tests for schema versions, record order, registry semantics, footer fields, checksums, and frame/quality counts.
-- [ ] 5.7 Retain structured detection tests for both historical prototype layouts and verify they cannot enter dataset-ready or training inputs.
-- [ ] 5.8 Add minimum, standard, full-fidelity, and legacy-missing-channel tests proving unavailable data is never serialized as a fabricated valid zero.
+- [x] 5.2 Parse and validate the terminal footer in Kotlin and Python, including complete state, duration, counters, checksum, uniqueness, and agreement with manifest/decoded records.
+- [x] 5.3 Validate exact canonical ZIP members and reject duplicate, absolute, traversal, unexpected, compressed-again, or oversized entries.
+- [x] 5.4 Compare known channel descriptors by ID, name, unit, frame, cadence, precision, minimum profile, validity semantics, and allowed provenance in both validators.
+- [x] 5.5 Preserve forward compatibility by accepting complete unknown optional descriptors while rejecting ID collisions and incompatible required semantics.
+- [x] 5.6 Add positive and mutation-based negative tests for schema versions, record order, registry semantics, footer fields, checksums, and frame/quality counts.
+- [x] 5.7 Retain structured detection tests for both historical prototype layouts and verify they cannot enter dataset-ready or training inputs.
+- [x] 5.8 Add minimum, standard, full-fidelity, and legacy-missing-channel tests proving unavailable data is never serialized as a fabricated valid zero.
 
 ## 6. Make Readiness Controls Truthful
 
-- [ ] 6.1 Extend the server model runtime/status RPC with authoritative inference-ready state, active-model hash agreement, and an actionable typed blocking reason.
-- [ ] 6.2 Update generated SolarXR bindings and GUI state reducers/tests for the readiness fields without optimistic activation state.
-- [ ] 6.3 Disable and clearly label production model Enable/activate controls until inference readiness passes; distinguish persisted intent from effective runtime activation.
-- [ ] 6.4 Keep only explicitly labelled diagnostic model operations available before promotion and retain server-side rejection for forged active-correction requests.
-- [ ] 6.5 Verify dataset controls distinguish diagnostic recording from locked production profiles and display the authoritative dataset-ready reason.
+- [x] 6.1 Extend the server model runtime/status RPC with authoritative inference-ready state, active-model hash agreement, and an actionable typed blocking reason.
+- [x] 6.2 Update generated SolarXR bindings and GUI state reducers/tests for the readiness fields without optimistic activation state.
+- [x] 6.3 Disable and clearly label production model Enable/activate controls until inference readiness passes; distinguish persisted intent from effective runtime activation.
+- [x] 6.4 Keep only explicitly labelled diagnostic model operations available before promotion and retain server-side rejection for forged active-correction requests.
+- [x] 6.5 Verify dataset controls distinguish diagnostic recording from locked production profiles and display the authoritative dataset-ready reason.
 
 ## 7. Harden Electron Trust Boundaries
 
-- [ ] 7.1 Replace remaining literal IPC registrations with `IPC_CHANNELS` and add a compile-time or unit contract test covering main and preload channel signatures.
-- [ ] 7.2 Extract a canonical filesystem authorization helper using `realpath` and explicit target types for managed roots and existing targets.
-- [ ] 7.3 Add deterministic traversal, sibling-prefix, symlink, junction, missing-target, directory, and regular-file authorization tests that do not depend solely on privileged Windows symlink creation.
-- [ ] 7.4 Apply canonical authorization to generic open-file actions and keep dataset reveal/export source selection session-ID-based.
-- [ ] 7.5 Add deny-by-default `will-navigate` and `setWindowOpenHandler` policies and route approved external opens through the centralized URL allowlist.
-- [ ] 7.6 Add URL tests for scheme/host/path spoofing, encoded traversal, subdomain boundaries, approved links, and blocked renderer navigation.
+- [x] 7.1 Replace remaining literal IPC registrations with `IPC_CHANNELS` and add a compile-time or unit contract test covering main and preload channel signatures.
+- [x] 7.2 Extract a canonical filesystem authorization helper using `realpath` and explicit target types for managed roots and existing targets.
+- [x] 7.3 Add deterministic traversal, sibling-prefix, symlink, junction, missing-target, directory, and regular-file authorization tests that do not depend solely on privileged Windows symlink creation.
+- [x] 7.4 Apply canonical authorization to generic open-file actions and keep dataset reveal/export source selection session-ID-based.
+- [x] 7.5 Add deny-by-default `will-navigate` and `setWindowOpenHandler` policies and route approved external opens through the centralized URL allowlist.
+- [x] 7.6 Add URL tests for scheme/host/path spoofing, encoded traversal, subdomain boundaries, approved links, and blocked renderer navigation.
 
 ## 8. Wire Required Verification and Re-audit
 
-- [ ] 8.1 Add explicit required CI jobs for GUI tests, GUI lint, production GUI build, forced server core tests, and Kotlin/Python dataset conformance independently of packaging jobs.
-- [ ] 8.2 Change dataset-ready evidence mapping so schema, numerical, metadata, reset-label, recovery, soak, RPC/UI, and baseline categories pass only from their direct checks.
-- [ ] 8.3 Generate the simulated 5-tracker UDP and 8-tracker mixed-transport archives and require both Kotlin and Python validators to agree on full decoded reports.
-- [ ] 8.4 Run the aggregate foundation baseline from a clean checkout and confirm all checks pass with no unexpected skip in security, FP16, or cross-language coverage.
-- [ ] 8.5 Re-audit the original `complete-ai-drift-data-pipeline` tasks 1.1–2.9 and update their completion state only where this corrective change supplies executable evidence.
+- [x] 8.1 Add explicit required CI jobs for GUI tests, GUI lint, production GUI build, forced server core tests, and Kotlin/Python dataset conformance independently of packaging jobs.
+- [x] 8.2 Change dataset-ready evidence mapping so schema, numerical, metadata, reset-label, recovery, soak, RPC/UI, and baseline categories pass only from their direct checks.
+- [x] 8.3 Generate the simulated 5-tracker UDP and 8-tracker mixed-transport archives and require both Kotlin and Python validators to agree on full decoded reports.
+- [x] 8.4 Run the aggregate foundation baseline from a clean checkout and confirm all checks pass with no unexpected skip in security, FP16, or cross-language coverage.
+- [x] 8.5 Re-audit the original `complete-ai-drift-data-pipeline` tasks 1.1–2.9 and update their completion state only where this corrective change supplies executable evidence.
 
 ## 9. Restore Streaming Recorder Fidelity
 
-- [ ] 9.1 Split collection-profile requirements into global/context and per-tracker capabilities; make minimum, standard, full-fidelity, and legacy profiles attainable and reject only genuinely missing required inputs.
-- [ ] 9.2 Replace ad hoc capability numbers with one canonical mapping, map UDP calibration quality to channel 22, advertise every supported packet-29 field, and wire HID/nRF capability/sample handling into the production dongle readers rather than test-only helpers.
-- [ ] 9.3 Freeze every sample-producing HMD, controller, physical tracker, and context identity into the initial roster; prohibit post-roster IDs and cover reconnect, replacement, assignment, calibration, and capability changes with stable topology events.
-- [ ] 9.4 Extend the append-only schema, bindings, snapshot factory, and readers to retain controller/HMD positions, skeleton bone orientations/positions, body and floor context, and confidence-bearing standing/seated/lying/crouching/transition/dance/locomotion/stationary/unknown intervals.
-- [ ] 9.5 Capture the declared native telemetry that is currently absent or incomplete, including configured/observed rate, inter-arrival timing/jitter, complete packet/error counters, calibration/fusion state, battery/power/sleep state, and reset reason, with correct units, cadence, validity, and provenance.
-- [ ] 9.6 Extend correction telemetry to include legacy correction/drift provenance and model input schema/version, hash/provider, slot/mapping, prediction, confidence, drift rate, gate/rejection, applied correction, history/epoch, inference sequence, latency, and final output as distinct fields.
-- [ ] 9.7 Make queue overflow acknowledge pending gap/reset events and completed labels only after successful enqueue/write; keep tracking non-blocking while bounding both sample and control metadata memory.
-- [ ] 9.8 Replace the 500-frame pseudo-soak with deterministic multi-hour simulated coverage that asserts heap/direct-buffer bounds and on-disk progress, and add actual transport-parser, overflow-with-reset, disk-failure, durable-crash/recovery, and full-fidelity profile integration tests.
-- [ ] 9.9 Add validator/conformance failures for unrostered sample IDs, advertised-but-never-producible required channels, invalid provenance, fabricated zero-as-valid optional data, missing context fields, and lost gap/reset sequence continuity.
+- [x] 9.1 Split collection-profile requirements into global/context and per-tracker capabilities; make minimum, standard, full-fidelity, and legacy profiles attainable and reject only genuinely missing required inputs.
+- [x] 9.2 Replace ad hoc capability numbers with one canonical mapping, map UDP calibration quality to channel 22, advertise every supported packet-29 field, and wire HID/nRF capability/sample handling into the production dongle readers rather than test-only helpers.
+- [x] 9.3 Freeze every sample-producing HMD, controller, physical tracker, and context identity into the initial roster; prohibit post-roster IDs and cover reconnect, replacement, assignment, calibration, and capability changes with stable topology events.
+- [x] 9.4 Extend the append-only schema, bindings, snapshot factory, and readers to retain controller/HMD positions, skeleton bone orientations/positions, body and floor context, and confidence-bearing standing/seated/lying/crouching/transition/dance/locomotion/stationary/unknown intervals.
+- [x] 9.5 Capture the declared native telemetry that is currently absent or incomplete, including configured/observed rate, inter-arrival timing/jitter, complete packet/error counters, calibration/fusion state, battery/power/sleep state, and reset reason, with correct units, cadence, validity, and provenance.
+- [x] 9.6 Extend correction telemetry to include legacy correction/drift provenance and model input schema/version, hash/provider, slot/mapping, prediction, confidence, drift rate, gate/rejection, applied correction, history/epoch, inference sequence, latency, and final output as distinct fields.
+- [x] 9.7 Make queue overflow acknowledge pending gap/reset events and completed labels only after successful enqueue/write; keep tracking non-blocking while bounding both sample and control metadata memory.
+- [x] 9.8 Replace the 500-frame pseudo-soak with deterministic multi-hour simulated coverage that asserts heap/direct-buffer bounds and on-disk progress, and add actual transport-parser, overflow-with-reset, disk-failure, durable-crash/recovery, and full-fidelity profile integration tests.
+- [x] 9.9 Add validator/conformance failures for unrostered sample IDs, advertised-but-never-producible required channels, invalid provenance, fabricated zero-as-valid optional data, missing context fields, and lost gap/reset sequence continuity.
 
 ## 10. Correct Reset Supervision Integrity
 
-- [ ] 10.1 Serialize raw, calibrated pre-AI, and adjusted orientations plus adjustment-chain state and per-channel validity immediately before/after every affected physical IMU reset.
-- [ ] 10.2 Derive and test the canonical target as `normalize(q_post_adjusted * inverse(q_pre_adjusted))`; retain pre-AI values as observations but never substitute them for the declared adjusted target.
-- [ ] 10.3 Preserve exactly one correlated REQUESTED terminal-outcome lifecycle and every successful per-tracker label across recorder backlog, including cancelled and failed delayed resets.
+- [x] 10.1 Serialize raw, calibrated pre-AI, and adjusted orientations plus adjustment-chain state and per-channel validity immediately before/after every affected physical IMU reset.
+- [x] 10.2 Derive and test the canonical target as `normalize(q_post_adjusted * inverse(q_pre_adjusted))`; retain pre-AI values as observations but never substitute them for the declared adjusted target.
+- [x] 10.3 Preserve exactly one correlated REQUESTED terminal-outcome lifecycle and every successful per-tracker label across recorder backlog, including cancelled and failed delayed resets.
 - [ ] 10.4 Move HMD age and motion thresholds into explicit labeler/recorder configuration and deterministically evaluate stale reference, motion, packet-gap, reconnect/reassignment, invalid quaternion, overlap, and truncation over the resolved context window.
 - [ ] 10.5 Validate event-index/request-ID relationships, reset domain/axis masks, before/after epochs, tracker roster membership, and that pre/post frame ranges are ordered and resolve to available frames or carry an explicit truncation flag.
 - [ ] 10.6 Add non-commuting adjusted-transform, full/yaw/mounting, partial/multi-tracker, delayed cancel/failure, overflow, reconnect/reassignment, packet-gap, overlap, truncated-window, and invalid-reference integration fixtures through the real reset publisher and recorder.

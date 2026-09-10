@@ -623,15 +623,7 @@ class TrackersUDPServer(private val port: Int, name: String, private val tracker
 
 			is UDPPacket28TelemetryCapabilities -> {
 				val tracker = connection?.getTracker(packet.sensorId) ?: return
-				val channelIds = mapOf(
-					UDPPacket29SensorTelemetry.SEQUENCE to 9,
-					UDPPacket29SensorTelemetry.DEVICE_TIMESTAMP to 15,
-					UDPPacket29SensorTelemetry.RAW_GYRO to 16,
-					UDPPacket29SensorTelemetry.MAGNETIC to 7,
-					UDPPacket29SensorTelemetry.CALIBRATION_QUALITY to 8,
-					UDPPacket29SensorTelemetry.CHARGING to 14,
-				)
-				for ((flag, channel) in channelIds) if (packet.channelMask and flag != 0L) tracker.telemetryCapabilities += channel
+				tracker.telemetryCapabilities += NativeTelemetryChannels.forUdpMask(packet.channelMask)
 			}
 
 			is UDPPacket29SensorTelemetry -> {
@@ -649,6 +641,8 @@ class TrackersUDPServer(private val port: Int, name: String, private val tracker
 				packet.charging?.let { tracker.charging = it }
 				packet.powerMode?.let { tracker.powerMode = it.toString() }
 				packet.resetReason?.let { tracker.resetReason = it.toString() }
+				packet.configuredSampleRateHz?.takeIf { it.isFinite() && it > 0f }?.let { tracker.configuredSampleRateHz = it }
+				packet.sleepState?.let { tracker.sleepState = it.toString() }
 			}
 
 			is UDPPacket200ProtocolChange -> {}

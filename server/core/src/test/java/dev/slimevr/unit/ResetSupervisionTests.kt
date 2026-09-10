@@ -25,9 +25,13 @@ import dev.slimevr.reset.ResetEventListener
 import dev.slimevr.reset.ResetKind
 import dev.slimevr.reset.ResetLabelCalculator
 import dev.slimevr.reset.ResetOutcome
+import dev.slimevr.reset.ResetRequest
 import dev.slimevr.reset.ResetSupervisionPolicy
+import dev.slimevr.reset.TrackerAdjustmentSnapshot
+import dev.slimevr.reset.TrackerResetStateSnapshot
 import dev.slimevr.reset.SupervisionAction
 import dev.slimevr.reset.resetTimer
+import dev.slimevr.reset.event
 import dev.slimevr.tracking.processor.HumanPoseManager
 import dev.slimevr.tracking.trackers.TrackerPosition
 import dev.slimevr.tracking.trackers.TrackerStatus
@@ -92,6 +96,28 @@ class ResetSupervisionTests {
 
 		assertTrue(correction.w >= 0f)
 		assertEquals(expectedYawRad, diagnosticYaw, eps, "Diagnostic yaw should match 30 deg in radians")
+	}
+
+	@Test
+	fun `label target uses adjusted orientations for non commuting rotations`() {
+		val identity = Quaternion.IDENTITY
+		val adjustedPre = EulerAngles(EulerOrder.YZX, toRad(90f), 0f, 0f).toQuaternion()
+		val adjustedPost = EulerAngles(EulerOrder.YZX, 0f, toRad(90f), 0f).toQuaternion()
+		val adjustments = TrackerAdjustmentSnapshot(identity, identity, identity, identity, identity, identity, identity)
+		fun state(adjusted: Quaternion, epoch: Long) = TrackerResetStateSnapshot(
+			1, TrackerPosition.CHEST, identity, identity, adjusted, adjustments,
+			Vector3(0f, 0f, 0f), Vector3(0f, 0f, 0f), TrackerStatus.OK, epoch, epoch, 0, 0,
+		)
+		val label = ResetLabelCalculator.buildLabelRecord(
+			1, "tracker-1", TrackerPosition.CHEST, ResetKind.FULL,
+			state(adjustedPre, 1), state(adjustedPost, 2), null, null, 10, 20,
+		)
+		val expected = ResetLabelCalculator.computeCorrection(adjustedPre, adjustedPost).first
+		assertEquals(expected.w, label.correction.w, eps)
+		assertEquals(expected.x, label.correction.x, eps)
+		assertEquals(expected.y, label.correction.y, eps)
+		assertEquals(expected.z, label.correction.z, eps)
+		assertTrue(abs(label.correction.w - 1f) > eps || abs(label.correction.x) > eps || abs(label.correction.y) > eps || abs(label.correction.z) > eps)
 	}
 
 	@Test
@@ -319,6 +345,99 @@ class ResetSupervisionTests {
 		assertEquals(3L, label.postStartFrame)
 		assertEquals(5L, label.postEndFrame)
 		assertEquals(1f, kotlin.math.sqrt(label.correction.x * label.correction.x + label.correction.y * label.correction.y + label.correction.z * label.correction.z + label.correction.w * label.correction.w), eps)
+	}
+
+	@Test
+	fun `overflow retains reset lifecycle gap and label until durable enqueue`(@TempDir tempDir: Path) {
+		val trackers = TestTrackerSet()
+		val publisher = DefaultResetEventPublisher()
+		var clock = System.nanoTime()
+		val recorder = DatasetRecordingService(
+			datasetsRoot = tempDir, clockNs = { clock }, queueCapacity = 1, batchSize = 20,
+			writerDelayMillis = 15, resetPreContextFrames = 1, resetPostContextFrames = 1,
+		)
+		recorder.bindResetPublisher(publisher)
+		recorder.startRecording(RecordingRequest(privacy = SessionPrivacyOptions(consent = true), minFreeSpaceBytes = 0), trackers.allL)
+		recorder.sampleIfDue(trackers.allL)
+		clock += 20_000_000L
+		HumanPoseManager(trackers.allL, resetEventPublisher = publisher)
+			.resetTrackersYaw("overflow-reset", listOf(TrackerPosition.CHEST.bodyPart))
+		repeat(100) {
+			recorder.sampleIfDue(trackers.allL)
+			clock += 20_000_000L
+		}
+		assertTrue(recorder.status().droppedFrames > 0)
+		assertTrue(recorder.controlMetadataDepth <= recorder.maximumControlItems)
+		val archive = recorder.stopAndFinalize(15)
+		val records = mutableListOf<dev.slimevr.dataset.generated.DatasetRecordSummary>()
+		ZipFile(archive.toFile()).use { zip ->
+			ZstdInputStream(BufferedInputStream(zip.getInputStream(zip.getEntry("telemetry.fbs.zst")))).use { input ->
+				while (true) records += DatasetV1Reader.read(DatasetArchiveValidator.readRecord(input) ?: break)
+			}
+		}
+		val lifecycle = records.flatMap { it.events }.filter { it.resetKind == ResetKind.YAW.name }
+		assertEquals(listOf("REQUESTED", "APPLIED"), lifecycle.map { it.resetOutcome })
+		assertEquals(1, records.flatMap { it.resetLabels }.size)
+		assertTrue(records.flatMap { it.events }.any { it.type == "GAP" })
+		assertTrue(DatasetArchiveValidator().validate(archive).valid)
+	}
+
+	@Test
+	fun `backlog retains exactly one cancelled failed and multi tracker applied lifecycle`(@TempDir tempDir: Path) {
+		val trackers = TestTrackerSet()
+		val publisher = DefaultResetEventPublisher()
+		val published = CopyOnWriteArrayList<ResetEvent>()
+		publisher.addListener(ResetEventListener(published::add))
+		var clock = System.nanoTime()
+		val recorder = DatasetRecordingService(
+			datasetsRoot = tempDir, clockNs = { clock }, queueCapacity = 1, batchSize = 20,
+			writerDelayMillis = 15, resetPreContextFrames = 1, resetPostContextFrames = 1,
+		)
+		recorder.bindResetPublisher(publisher)
+		recorder.startRecording(RecordingRequest(privacy = SessionPrivacyOptions(consent = true), minFreeSpaceBytes = 0), trackers.allL)
+		repeat(30) {
+			recorder.sampleIfDue(trackers.allL)
+			clock += 20_000_000L
+		}
+
+		val parts = listOf(TrackerPosition.CHEST.bodyPart, TrackerPosition.HIP.bodyPart)
+		val cancelled = ResetRequest("cancelled-backlog", ResetKind.FULL, "delayed-test", clock, 3000, parts)
+		publisher.publish(cancelled.event(ResetOutcome.REQUESTED))
+		publisher.publish(cancelled.event(ResetOutcome.REQUESTED))
+		publisher.publish(cancelled.event(ResetOutcome.CANCELLED))
+		publisher.publish(cancelled.event(ResetOutcome.CANCELLED))
+
+		val failed = ResetRequest("failed-backlog", ResetKind.MOUNTING, "delayed-test", clock + 1, 3000, parts)
+		publisher.publish(failed.event(ResetOutcome.REQUESTED))
+		publisher.publish(failed.event(ResetOutcome.FAILED, failureReason = "reference unavailable"))
+		publisher.publish(failed.event(ResetOutcome.FAILED, failureReason = "reference unavailable"))
+
+		val applied = ResetRequest("applied-backlog", ResetKind.YAW, "delayed-test", clock + 2, 3000, parts)
+		publisher.publish(applied.event(ResetOutcome.REQUESTED))
+		publisher.publish(applied.event(ResetOutcome.REQUESTED))
+		HumanPoseManager(trackers.allL, resetEventPublisher = publisher).resetTrackersYaw("delayed-test", parts, applied)
+		publisher.publish(published.single { it.requestId == applied.requestId && it.outcome == ResetOutcome.APPLIED })
+
+		repeat(40) {
+			recorder.sampleIfDue(trackers.allL)
+			clock += 20_000_000L
+		}
+		val archive = recorder.stopAndFinalize(15)
+		val records = mutableListOf<dev.slimevr.dataset.generated.DatasetRecordSummary>()
+		ZipFile(archive.toFile()).use { zip ->
+			ZstdInputStream(BufferedInputStream(zip.getInputStream(zip.getEntry("telemetry.fbs.zst")))).use { input ->
+				while (true) records += DatasetV1Reader.read(DatasetArchiveValidator.readRecord(input) ?: break)
+			}
+		}
+		val events = records.flatMap { it.events }.filter { it.requestId != null }.groupBy { it.requestId }
+		assertEquals(listOf("REQUESTED", "CANCELLED"), events.getValue(cancelled.requestId).map { it.resetOutcome })
+		assertEquals(listOf("REQUESTED", "FAILED"), events.getValue(failed.requestId).map { it.resetOutcome })
+		assertEquals(listOf("REQUESTED", "APPLIED"), events.getValue(applied.requestId).map { it.resetOutcome })
+		val labels = records.flatMap { it.resetLabels }
+		assertEquals(2, labels.count { it.requestId == applied.requestId })
+		assertTrue(labels.none { it.requestId == cancelled.requestId || it.requestId == failed.requestId })
+		assertTrue(labels.filter { it.requestId == applied.requestId }.all { it.eventIndex == events.getValue(applied.requestId).last().eventIndex })
+		assertTrue(DatasetArchiveValidator().validate(archive).valid)
 	}
 
 	@Test

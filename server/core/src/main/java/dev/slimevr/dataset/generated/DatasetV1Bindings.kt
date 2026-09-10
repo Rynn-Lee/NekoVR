@@ -77,9 +77,10 @@ object DatasetV1Bindings {
 		applicationVersion: String,
 		applicationCommit: String,
 		profile: CollectionProfile,
+		channelDescriptors: List<TelemetryChannel> = TelemetryChannelRegistry.channels,
 	): ByteArray {
 		val builder = FlatBufferBuilder(16 * 1024)
-		val channelOffsets = TelemetryChannelRegistry.channels.map { channel ->
+		val channelOffsets = channelDescriptors.map { channel ->
 			val name = builder.createString(channel.name)
 			val unit = builder.createString(channel.unit)
 			val frame = builder.createString(channel.coordinateFrame)
@@ -174,7 +175,25 @@ object DatasetV1Bindings {
 		val rejection = correction.rejectionReason?.let(builder::createString) ?: 0
 		val hash = correction.modelHash?.let(builder::createString) ?: 0
 		val provider = correction.provider?.let(builder::createString) ?: 0
-		builder.startTable(10)
+		val legacy = quat(builder, correction.legacyCorrection, false)
+		val inputSchema = correction.inputSchemaSha256?.let(builder::createString) ?: 0
+		val modelVersion = correction.modelVersion?.let(builder::createString) ?: 0
+		val gateOutcome = builder.createString(correction.gateOutcome)
+		val finalOutput = quat(builder, correction.finalOutput, false)
+		builder.startTable(23)
+		builder.addOffset(22, finalOutput, 0)
+		correction.inferenceSequence?.let { builder.addLong(21, it, 0) }
+		builder.addLong(20, correction.epoch, 0)
+		builder.addOffset(19, gateOutcome, 0)
+		correction.driftRate?.let { builder.addFloat(18, it, 0.0) }
+		correction.confidence?.let { builder.addFloat(17, it, 0.0) }
+		builder.addInt(16, correction.mappingTrackerId ?: -1, -1)
+		builder.addInt(15, correction.bodyRoleId ?: -1, -1)
+		builder.addOffset(14, modelVersion, 0)
+		builder.addOffset(13, inputSchema, 0)
+		builder.addByte(12, correction.legacyProvenance.ordinal.toByte(), 0)
+		builder.addBoolean(11, correction.legacyApplied, false)
+		builder.addOffset(10, legacy, 0)
 		builder.addByte(9, correction.provenance.ordinal.toByte(), 0)
 		builder.addLong(8, correction.latencyMicros ?: 0, 0)
 		builder.addBoolean(7, correction.historyValid, false)
@@ -201,7 +220,11 @@ object DatasetV1Bindings {
 		val correction = correction(builder, sample.correction)
 		val nativeOffsets = sample.nativeChannels.map { nativeChannel(builder, it) }.toIntArray()
 		val native = if (nativeOffsets.isEmpty()) 0 else offsets(builder, nativeOffsets)
-		builder.startTable(18)
+		val position = if (sample.positionValidity == ChannelValidity.UNAVAILABLE) 0 else vec(builder, sample.position, 1000f, false)
+		builder.startTable(21)
+		builder.addByte(20, sample.positionProvenance.ordinal.toByte(), 0)
+		builder.addByte(19, sample.positionValidity.ordinal.toByte(), 0)
+		builder.addOffset(18, position, 0)
 		builder.addOffset(17, native, 0)
 		builder.addOffset(16, correction, 0)
 		builder.addLong(15, sample.sampleAgeNs, 0)
@@ -220,6 +243,39 @@ object DatasetV1Bindings {
 		builder.addOffset(2, calibrated, 0)
 		builder.addOffset(1, raw, 0)
 		builder.addOffset(0, id, 0)
+		return builder.endTable()
+	}
+
+	private fun skeletonBone(builder: FlatBufferBuilder, sample: SkeletonBoneSample): Int {
+		val role = builder.createString(sample.bodyRole)
+		val orientation = quat(builder, sample.orientation, false)
+		val position = vec(builder, sample.position, 1000f, false)
+		builder.startTable(5)
+		builder.addByte(4, sample.provenance.ordinal.toByte(), 0)
+		builder.addByte(3, sample.validity.ordinal.toByte(), 0)
+		builder.addOffset(2, position, 0)
+		builder.addOffset(1, orientation, 0)
+		builder.addOffset(0, role, 0)
+		return builder.endTable()
+	}
+
+	private fun bodyContext(builder: FlatBufferBuilder, sample: BodyContextSample): Int {
+		val center = vec(builder, sample.center, 1000f, false)
+		builder.startTable(5)
+		builder.addByte(4, sample.provenance.ordinal.toByte(), 0)
+		builder.addByte(3, sample.validity.ordinal.toByte(), 0)
+		builder.addFloat(2, sample.confidence, 0.0)
+		builder.addFloat(1, sample.height, 0.0)
+		builder.addOffset(0, center, 0)
+		return builder.endTable()
+	}
+
+	private fun floorContext(builder: FlatBufferBuilder, sample: FloorContextSample): Int {
+		builder.startTable(4)
+		builder.addByte(3, sample.provenance.ordinal.toByte(), 0)
+		builder.addByte(2, sample.validity.ordinal.toByte(), 0)
+		builder.addFloat(1, sample.confidence, 0.0)
+		builder.addFloat(0, sample.height, 0.0)
 		return builder.endTable()
 	}
 
@@ -249,7 +305,13 @@ object DatasetV1Bindings {
 		val trackers = offsets(builder, frame.trackers.map { tracker(builder, it) }.toIntArray())
 		val context = if (frame.contextSamples.isEmpty()) 0 else offsets(builder, frame.contextSamples.map { tracker(builder, it) }.toIntArray())
 		val activity = activity(builder, frame.activity)
-		builder.startTable(7)
+		val bones = if (frame.skeletonBones.isEmpty()) 0 else offsets(builder, frame.skeletonBones.map { skeletonBone(builder, it) }.toIntArray())
+		val body = frame.bodyContext?.let { bodyContext(builder, it) } ?: 0
+		val floor = frame.floorContext?.let { floorContext(builder, it) } ?: 0
+		builder.startTable(10)
+		builder.addOffset(9, floor, 0)
+		builder.addOffset(8, body, 0)
+		builder.addOffset(7, bones, 0)
 		builder.addOffset(6, activity, 0)
 		builder.addOffset(5, context, 0)
 		builder.addOffset(4, trackers, 0)
@@ -297,8 +359,28 @@ object DatasetV1Bindings {
 		val constraintBefore = quat(builder, label.constraintFixBefore, false)
 		val constraintAfter = quat(builder, label.constraintFixAfter, false)
 		val bodyRole = builder.createString(label.bodyRole)
+		val adjustedBefore = quat(builder, label.adjustedOrientationBefore, false)
+		val adjustedAfter = quat(builder, label.adjustedOrientationAfter, false)
+		val statusBefore = builder.createString(label.statusBefore)
+		val statusAfter = builder.createString(label.statusAfter)
 
-		builder.startTable(41)
+		builder.startTable(57)
+		builder.addLong(56, label.calibrationEpoch, 0L)
+		builder.addLong(55, label.resetEpoch, 0L)
+		builder.addLong(54, label.calibrationEpochBefore, 0L)
+		builder.addLong(53, label.resetEpochBefore, 0L)
+		builder.addLong(52, label.sampleAgeAfterNs, 0L)
+		builder.addLong(51, label.sampleAgeBeforeNs, 0L)
+		builder.addOffset(50, statusAfter, 0)
+		builder.addOffset(49, statusBefore, 0)
+		builder.addByte(48, label.adjustedValidityAfter.ordinal.toByte(), 0)
+		builder.addByte(47, label.adjustedValidityBefore.ordinal.toByte(), 0)
+		builder.addByte(46, label.calibratedPreAiValidityAfter.ordinal.toByte(), 0)
+		builder.addByte(45, label.calibratedPreAiValidityBefore.ordinal.toByte(), 0)
+		builder.addByte(44, label.rawValidityAfter.ordinal.toByte(), 0)
+		builder.addByte(43, label.rawValidityBefore.ordinal.toByte(), 0)
+		builder.addOffset(42, adjustedAfter, 0)
+		builder.addOffset(41, adjustedBefore, 0)
 		builder.addLong(40, label.hmdSampleAgeAfterNs, 0L)
 		builder.addLong(39, label.hmdSampleAgeBeforeNs, 0L)
 		builder.addOffset(38, bodyRole, 0)
@@ -362,7 +444,7 @@ object DatasetV1Bindings {
 			val partsVector = if (partsOffsets.isNotEmpty()) offsets(builder, partsOffsets) else 0
 
 			val type = listOf("CONNECT", "DISCONNECT", "ASSIGNMENT", "CALIBRATION", "CAPABILITY_CHANGE", "GAP", "RECORDING_MARKER", "RESET", "MODEL_CHANGE")
-				.indexOf(event.type).coerceAtLeast(6)
+				.indexOf(event.type).let { if (it >= 0) it else if (event.resetKind != null) 7 else 6 }
 			builder.startTable(15)
 			builder.addOffset(14, partsVector, 0)
 			builder.addOffset(13, kind, 0)
@@ -703,7 +785,7 @@ object DatasetV1Reader {
 		hmdReferenceBefore = quat(table.table(24), false),
 		hmdReferenceAfter = quat(table.table(25), false),
 		hmdValid = if (table.hasField(26)) table.bool(26) else true,
-		resetEpoch = table.int(27).toLong(),
+		resetEpoch = if (table.hasField(55)) table.long(55) else table.int(27).toLong(),
 		trainingPolicy = table.string(28) ?: "INCLUDE",
 		gyroFixBefore = quat(table.table(29), false),
 		gyroFixAfter = quat(table.table(30), false),
@@ -713,10 +795,24 @@ object DatasetV1Reader {
 		tposeDownFixAfter = quat(table.table(34), false),
 		constraintFixBefore = quat(table.table(35), false),
 		constraintFixAfter = quat(table.table(36), false),
-		calibrationEpoch = table.long(37),
+		calibrationEpoch = if (table.hasField(56)) table.long(56) else table.long(37),
 		bodyRole = table.string(38) ?: "UNASSIGNED",
 		hmdSampleAgeBeforeNs = table.long(39),
 		hmdSampleAgeAfterNs = table.long(40),
+		adjustedOrientationBefore = quat(table.table(41), false),
+		adjustedOrientationAfter = quat(table.table(42), false),
+		rawValidityBefore = enumValue(table.byte(43), "reset.raw_validity_before"),
+		rawValidityAfter = enumValue(table.byte(44), "reset.raw_validity_after"),
+		calibratedPreAiValidityBefore = enumValue(table.byte(45), "reset.pre_ai_validity_before"),
+		calibratedPreAiValidityAfter = enumValue(table.byte(46), "reset.pre_ai_validity_after"),
+		adjustedValidityBefore = enumValue(table.byte(47), "reset.adjusted_validity_before"),
+		adjustedValidityAfter = enumValue(table.byte(48), "reset.adjusted_validity_after"),
+		statusBefore = table.string(49) ?: "UNKNOWN",
+		statusAfter = table.string(50) ?: "UNKNOWN",
+		sampleAgeBeforeNs = table.long(51),
+		sampleAgeAfterNs = table.long(52),
+		resetEpochBefore = table.long(53),
+		calibrationEpochBefore = table.long(54),
 	)
 
 	private fun readResetLabels(eventBatch: FbTable): List<DatasetResetLabel> =
@@ -791,8 +887,24 @@ object DatasetV1Reader {
 				historyValid = correction?.bool(7) ?: false,
 				latencyMicros = correction?.let { value -> value.long(8).takeIf { value.hasField(8) } },
 				provenance = enumValue(correction?.byte(9) ?: 0, "correction.provenance"),
+				legacyCorrection = quat(correction?.table(10), false),
+				legacyApplied = correction?.bool(11) ?: false,
+				legacyProvenance = enumValue(correction?.byte(12) ?: 0, "correction.legacy_provenance"),
+				inputSchemaSha256 = correction?.string(13),
+				modelVersion = correction?.string(14),
+				bodyRoleId = correction?.int(15, -1)?.takeIf { it >= 0 },
+				mappingTrackerId = correction?.int(16, -1)?.takeIf { it >= 0 },
+				confidence = correction?.float(17)?.takeIf { correction.hasField(17) },
+				driftRate = correction?.float(18)?.takeIf { correction.hasField(18) },
+				gateOutcome = correction?.string(19) ?: "UNAVAILABLE",
+				epoch = correction?.long(20) ?: 0L,
+				inferenceSequence = correction?.long(21)?.takeIf { correction.hasField(21) },
+				finalOutput = quat(correction?.table(22), false),
 			),
 			nativeChannels = nativeChannels,
+			position = vec(table.table(18), false, 1000f, "tracker.position"),
+			positionValidity = enumValue(table.byte(19), "tracker.position_validity"),
+			positionProvenance = enumValue(table.byte(20), "tracker.position_provenance"),
 		)
 	}
 
@@ -802,6 +914,22 @@ object DatasetV1Reader {
 		val trackers = List(frame.vectorLength(4)) { tracker(frame.vectorTable(4, it)) }
 		val context = List(frame.vectorLength(5)) { tracker(frame.vectorTable(5, it)) }
 		val activity = frame.table(6)
+		val bones = List(frame.vectorLength(7)) { boneIndex ->
+			val bone = frame.vectorTable(7, boneIndex)
+			SkeletonBoneSample(
+				bodyRole = bone.string(0) ?: "UNASSIGNED",
+				orientation = quat(bone.table(1), false, "skeleton.orientation"),
+				position = vec(bone.table(2), false, 1000f, "skeleton.position"),
+				validity = enumValue(bone.byte(3), "skeleton.validity"),
+				provenance = enumValue(bone.byte(4), "skeleton.provenance"),
+			)
+		}
+		val body = frame.table(8)?.let {
+			BodyContextSample(vec(it.table(0), false, 1000f, "body.center"), it.float(1), it.float(2), enumValue(it.byte(3), "body.validity"), enumValue(it.byte(4), "body.provenance"))
+		}
+		val floor = frame.table(9)?.let {
+			FloorContextSample(it.float(0), it.float(1), enumValue(it.byte(2), "floor.validity"), enumValue(it.byte(3), "floor.provenance"))
+		}
 		SessionFrame(
 			frameIndex = frame.long(0),
 			monotonicNs = frame.long(1),
@@ -821,9 +949,14 @@ object DatasetV1Reader {
 				endFrame = activity?.long(3) ?: frame.long(0),
 				provenance = enumValue(activity?.byte(4) ?: 0, "activity.provenance"),
 			),
+			skeletonBones = bones,
+			bodyContext = body,
+			floorContext = floor,
 		).also {
 			require(it.activity.confidence.isFinite() && it.activity.confidence in 0f..1f) { "activity confidence must be in [0, 1]" }
 			require(it.activity.startFrame <= it.activity.endFrame) { "activity frame interval is inverted" }
+			require(it.bodyContext == null || (it.bodyContext.confidence.isFinite() && it.bodyContext.confidence in 0f..1f)) { "body confidence must be in [0, 1]" }
+			require(it.floorContext == null || (it.floorContext.confidence.isFinite() && it.floorContext.confidence in 0f..1f)) { "floor confidence must be in [0, 1]" }
 		}
 	}
 }

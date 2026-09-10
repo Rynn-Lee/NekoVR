@@ -40,7 +40,7 @@ export type DiscordPresence =
 
 export interface IElectronAPI {
   onServerStatus: (cb: (data: ServerStatusEvent) => void) => () => void;
-  openUrl: (url: string) => Promise<void>;
+  openUrl: (url: string) => Promise<boolean>;
   osStats: () => Promise<OSStats>;
   openLogsFolder: () => Promise<void>;
   openConfigFolder: () => Promise<void>;

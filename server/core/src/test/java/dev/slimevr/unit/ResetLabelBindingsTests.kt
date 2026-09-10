@@ -1,6 +1,7 @@
 package dev.slimevr.unit
 
 import dev.slimevr.dataset.DatasetResetLabel
+import dev.slimevr.dataset.ChannelValidity
 import dev.slimevr.dataset.QuaternionSample
 import dev.slimevr.dataset.generated.DatasetV1Bindings
 import dev.slimevr.dataset.generated.DatasetV1Reader
@@ -37,6 +38,12 @@ class ResetLabelBindingsTests {
 			bodyRole = "CHEST",
 			hmdSampleAgeBeforeNs = 23,
 			hmdSampleAgeAfterNs = 24,
+			adjustedOrientationBefore = q(16f), adjustedOrientationAfter = q(17f),
+			rawValidityBefore = ChannelValidity.STALE, rawValidityAfter = ChannelValidity.VALID,
+			calibratedPreAiValidityBefore = ChannelValidity.INVALID, calibratedPreAiValidityAfter = ChannelValidity.VALID,
+			adjustedValidityBefore = ChannelValidity.STALE, adjustedValidityAfter = ChannelValidity.VALID,
+			statusBefore = "STALE", statusAfter = "OK", sampleAgeBeforeNs = 25, sampleAgeAfterNs = 26,
+			resetEpochBefore = 20, calibrationEpochBefore = 19,
 		)
 		val decoded = DatasetV1Reader.read(DatasetV1Bindings.events(emptyList(), listOf(label), 0)).resetLabels.single()
 		assertEquals(label.attachmentRotBefore, decoded.attachmentRotBefore)
@@ -50,5 +57,14 @@ class ResetLabelBindingsTests {
 		assertEquals("CHEST", decoded.bodyRole)
 		assertEquals(23L, decoded.hmdSampleAgeBeforeNs)
 		assertEquals(24L, decoded.hmdSampleAgeAfterNs)
+		assertEquals(q(16f), decoded.adjustedOrientationBefore)
+		assertEquals(q(17f), decoded.adjustedOrientationAfter)
+		assertEquals(ChannelValidity.STALE, decoded.rawValidityBefore)
+		assertEquals(ChannelValidity.INVALID, decoded.calibratedPreAiValidityBefore)
+		assertEquals(ChannelValidity.VALID, decoded.adjustedValidityAfter)
+		assertEquals("STALE", decoded.statusBefore)
+		assertEquals(26L, decoded.sampleAgeAfterNs)
+		assertEquals(20L, decoded.resetEpochBefore)
+		assertEquals(19L, decoded.calibrationEpochBefore)
 	}
 }

@@ -1,6 +1,6 @@
 import { existsSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join, relative, resolve } from 'node:path';
+import { delimiter, dirname, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
@@ -95,6 +95,16 @@ try {
     ':server:core:generateDatasetConformanceFixture',
     `-PdatasetConformanceOutput=${fixtureDirectory}`,
   ]);
+  const pilotArchives = [
+    join(fixtureDirectory, 'simulated-5-udp.nvrdata'),
+    join(fixtureDirectory, 'simulated-8-mixed.nvrdata'),
+  ];
+  const serverReport = join(fixtureDirectory, 'server-pilots.json');
+  run(gradle, [
+    ':server:core:datasetArchiveReport',
+    `-PdatasetArchives=${pilotArchives.join(delimiter)}`,
+    `-PdatasetArchiveReport=${serverReport}`,
+  ]);
   const python = findPython();
   run(
     python.command,
@@ -110,6 +120,7 @@ try {
     {
       env: {
         NEKOVR_KOTLIN_DATASET_FIXTURES: fixtureDirectory,
+        NEKOVR_KOTLIN_DATASET_REPORT: serverReport,
         PYTHONDONTWRITEBYTECODE: '1',
       },
     }

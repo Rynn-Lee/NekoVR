@@ -18,6 +18,7 @@ FLAG_INSUFFICIENT_CONTEXT = 1 << 6
 FLAG_WINDOW_TRUNCATED = 1 << 7
 MAX_COMPRESSED_TELEMETRY_BYTES = 256 * 1024 * 1024
 MAX_DECOMPRESSED_TELEMETRY_BYTES = 512 * 1024 * 1024
+MAX_MANIFEST_BYTES = 4 * 1024 * 1024
 DECOMPRESSION_CHUNK_BYTES = 64 * 1024
 
 
@@ -46,6 +47,60 @@ class ChannelDescriptor:
     precision: str
     required_profile: int
     allowed_provenance: tuple[int, ...]
+
+
+_MEASURED = (1, 2)
+_MEASURED_DERIVED = (1, 2, 3)
+_CHANNEL_ROWS = (
+    (1, "raw_orientation", "quaternion", "sensor_to_world", "50 Hz", "fp16", 0, _MEASURED),
+    (2, "calibrated_pre_ai_orientation", "quaternion", "body_to_world", "50 Hz", "fp16", 0, _MEASURED_DERIVED),
+    (3, "final_orientation", "quaternion", "body_to_world", "50 Hz", "fp16", 0, (1, 2, 3, 4)),
+    (4, "raw_acceleration", "m/s^2", "sensor", "native/change", "fp16", 0, _MEASURED),
+    (5, "linear_acceleration", "m/s^2", "world", "50 Hz", "fp16", 0, _MEASURED_DERIVED),
+    (6, "angular_velocity", "rad/s", "sensor", "native/50 Hz", "fp16", 1, _MEASURED_DERIVED),
+    (7, "magnetic_vector", "uT", "sensor", "native/change", "fp16", 1, _MEASURED),
+    (8, "temperature", "degC", "sensor", "native/change", "fp16", 1, _MEASURED),
+    (9, "packet_sequence", "count", "device", "native", "uint64", 1, _MEASURED),
+    (10, "packet_loss", "ratio", "transport", "change", "fp32", 1, _MEASURED_DERIVED),
+    (11, "rssi", "dBm", "transport", "change", "int32", 1, _MEASURED),
+    (12, "ping", "ms", "transport", "change", "int32", 1, _MEASURED_DERIVED),
+    (13, "battery", "percent", "device", "change", "fp32", 1, _MEASURED),
+    (14, "charging_state", "enum", "device", "change", "int32", 2, _MEASURED),
+    (15, "device_timestamp", "ticks", "device", "native", "uint64", 2, _MEASURED),
+    (16, "gyro_raw", "rad/s", "sensor", "native", "fp16", 2, _MEASURED),
+    (17, "model_prediction", "quaternion", "body_to_world", "50 Hz", "fp32", 1, (4,)),
+    (18, "applied_correction", "quaternion", "body_to_world", "50 Hz", "fp32", 1, (0, 4)),
+    (19, "sample_age", "ns", "server", "50 Hz", "uint64", 0, (3,)),
+    (20, "firmware_features", "bitset", "device", "change", "uint64", 1, _MEASURED),
+    (21, "magnetometer_state", "enum", "sensor", "change", "string", 1, _MEASURED),
+    (22, "calibration_quality", "ratio", "sensor", "native/change", "fp32", 1, _MEASURED),
+    (23, "fusion_state", "enum", "sensor", "change", "string", 1, _MEASURED),
+    (24, "packets_received", "count", "transport", "change", "uint64", 1, _MEASURED_DERIVED),
+    (25, "packets_lost", "count", "transport", "change", "uint64", 1, _MEASURED_DERIVED),
+    (26, "packet_gaps", "count", "transport", "change", "uint64", 1, _MEASURED_DERIVED),
+    (27, "packets_reordered", "count", "transport", "change", "uint64", 2, _MEASURED_DERIVED),
+    (28, "packets_duplicate", "count", "transport", "change", "uint64", 2, _MEASURED_DERIVED),
+    (29, "packets_corrupt", "count", "transport", "change", "uint64", 2, _MEASURED_DERIVED),
+    (30, "battery_voltage", "V", "device", "change", "fp32", 1, _MEASURED),
+    (31, "power_mode", "enum", "device", "change", "string", 2, _MEASURED),
+    (32, "device_uptime", "ms", "device", "native/change", "uint64", 2, _MEASURED),
+    (33, "reset_reason", "enum", "device", "change", "string", 2, _MEASURED),
+    (34, "observed_sample_rate", "Hz", "server", "change", "fp32", 1, (3,)),
+    (35, "inter_arrival_jitter", "ns", "server", "native/change", "uint64", 2, (3,)),
+    (36, "controller_pose", "pose", "world", "50 Hz", "fp32", 2, _MEASURED_DERIVED),
+    (37, "skeleton_pose", "pose", "world", "50 Hz", "fp32", 1, (3,)),
+    (38, "floor_height", "m", "world", "change", "fp32", 1, (3,)),
+    (39, "activity", "enum/confidence", "world", "interval", "fp32", 1, (3, 5)),
+    (40, "model_gating", "enum", "model", "50 Hz", "string", 1, (0, 4)),
+    (41, "model_latency", "us", "server", "50 Hz", "uint64", 1, (0, 4)),
+    (42, "model_slot", "index", "model", "change", "int32", 1, (0, 4)),
+    (43, "history_validity", "boolean", "model", "50 Hz", "bool", 1, (0, 4)),
+    (44, "body_role", "enum", "body", "event", "string", 0, (3, 5)),
+    (45, "tracker_status", "enum", "server", "50 Hz", "string", 0, (3,)),
+    (46, "configured_sample_rate", "Hz", "device", "change", "fp32", 1, _MEASURED),
+    (47, "sleep_state", "enum", "device", "change", "string", 1, _MEASURED),
+)
+CANONICAL_CHANNELS = {row[0]: ChannelDescriptor(*row) for row in _CHANNEL_ROWS}
 
 
 @dataclass(frozen=True)
@@ -106,6 +161,19 @@ class CorrectionState:
     history_valid: bool
     latency_us: int | None
     provenance: int
+    legacy_correction_xyzw: tuple[float, float, float, float]
+    legacy_applied: bool
+    legacy_provenance: int
+    input_schema_sha256: str | None
+    model_version: str | None
+    body_role_id: int | None
+    mapping_tracker_id: int | None
+    confidence: float | None
+    drift_rate: float | None
+    gate_outcome: str
+    epoch: int
+    inference_sequence: int | None
+    final_output_xyzw: tuple[float, float, float, float]
 
 
 @dataclass(frozen=True)
@@ -128,6 +196,9 @@ class TrackerSample:
     sample_age_ns: int
     correction: CorrectionState
     native_channels: tuple[NativeChannelSample, ...]
+    position_xyz: tuple[float, float, float]
+    position_validity: int
+    position_provenance: int
 
 
 @dataclass(frozen=True)
@@ -148,6 +219,32 @@ class ActivityInterval:
 
 
 @dataclass(frozen=True)
+class SkeletonBoneSample:
+    body_role: str
+    orientation_xyzw: tuple[float, float, float, float]
+    position_xyz: tuple[float, float, float]
+    validity: int
+    provenance: int
+
+
+@dataclass(frozen=True)
+class BodyContextSample:
+    center_xyz: tuple[float, float, float]
+    height: float
+    confidence: float
+    validity: int
+    provenance: int
+
+
+@dataclass(frozen=True)
+class FloorContextSample:
+    height: float
+    confidence: float
+    validity: int
+    provenance: int
+
+
+@dataclass(frozen=True)
 class Frame:
     index: int
     monotonic_ns: int
@@ -156,6 +253,9 @@ class Frame:
     hmd: ReferenceSample
     context_samples: tuple[TrackerSample, ...]
     activity: ActivityInterval
+    skeleton_bones: tuple[SkeletonBoneSample, ...]
+    body_context: BodyContextSample | None
+    floor_context: FloorContextSample | None
 
 
 @dataclass(frozen=True)
@@ -243,6 +343,20 @@ class ResetLabel:
     body_role: str
     hmd_sample_age_before_ns: int
     hmd_sample_age_after_ns: int
+    adjusted_before_xyzw: tuple[float, float, float, float]
+    adjusted_after_xyzw: tuple[float, float, float, float]
+    raw_validity_before: int
+    raw_validity_after: int
+    pre_ai_validity_before: int
+    pre_ai_validity_after: int
+    adjusted_validity_before: int
+    adjusted_validity_after: int
+    status_before: str
+    status_after: str
+    sample_age_before_ns: int
+    sample_age_after_ns: int
+    reset_epoch_before: int
+    calibration_epoch_before: int
 
 
 class DatasetReader:
@@ -369,8 +483,24 @@ class DatasetReader:
                 bool(correction.u8(7)) if correction else False,
                 correction.u64(8) if correction and correction.has_field(8) else None,
                 self._enum(correction.u8(9) if correction else 0, 8, "correction.provenance"),
+                self._float_quat(correction.table(10) if correction else None, "correction.legacy"),
+                bool(correction.u8(11)) if correction else False,
+                self._enum(correction.u8(12) if correction else 0, 8, "correction.legacy_provenance"),
+                correction.string(13) if correction else None,
+                correction.string(14) if correction else None,
+                correction.i32(15) if correction and correction.has_field(15) and correction.i32(15) >= 0 else None,
+                correction.i32(16) if correction and correction.has_field(16) and correction.i32(16) >= 0 else None,
+                correction.f32(17) if correction and correction.has_field(17) else None,
+                correction.f32(18) if correction and correction.has_field(18) else None,
+                (correction.string(19) if correction else None) or "UNAVAILABLE",
+                correction.u64(20) if correction else 0,
+                correction.u64(21) if correction and correction.has_field(21) else None,
+                self._float_quat(correction.table(22) if correction else None, "correction.final_output"),
             ),
             tuple(native_channels),
+            self._float_vec(tracker.table(18), 1000.0, "tracker.position"),
+            self._enum(tracker.u8(19), 4, "tracker.position_validity"),
+            self._enum(tracker.u8(20), 8, "tracker.position_provenance"),
         )
 
     def frames(self, stream: BinaryIO) -> Iterator[Frame]:
@@ -391,6 +521,33 @@ class DatasetReader:
                     raise DatasetFormatError("activity confidence must be in [0, 1]")
                 if start_frame > end_frame:
                     raise DatasetFormatError("activity frame interval is inverted")
+                bones = tuple(
+                    SkeletonBoneSample(
+                        (bone := table.vector_table(7, index)).string(0) or "UNASSIGNED",
+                        self._float_quat(bone.table(1), "skeleton.orientation"),
+                        self._float_vec(bone.table(2), 1000.0, "skeleton.position"),
+                        self._enum(bone.u8(3), 4, "skeleton.validity"),
+                        self._enum(bone.u8(4), 8, "skeleton.provenance"),
+                    )
+                    for index in range(table.vector_length(7))
+                )
+                body_table = table.table(8)
+                body = BodyContextSample(
+                    self._float_vec(body_table.table(0), 1000.0, "body.center"),
+                    body_table.f32(1), body_table.f32(2),
+                    self._enum(body_table.u8(3), 4, "body.validity"),
+                    self._enum(body_table.u8(4), 8, "body.provenance"),
+                ) if body_table else None
+                floor_table = table.table(9)
+                floor = FloorContextSample(
+                    floor_table.f32(0), floor_table.f32(1),
+                    self._enum(floor_table.u8(2), 4, "floor.validity"),
+                    self._enum(floor_table.u8(3), 8, "floor.provenance"),
+                ) if floor_table else None
+                if body and (not math.isfinite(body.confidence) or not 0.0 <= body.confidence <= 1.0):
+                    raise DatasetFormatError("body confidence must be in [0, 1]")
+                if floor and (not math.isfinite(floor.confidence) or not 0.0 <= floor.confidence <= 1.0):
+                    raise DatasetFormatError("floor confidence must be in [0, 1]")
                 yield Frame(
                     table.u64(0), table.u64(1), table.u64(2), trackers,
                     ReferenceSample(
@@ -405,6 +562,7 @@ class DatasetReader:
                         confidence, start_frame, end_frame,
                         self._enum(activity.u8(4) if activity else 0, 8, "activity.provenance"),
                     ),
+                    bones, body, floor,
                 )
 
     def events(self, stream: BinaryIO) -> Iterator[DatasetEventRecord]:
@@ -472,7 +630,7 @@ class DatasetReader:
                     hmd_before_xyzw=self._float_quat(t.table(24), "reset.hmd_before"),
                     hmd_after_xyzw=self._float_quat(t.table(25), "reset.hmd_after"),
                     hmd_valid=bool(t.u8(26, default=1)),
-                    reset_epoch=t.u32(27),
+                    reset_epoch=t.u64(55) if t.has_field(55) else t.u32(27),
                     training_policy=t.string(28) or "INCLUDE",
                     gyro_fix_before_xyzw=self._float_quat(t.table(29), "reset.gyro_fix_before"),
                     gyro_fix_after_xyzw=self._float_quat(t.table(30), "reset.gyro_fix_after"),
@@ -482,22 +640,53 @@ class DatasetReader:
                     tpose_down_fix_after_xyzw=self._float_quat(t.table(34), "reset.tpose_down_fix_after"),
                     constraint_fix_before_xyzw=self._float_quat(t.table(35), "reset.constraint_fix_before"),
                     constraint_fix_after_xyzw=self._float_quat(t.table(36), "reset.constraint_fix_after"),
-                    calibration_epoch=t.u64(37),
+                    calibration_epoch=t.u64(56) if t.has_field(56) else t.u64(37),
                     body_role=t.string(38) or "UNASSIGNED",
                     hmd_sample_age_before_ns=t.u64(39),
                     hmd_sample_age_after_ns=t.u64(40),
+                    adjusted_before_xyzw=self._float_quat(t.table(41), "reset.adjusted_before"),
+                    adjusted_after_xyzw=self._float_quat(t.table(42), "reset.adjusted_after"),
+                    raw_validity_before=self._enum(t.u8(43), 4, "reset.raw_validity_before"),
+                    raw_validity_after=self._enum(t.u8(44), 4, "reset.raw_validity_after"),
+                    pre_ai_validity_before=self._enum(t.u8(45), 4, "reset.pre_ai_validity_before"),
+                    pre_ai_validity_after=self._enum(t.u8(46), 4, "reset.pre_ai_validity_after"),
+                    adjusted_validity_before=self._enum(t.u8(47), 4, "reset.adjusted_validity_before"),
+                    adjusted_validity_after=self._enum(t.u8(48), 4, "reset.adjusted_validity_after"),
+                    status_before=t.string(49) or "UNKNOWN",
+                    status_after=t.string(50) or "UNKNOWN",
+                    sample_age_before_ns=t.u64(51),
+                    sample_age_after_ns=t.u64(52),
+                    reset_epoch_before=t.u64(53),
+                    calibration_epoch_before=t.u64(54),
                 )
 
     def inspect_archive(self, path: str | Path) -> dict:
         path = Path(path)
         try:
             with zipfile.ZipFile(path) as archive:
-                names = set(archive.namelist())
+                names_list = archive.namelist()
+                names = set(names_list)
                 if "telemetry.bin" in names:
                     raise DatasetFormatError("unsupported GUI prototype: missing roster, schema, masks, and footer")
                 if "telemetry.zst" in names and "telemetry.fbs.zst" not in names:
                     raise DatasetFormatError("unsupported server prototype: missing canonical FlatBuffer contract")
-                manifest = json.loads(archive.read("manifest.json"))
+                if len(names_list) != len(names):
+                    raise DatasetFormatError("duplicate ZIP members are forbidden")
+                if names != {"manifest.json", "telemetry.fbs.zst"}:
+                    raise DatasetFormatError("ZIP members must be exactly manifest.json and telemetry.fbs.zst")
+                for info in archive.infolist():
+                    normalized = info.filename.replace("\\", "/")
+                    parts = normalized.split("/")
+                    if (not info.filename or info.is_dir() or normalized.startswith("/")
+                            or (len(normalized) >= 2 and normalized[1] == ":")
+                            or any(part in (".", "..") for part in parts)):
+                        raise DatasetFormatError(f"unsafe ZIP member name: {info.filename}")
+                    if info.compress_type != zipfile.ZIP_STORED:
+                        raise DatasetFormatError(f"ZIP member is compressed again: {info.filename}")
+                manifest_info = archive.getinfo("manifest.json")
+                if manifest_info.file_size > MAX_MANIFEST_BYTES:
+                    raise DatasetFormatError(f"manifest exceeds {MAX_MANIFEST_BYTES} bytes")
+                manifest = json.loads(archive.read(manifest_info))
                 telemetry_info = archive.getinfo("telemetry.fbs.zst")
                 if telemetry_info.file_size > MAX_COMPRESSED_TELEMETRY_BYTES:
                     raise DatasetFormatError(
@@ -514,27 +703,80 @@ class DatasetReader:
                 raise DatasetFormatError("telemetry checksum mismatch")
             payload = self._decompress_zstd(telemetry)
             records = list(self.records(io.BytesIO(payload)))
-            if not records or records[0].record_type != FILE_HEADER or records[-1].record_type != FOOTER:
-                raise DatasetFormatError("archive is missing header or footer")
+            types = [record.record_type for record in records]
+            if (not records or types.count(FILE_HEADER) != 1 or types[0] != FILE_HEADER
+                    or types.count(TRACKER_ROSTER) != 1 or types[1] != TRACKER_ROSTER
+                    or types.count(FOOTER) != 1 or types[-1] != FOOTER
+                    or any(kind not in (FRAME_BATCH, EVENT_BATCH) for kind in types[2:-1])):
+                raise DatasetFormatError("records must be one header, one roster, data batches, and one terminal footer")
             for expected_sequence, record in enumerate(records):
                 if record.sequence != expected_sequence:
                     raise DatasetFormatError(
                         f"record sequence mismatch: expected {expected_sequence}, got {record.sequence}"
                     )
-            header = records[0].header
-            if header is None or header.u16(0, 1) != DATASET_SCHEMA_MAJOR:
+            decoded_header = next(self.headers(io.BytesIO(payload)))
+            if decoded_header.schema_major != DATASET_SCHEMA_MAJOR:
                 raise DatasetFormatError("unsupported telemetry schema")
             if manifest.get("schemaMajor") != DATASET_SCHEMA_MAJOR:
                 raise DatasetFormatError("unsupported manifest schema")
-            if header.string(2) != manifest.get("sessionId"):
+            if (decoded_header.schema_major != manifest.get("schemaMajor")
+                    or decoded_header.schema_minor != manifest.get("schemaMinor")):
+                raise DatasetFormatError("header and manifest schema versions differ")
+            if decoded_header.session_id != manifest.get("sessionId"):
                 raise DatasetFormatError("header and manifest session IDs differ")
+            if (decoded_header.created_utc != manifest.get("createdUtc")
+                    or decoded_header.application_version != manifest.get("applicationVersion")
+                    or decoded_header.application_commit != manifest.get("applicationCommit")):
+                raise DatasetFormatError("header and manifest identity fields differ")
+            profile_names = ("MINIMUM", "STANDARD", "FULL_FIDELITY")
+            manifest_profile = manifest.get("profile")
+            if (manifest_profile not in profile_names
+                    or decoded_header.profile != profile_names.index(manifest_profile)
+                    or decoded_header.canonical_rate_hz != manifest.get("canonicalSampleRateHz")):
+                raise DatasetFormatError("header and manifest profile/rate differ")
             if not manifest.get("privacy", {}).get("consent", False):
                 raise DatasetFormatError("recording consent is missing")
-            if not any(record.record_type == TRACKER_ROSTER for record in records):
-                raise DatasetFormatError("tracker roster is missing")
+            if manifest.get("state") not in ("COMPLETE", "RECOVERED"):
+                raise DatasetFormatError("canonical manifest state must be COMPLETE or RECOVERED")
+            if int(manifest.get("telemetryBytes", -1)) != len(telemetry):
+                raise DatasetFormatError("manifest telemetry byte count mismatch")
+
+            channels = decoded_header.channels
+            channel_ids = [descriptor.id for descriptor in channels]
+            if len(channel_ids) != len(set(channel_ids)):
+                raise DatasetFormatError("duplicate channel descriptor ID")
+            for descriptor in channels:
+                known = CANONICAL_CHANNELS.get(descriptor.id)
+                if known is not None and (
+                        descriptor.id != known.id or descriptor.name != known.name
+                        or descriptor.unit != known.unit
+                        or descriptor.coordinate_frame != known.coordinate_frame
+                        or descriptor.cadence != known.cadence
+                        or descriptor.precision != known.precision
+                        or descriptor.required_profile != known.required_profile
+                        or set(descriptor.allowed_provenance) != set(known.allowed_provenance)):
+                    raise DatasetFormatError(f"channel {descriptor.id} has incompatible canonical semantics")
+                if known is None and (descriptor.id <= 0 or not descriptor.name or not descriptor.unit
+                                      or not descriptor.coordinate_frame or not descriptor.cadence
+                                      or not descriptor.precision or not descriptor.allowed_provenance):
+                    raise DatasetFormatError(f"unknown optional channel {descriptor.id} is incomplete")
+            required_ids = {
+                descriptor.id for descriptor in CANONICAL_CHANNELS.values()
+                if descriptor.required_profile <= decoded_header.profile
+            }
+            if not required_ids.issubset(channel_ids):
+                raise DatasetFormatError("collection profile is missing required channel descriptors")
+
+            roster = next(self.rosters(io.BytesIO(payload)))
+            roster_ids = [entry.session_tracker_id for entry in roster.trackers]
+            manifest_roster_ids = [entry.get("sessionTrackerId", "") for entry in manifest.get("trackers", [])]
+            if (any(not value for value in roster_ids) or len(roster_ids) != len(set(roster_ids))
+                    or set(roster_ids) != set(manifest_roster_ids)):
+                raise DatasetFormatError("telemetry roster and manifest trackers differ")
 
             frames = tuple(self.frames(io.BytesIO(payload)))
             labels = tuple(self.reset_labels(io.BytesIO(payload)))
+            events = tuple(self.events(io.BytesIO(payload)))
             frame_count = len(frames)
             expected_frames = int(manifest.get("quality", {}).get("writtenFrames", -1))
             if frame_count != expected_frames:
@@ -545,6 +787,58 @@ class DatasetReader:
             tracker_ids = {
                 tracker.get("sessionTrackerId", "") for tracker in manifest.get("trackers", [])
             }
+            roster_by_id = {entry.session_tracker_id: entry for entry in roster.trackers}
+            referenced_ids = [sample.session_tracker_id for frame in frames for sample in (*frame.trackers, *frame.context_samples)]
+            referenced_ids += [label.session_tracker_id for label in labels]
+            referenced_ids += [event.session_tracker_id for event in events if event.session_tracker_id]
+            if any(value not in roster_by_id for value in referenced_ids):
+                raise DatasetFormatError("samples, events, and reset labels must reference rostered IDs")
+
+            per_tracker_required = (
+                {1, 2, 3, 19, 44, 45},
+                {1, 2, 3, 4, 5, 6, 19, 44, 45},
+                {1, 2, 3, 4, 5, 6, 15, 16, 19, 44, 45},
+            )[decoded_header.profile]
+            context_required = (set(), {39}, {36, 37, 38, 39})[decoded_header.profile]
+            samples_by_id = {
+                tracker_id: [sample for frame in frames for sample in (*frame.trackers, *frame.context_samples)
+                             if sample.session_tracker_id == tracker_id]
+                for tracker_id in roster_by_id
+            }
+            for entry in roster.trackers:
+                capabilities = set(entry.capabilities)
+                if entry.imu_type not in ("UNKNOWN", "NONE"):
+                    if not per_tracker_required.issubset(capabilities):
+                        raise DatasetFormatError(f"profile capabilities are unsupported by {entry.session_tracker_id}")
+                    observed = samples_by_id[entry.session_tracker_id]
+                    if not observed:
+                        continue  # an empty/instant session has no opportunity to prove producibility
+                    produced: set[int] = set()
+                    if any(sample.orientation_validity != 0 for sample in observed):
+                        produced.update((1, 2, 3, 19, 44, 45))
+                    if any(sample.acceleration_validity != 0 for sample in observed):
+                        produced.update((4, 5))
+                    if any(sample.angular_velocity_validity != 0 for sample in observed):
+                        produced.add(6)
+                    if len(observed) == 1 and 6 in capabilities:
+                        produced.add(6)  # an orientation derivative needs a second sample
+                    produced.update(native.channel_id for sample in observed for native in sample.native_channels if native.validity != 0)
+                    if not per_tracker_required.issubset(produced):
+                        raise DatasetFormatError(f"required channels were never produced by {entry.session_tracker_id}")
+            advertised_context = {channel for entry in roster.trackers for channel in entry.capabilities}
+            if not context_required.issubset(advertised_context):
+                raise DatasetFormatError("profile is missing advertised session context")
+            produced_context: set[int] = set()
+            if any(sample.position_validity != 0 for frame in frames for sample in frame.context_samples):
+                produced_context.add(36)
+            if any(bone.validity != 0 for frame in frames for bone in frame.skeleton_bones):
+                produced_context.add(37)
+            if any(frame.floor_context is not None and frame.floor_context.validity != 0 for frame in frames):
+                produced_context.add(38)
+            if any(frame.activity.activity != 0 for frame in frames):
+                produced_context.add(39)
+            if not context_required.issubset(produced_context):
+                raise DatasetFormatError("required session context was never produced")
             invalid_window_mask = FLAG_INSUFFICIENT_CONTEXT | FLAG_WINDOW_TRUNCATED
             valid_windows = [
                 {
@@ -564,10 +858,84 @@ class DatasetReader:
                 and not (label.quality_flags & invalid_window_mask)
                 and label.training_policy != "EXCLUDE"
             ]
-            header_channel_ids = {
-                header.vector_table(8, index).u32(0)
-                for index in range(header.vector_length(8))
+            descriptors = {descriptor.id: descriptor for descriptor in channels}
+            for frame in frames:
+                for tracker in (*frame.trackers, *frame.context_samples):
+                    capabilities = set(roster_by_id[tracker.session_tracker_id].capabilities)
+                    fabricated = (
+                        (tracker.orientation_validity == 3 and not {1, 2, 3}.issubset(capabilities))
+                        or (tracker.acceleration_validity == 3 and not {4, 5}.issubset(capabilities))
+                        or (tracker.angular_velocity_validity == 3 and 6 not in capabilities)
+                        or (tracker.position_validity == 3 and 36 not in capabilities and 38 not in capabilities)
+                    )
+                    if fabricated:
+                        raise DatasetFormatError("unadvertised optional channel is marked valid")
+                    for sample in tracker.native_channels:
+                        descriptor = descriptors.get(sample.channel_id)
+                        if descriptor is None:
+                            raise DatasetFormatError(f"sample uses undeclared channel {sample.channel_id}")
+                        if sample.provenance not in descriptor.allowed_provenance:
+                            raise DatasetFormatError(f"channel {sample.channel_id} uses forbidden provenance")
+                        carries_value = bool(sample.values) or sample.integer_value is not None or sample.text_value is not None
+                        if sample.validity == 0 and carries_value:
+                            raise DatasetFormatError(f"unavailable channel {sample.channel_id} carries a value")
+                        if sample.validity == 3 and sample.provenance == 0:
+                            raise DatasetFormatError(f"valid channel {sample.channel_id} has unavailable provenance")
+                        if sample.validity == 3 and any(not math.isfinite(value) for value in sample.values):
+                            raise DatasetFormatError(f"valid channel {sample.channel_id} carries a non-finite value")
+
+            reset_events = [event for event in events if event.request_id and event.reset_outcome]
+            indexes = [event.event_index for event in reset_events]
+            if any(index <= 0 for index in indexes) or len(indexes) != len(set(indexes)):
+                raise DatasetFormatError("reset lifecycle event indexes must be positive and unique")
+            for request_id in {event.request_id for event in reset_events}:
+                lifecycle = [event for event in reset_events if event.request_id == request_id]
+                requested = [event for event in lifecycle if event.reset_outcome == "REQUESTED"]
+                terminal = [event for event in lifecycle if event.reset_outcome in ("APPLIED", "CANCELLED", "FAILED")]
+                if len(requested) != 1 or len(terminal) != 1:
+                    raise DatasetFormatError(f"reset lifecycle continuity is missing for {request_id}")
+                request_labels = [label for label in labels if label.request_id == request_id]
+                if terminal[0].reset_outcome == "APPLIED":
+                    if not request_labels or any(label.event_index != terminal[0].event_index for label in request_labels):
+                        raise DatasetFormatError(f"applied reset label continuity is missing for {request_id}")
+                elif request_labels:
+                    raise DatasetFormatError(f"non-applied reset {request_id} carries labels")
+            if any(not any(event.event_index == label.event_index and event.request_id == label.request_id
+                           and event.reset_outcome == "APPLIED" for event in reset_events) for label in labels):
+                raise DatasetFormatError("orphan reset label")
+
+            footer = next(self.footers(io.BytesIO(payload)))
+            manifest_quality = manifest.get("quality", {})
+            footer_quality = {
+                "sampledFrames": footer.counters.sampled_frames,
+                "writtenFrames": footer.counters.written_frames,
+                "droppedFrames": footer.counters.dropped_frames,
+                "gapEvents": footer.counters.gap_events,
+                "invalidSamples": footer.counters.invalid_samples,
+                "queueHighWatermark": footer.counters.queue_high_watermark,
+                "packetGaps": footer.counters.packet_gaps,
+                "packetReordered": footer.counters.packet_reordered,
+                "packetDuplicates": footer.counters.packet_duplicates,
+                "packetCorrupt": footer.counters.packet_corrupt,
             }
+            expected_footer_checksum = footer_checksum(record.data for record in records[:-1])
+            if not footer.complete:
+                raise DatasetFormatError("terminal footer is incomplete")
+            if footer.duration_ns < 0 or footer.ended_monotonic_ns < footer.duration_ns:
+                raise DatasetFormatError("footer duration or end timestamp is invalid")
+            if footer.duration_ns != int(manifest.get("durationNs", -1)):
+                raise DatasetFormatError("footer and manifest durations differ")
+            if footer.telemetry_sha256 != expected_footer_checksum:
+                raise DatasetFormatError("footer checksum does not match exact pre-footer records")
+            if footer_quality != manifest_quality:
+                raise DatasetFormatError("footer and manifest quality counters differ")
+            if (footer.counters.written_frames != frame_count
+                    or any(value < 0 for value in footer_quality.values())):
+                raise DatasetFormatError("footer quality counters are inconsistent with decoded records")
+            if footer.counters.gap_events != sum(event.type == "GAP" for event in events):
+                raise DatasetFormatError("footer gap count does not match retained GAP events")
+
+            header_channel_ids = set(channel_ids)
             manifest_channel_ids = {int(value) for value in manifest.get("channelIds", [])}
             if header_channel_ids != manifest_channel_ids:
                 raise DatasetFormatError("header and manifest channel registries differ")
@@ -582,10 +950,13 @@ class DatasetReader:
                 "frames": frame_count,
                 "resetLabels": len(labels),
                 "rosterSize": len(manifest.get("trackers", [])),
-                "transports": sorted(
-                    {tracker.get("transport", "UNKNOWN") for tracker in manifest.get("trackers", [])}
-                ),
-                "channelIds": sorted(manifest_channel_ids),
+                "transports": list(dict.fromkeys(
+                    tracker.get("transport", "UNKNOWN")
+                    for tracker in manifest.get("trackers", [])
+                )),
+                "channelIds": list(dict.fromkeys(
+                    int(value) for value in manifest.get("channelIds", [])
+                )),
                 "quality": manifest.get("quality", {}),
                 "validResetWindows": valid_windows,
             }

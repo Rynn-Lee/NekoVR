@@ -4,6 +4,7 @@ import com.jme3.math.FastMath
 import dev.slimevr.VRServer
 import dev.slimevr.tracking.trackers.Tracker
 import dev.slimevr.tracking.trackers.TrackerStatus
+import dev.slimevr.tracking.trackers.NativeTelemetryChannels
 import dev.slimevr.tracking.trackers.udp.BoardType
 import dev.slimevr.tracking.trackers.udp.IMUType
 import dev.slimevr.tracking.trackers.udp.MCUType
@@ -170,6 +171,7 @@ class HIDCommon {
 			if (tracker == null) { // not registered yet
 				return
 			}
+			tracker.negotiateHIDTelemetry(HIDTelemetryCapabilities(NativeTelemetryChannels.forHidPacket(packetType)))
 
 			if (tracker.status == TrackerStatus.TIMED_OUT) {
 				// If tracker was previously sleeping/shutdown, reset the sleep time and status
@@ -372,6 +374,7 @@ class HIDCommon {
 				val status = TrackerStatus.getById(svr_status)
 				if (status != null) {
 					tracker.status = status!!
+					tracker.sleepState = status.name
 				}
 			}
 			if (rssi != null) {
@@ -382,6 +385,15 @@ class HIDCommon {
 				tracker.packetsLost = packets_lost
 				tracker.packetLoss = if (packets_lost == 0) 0.0f else packets_lost.toFloat() / (packets_received + packets_lost).toFloat()
 			}
+			tracker.applyHIDTelemetry(
+				HIDTelemetrySample(
+					uptimeMs = runtime,
+					packetsReceived = packets_received,
+					packetsLost = packets_lost,
+					packetLoss = if (packets_received != null && packets_lost != null) tracker.packetLoss else null,
+					sleepState = if (svr_status != null) tracker.sleepState else null,
+				),
+			)
 
 			// Assign rotation and acceleration
 			if (packetType == 1 || packetType == 4) {

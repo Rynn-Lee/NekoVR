@@ -14,8 +14,8 @@ import dev.slimevr.reset.FLAG_WINDOW_TRUNCATED
 import dev.slimevr.reset.ResetEvent
 import dev.slimevr.reset.ResetEventListener
 import dev.slimevr.reset.ResetEventPublisher
-import dev.slimevr.reset.ResetOutcome
 import dev.slimevr.reset.ResetKind
+import dev.slimevr.reset.ResetOutcome
 import dev.slimevr.reset.ResetSupervisionPolicy
 import dev.slimevr.tracking.trackers.Tracker
 import dev.slimevr.tracking.trackers.TrackerPosition
@@ -107,7 +107,8 @@ class DatasetRecordingService(
 	val datasetsRoot: Path = System.getenv("NEKOVR_DATASETS_DIR")?.takeIf(String::isNotBlank)?.let(Path::of) ?: Path.of("datasets"),
 	private val clockNs: () -> Long = System::nanoTime,
 	private val freeSpace: (Path) -> Long = { Files.getFileStore(it).usableSpace },
-	queueCapacity: Int = 256,
+	private val queueCapacity: Int = 256,
+	private val controlCapacity: Int = (queueCapacity * 4).coerceAtLeast(64),
 	private val batchSize: Int = 25,
 	private val durableEveryBatches: Int = 4,
 	private val writerDelayMillis: Long = 0,
@@ -115,6 +116,10 @@ class DatasetRecordingService(
 	private val resetPostContextFrames: Int = 50,
 	private val maxReferenceAgeNs: Long = 250_000_000L,
 ) : AutoCloseable {
+	internal val directBufferCapacityBytes: Int = 2 * 1024 * 1024
+	internal val maximumBufferedSampleItems: Int get() = queueCapacity + batchSize
+	internal val maximumControlItems: Int get() = controlCapacity
+	internal val controlMetadataDepth: Long get() = pendingControlItems.get()
 	private val queue = ArrayBlockingQueue<RecorderItem>(queueCapacity)
 	private val directBuffers = ArrayBlockingQueue<ByteBuffer>(2).apply {
 		repeat(2) { add(ByteBuffer.allocateDirect(1024 * 1024).order(ByteOrder.LITTLE_ENDIAN)) }
@@ -134,6 +139,17 @@ class DatasetRecordingService(
 	private val pendingResetEvents = ConcurrentLinkedQueue<DatasetEvent>()
 	private val pendingResetLabels = ConcurrentLinkedQueue<DatasetResetLabel>()
 	private val activeContextLabels = CopyOnWriteArrayList<DatasetResetLabel>()
+	private val pendingControlItems = AtomicLong()
+	private data class ResetLifecycleState(
+		val kind: ResetKind,
+		val source: String?,
+		val requestMonotonicNs: Long,
+		val scheduledDelayMs: Long,
+		val bodyParts: List<Int>,
+		val terminal: ResetOutcome? = null,
+	)
+	private val resetLifecycles = linkedMapOf<String, ResetLifecycleState>()
+	private val resetLifecycleCapacity = (controlCapacity * 16).coerceAtLeast(1024)
 	private val nextEventIndex = AtomicLong(1L)
 	private var lastAppliedResetFrame: Long = -1L
 	private val contextRetentionFrames = (resetPreContextFrames * 2 + resetPostContextFrames + 2).coerceAtLeast(4)
@@ -187,8 +203,39 @@ class DatasetRecordingService(
 		boundResetPublisher = null
 	}
 
+	@Synchronized
 	private fun onResetEvent(event: ResetEvent) {
 		if (currentState.get() != RecordingState.RECORDING) return
+		val existing = resetLifecycles[event.requestId]
+		val sameRequest = existing != null &&
+			existing.kind == event.kind &&
+			existing.source == event.source &&
+			existing.requestMonotonicNs == event.requestMonotonicNs &&
+			existing.scheduledDelayMs == event.scheduledDelayMs &&
+			existing.bodyParts == event.bodyParts
+		when (event.outcome) {
+			ResetOutcome.REQUESTED -> {
+				if (existing != null) {
+					if (sameRequest) return // idempotent publisher retry
+					return failControlIntegrity("Reset request ID ${event.requestId} was reused with different metadata")
+				}
+				if (resetLifecycles.size >= resetLifecycleCapacity) {
+					return failControlIntegrity("Reset lifecycle capacity $resetLifecycleCapacity was exhausted")
+				}
+			}
+			else -> {
+				if (!sameRequest) return failControlIntegrity("Reset ${event.requestId} has a terminal outcome without its correlated request")
+				if (existing.terminal != null) {
+					if (existing.terminal == event.outcome) return // idempotent terminal retry
+					return failControlIntegrity("Reset ${event.requestId} has conflicting terminal outcomes ${existing.terminal} and ${event.outcome}")
+				}
+				if (event.outcome != ResetOutcome.APPLIED && event.labels.isNotEmpty()) {
+					return failControlIntegrity("Non-applied reset ${event.requestId} carried successful labels")
+				}
+			}
+		}
+		val reservedItems = 1 + if (event.outcome == ResetOutcome.APPLIED) event.labels.size else 0
+		if (!reserveControlItems(reservedItems)) return
 		val now = clockNs()
 		val relNs = (now - sessionStartNs).coerceAtLeast(0)
 		val requestRelNs = (event.requestMonotonicNs - sessionStartNs).coerceAtLeast(0)
@@ -216,6 +263,11 @@ class DatasetRecordingService(
 				affectedBodyParts = event.bodyParts.map { it.toString() },
 			),
 		)
+		resetLifecycles[event.requestId] = if (event.outcome == ResetOutcome.REQUESTED) {
+			ResetLifecycleState(event.kind, event.source, event.requestMonotonicNs, event.scheduledDelayMs, event.bodyParts.toList())
+		} else {
+			requireNotNull(existing).copy(terminal = event.outcome)
+		}
 
 		if (event.outcome == ResetOutcome.APPLIED && event.labels.isNotEmpty()) {
 			resetCount.incrementAndGet()
@@ -281,10 +333,56 @@ class DatasetRecordingService(
 					bodyRole = record.trackerPosition?.designation ?: "UNASSIGNED",
 					hmdSampleAgeBeforeNs = record.hmdSampleAgeBeforeNs,
 					hmdSampleAgeAfterNs = record.hmdSampleAgeAfterNs,
+					adjustedOrientationBefore = record.preResetState.adjustedOrientation.sample(),
+					adjustedOrientationAfter = record.postResetState.adjustedOrientation.sample(),
+					rawValidityBefore = ChannelValidity.entries[record.preResetState.rawOrientationValidity.ordinal],
+					rawValidityAfter = ChannelValidity.entries[record.postResetState.rawOrientationValidity.ordinal],
+					calibratedPreAiValidityBefore = ChannelValidity.entries[record.preResetState.calibratedPreAiValidity.ordinal],
+					calibratedPreAiValidityAfter = ChannelValidity.entries[record.postResetState.calibratedPreAiValidity.ordinal],
+					adjustedValidityBefore = ChannelValidity.entries[record.preResetState.adjustedOrientationValidity.ordinal],
+					adjustedValidityAfter = ChannelValidity.entries[record.postResetState.adjustedOrientationValidity.ordinal],
+					statusBefore = record.preResetState.status.name,
+					statusAfter = record.postResetState.status.name,
+					sampleAgeBeforeNs = record.preResetState.sampleAgeNs,
+					sampleAgeAfterNs = record.postResetState.sampleAgeNs,
+					resetEpochBefore = record.preResetState.resetEpoch,
+					calibrationEpochBefore = record.preResetState.calibrationEpoch,
 				)
 				activeContextLabels.add(label)
 			}
 		}
+	}
+
+	private fun enqueueControlEvent(event: DatasetEvent): Boolean {
+		if (!reserveControlItem()) return false
+		pendingResetEvents.add(event)
+		return true
+	}
+
+	private fun reserveControlItem(): Boolean {
+		return reserveControlItems(1)
+	}
+
+	private fun reserveControlItems(count: Int): Boolean {
+		require(count > 0)
+		while (true) {
+			val current = pendingControlItems.get()
+			if (current + count > controlCapacity) {
+				lastError = "Dataset control metadata capacity $controlCapacity was exhausted"
+				if (currentState.get() == RecordingState.RECORDING) transitionTo(RecordingState.FAILED)
+				return false
+			}
+			if (pendingControlItems.compareAndSet(current, current + count)) return true
+		}
+	}
+
+	private fun failControlIntegrity(message: String) {
+		lastError = message
+		if (currentState.get() == RecordingState.RECORDING) transitionTo(RecordingState.FAILED)
+	}
+
+	private fun releaseControlItems(count: Int) {
+		if (count > 0) pendingControlItems.addAndGet(-count.toLong())
 	}
 
 	private fun deriveContextLabel(label: DatasetResetLabel, endFrame: Long, truncated: Boolean): DatasetResetLabel {
@@ -406,40 +504,47 @@ class DatasetRecordingService(
 			frameRingBuffer.removeFirst()
 		}
 		frameRingBuffer.addLast(frame)
-		val lost = pendingQueueDrops.getAndSet(0)
-		val baseEvents = if (lost > 0) topologyEvents + DatasetEvent(
-			"GAP", now - sessionStartNs, frameIndex, detail = "$lost canonical frames were not queued",
-		) else topologyEvents
+		val lost = pendingQueueDrops.get()
+		val baseEvents = if (lost > 0) {
+			topologyEvents +
+				DatasetEvent(
+					"GAP",
+					now - sessionStartNs,
+					frameIndex,
+					detail = "$lost canonical frames were not queued",
+				)
+		} else {
+			topologyEvents
+		}
 
-		val drainedEvents = mutableListOf<DatasetEvent>()
-		while (true) {
-			val ev = pendingResetEvents.poll() ?: break
-			drainedEvents.add(ev)
-		}
+		val drainedEvents = pendingResetEvents.toList()
 		val allEvents = if (drainedEvents.isNotEmpty()) baseEvents + drainedEvents else baseEvents
-		for (event in allEvents) contextEventRingBuffer.addLast(event)
-		while (contextEventRingBuffer.firstOrNull()?.frameIndex?.let { it < frameIndex - contextRetentionFrames } == true) {
-			contextEventRingBuffer.removeFirst()
-		}
 
 		val readyLabels = mutableListOf<DatasetResetLabel>()
-		val iterator = activeContextLabels.iterator()
-		while (iterator.hasNext()) {
-			val label = iterator.next()
+		val completedActiveLabels = mutableListOf<DatasetResetLabel>()
+		for (label in activeContextLabels) {
 			if (frameIndex + 1 >= label.postEndFrame + resetPreContextFrames) {
 				readyLabels.add(deriveContextLabel(label, label.postEndFrame, false))
-				activeContextLabels.remove(label)
+				completedActiveLabels.add(label)
 			}
 		}
-		while (true) {
-			val pl = pendingResetLabels.poll() ?: break
-			readyLabels.add(pl)
-		}
+		val queuedLabels = pendingResetLabels.toList()
+		readyLabels.addAll(queuedLabels)
 
 		if (!queue.offer(RecorderItem.Sample(frame, allEvents, readyLabels))) {
 			dropped.incrementAndGet()
 			pendingQueueDrops.incrementAndGet()
+			for (event in topologyEvents) enqueueControlEvent(event)
 		} else {
+			pendingQueueDrops.updateAndGet { current -> (current - lost).coerceAtLeast(0L) }
+			repeat(drainedEvents.size) { pendingResetEvents.poll() }
+			repeat(queuedLabels.size) { pendingResetLabels.poll() }
+			completedActiveLabels.forEach(activeContextLabels::remove)
+			releaseControlItems(drainedEvents.size + queuedLabels.size + completedActiveLabels.size)
+			for (event in allEvents) contextEventRingBuffer.addLast(event)
+			while (contextEventRingBuffer.firstOrNull()?.frameIndex?.let { it < frameIndex - contextRetentionFrames } == true) {
+				contextEventRingBuffer.removeFirst()
+			}
 			sampled.incrementAndGet()
 			if (lost > 0) gapEvents.incrementAndGet()
 			updateHighWatermark(queue.size)
@@ -456,23 +561,30 @@ class DatasetRecordingService(
 		finalizationProgress.set(0.05f)
 		transitionTo(RecordingState.FINALIZING)
 		val finalF = frameIndex
+		val activeLabels = activeContextLabels.toList()
 		val truncatedLabels = mutableListOf<DatasetResetLabel>()
-		for (active in activeContextLabels) {
+		for (active in activeLabels) {
 			val endFrame = minOf(active.postEndFrame, finalF)
 			truncatedLabels.add(deriveContextLabel(active, endFrame, finalF < active.postEndFrame))
 		}
-		activeContextLabels.clear()
-		while (true) {
-			val pl = pendingResetLabels.poll() ?: break
-			truncatedLabels.add(pl)
-		}
-		val remainingEvents = mutableListOf<DatasetEvent>()
-		while (true) {
-			val ev = pendingResetEvents.poll() ?: break
-			remainingEvents.add(ev)
+		val queuedLabels = pendingResetLabels.toList()
+		truncatedLabels.addAll(queuedLabels)
+		val lost = pendingQueueDrops.get()
+		val remainingEvents = pendingResetEvents.toList() + if (lost > 0) {
+			listOf(DatasetEvent("GAP", (clockNs() - sessionStartNs).coerceAtLeast(0), finalF, detail = "$lost canonical frames were not queued before finalization"))
+		} else {
+			emptyList()
 		}
 		if (truncatedLabels.isNotEmpty() || remainingEvents.isNotEmpty()) {
 			queue.put(RecorderItem.EventFlush(remainingEvents, truncatedLabels))
+			if (lost > 0) {
+				pendingQueueDrops.updateAndGet { current -> (current - lost).coerceAtLeast(0L) }
+				gapEvents.incrementAndGet()
+			}
+			activeContextLabels.clear()
+			repeat(queuedLabels.size) { pendingResetLabels.poll() }
+			repeat(remainingEvents.size) { pendingResetEvents.poll() }
+			releaseControlItems(activeLabels.size + queuedLabels.size + (remainingEvents.size - if (lost > 0) 1 else 0))
 		}
 		queue.put(RecorderItem.Finish)
 	}
@@ -488,9 +600,13 @@ class DatasetRecordingService(
 		currentState.get(), sessionId, sampled.get(), written.get(), dropped.get(), queue.size, highWatermark.get().toInt(),
 		runCatching { workingDirectory?.resolve(TELEMETRY_PARTIAL)?.takeIf(Path::exists)?.fileSize() ?: 0 }.getOrDefault(0),
 		outputArchive, lastError, resetCount.get(),
-		if (sessionStartNs <= 0L) 0L else if (currentState.get() in setOf(RecordingState.STARTING, RecordingState.RECORDING, RecordingState.FINALIZING)) {
+		if (sessionStartNs <= 0L) {
+			0L
+		} else if (currentState.get() in setOf(RecordingState.STARTING, RecordingState.RECORDING, RecordingState.FINALIZING)) {
 			(clockNs() - sessionStartNs).coerceAtLeast(0L)
-		} else manifest?.durationNs ?: 0L,
+		} else {
+			manifest?.durationNs ?: 0L
+		},
 		finalizationProgress.get(), statusVersion.get(), manifest?.trackers ?: emptyList(), validationReport,
 	)
 
@@ -515,9 +631,13 @@ class DatasetRecordingService(
 	fun recoverabilityFindings(session: RecoverableSession): List<ValidationFinding> {
 		val findings = mutableListOf<ValidationFinding>()
 		val durableManifest = session.manifest
-		if (durableManifest == null) findings += ValidationFinding("RECOVERY_MANIFEST_INVALID", FindingSeverity.FATAL, "A valid durable manifest is required")
-		else if (!durableManifest.privacy.consent) findings += ValidationFinding("CONSENT_MISSING", FindingSeverity.FATAL, "The durable manifest has no recording consent")
-		else if (durableManifest.sessionId != session.sessionId) findings += ValidationFinding("SESSION_MISMATCH", FindingSeverity.FATAL, "Directory and manifest session IDs differ")
+		if (durableManifest == null) {
+			findings += ValidationFinding("RECOVERY_MANIFEST_INVALID", FindingSeverity.FATAL, "A valid durable manifest is required")
+		} else if (!durableManifest.privacy.consent) {
+			findings += ValidationFinding("CONSENT_MISSING", FindingSeverity.FATAL, "The durable manifest has no recording consent")
+		} else if (durableManifest.sessionId != session.sessionId) {
+			findings += ValidationFinding("SESSION_MISMATCH", FindingSeverity.FATAL, "Directory and manifest session IDs differ")
+		}
 		val telemetry = session.directory.resolve(TELEMETRY_PARTIAL)
 		if (!telemetry.exists() || runCatching { telemetry.fileSize() }.getOrDefault(0) == 0L) {
 			findings += ValidationFinding("RECOVERY_TELEMETRY_MISSING", FindingSeverity.FATAL, "Durable telemetry is missing or empty")
@@ -599,7 +719,9 @@ class DatasetRecordingService(
 		val manifestPartial = session.directory.resolve(MANIFEST_PARTIAL)
 		val parsedManifest = if (manifestPartial.exists()) {
 			runCatching { DatasetManifest.fromJsonString(manifestPartial.readText()) }.getOrNull()
-		} else null
+		} else {
+			null
+		}
 		require(parsedManifest != null) { "A valid durable manifest is required for recovery" }
 		require(parsedManifest.privacy.consent) { "The durable manifest has no recording consent" }
 
@@ -621,11 +743,14 @@ class DatasetRecordingService(
 						sawHeader = true
 						require(record.sessionId == parsedManifest.sessionId) { "Header and manifest session IDs differ" }
 					}
+
 					DatasetV1Bindings.RECORD_ROSTER -> sawRoster = true
+
 					DatasetV1Bindings.RECORD_FRAMES -> {
 						totalFrames += record.frames.size
 						durationNs = maxOf(durationNs, record.frames.lastOrNull()?.monotonicNs ?: 0L)
 					}
+
 					DatasetV1Bindings.RECORD_FOOTER -> {
 						expectedSequence--
 						break@recordLoop
@@ -701,6 +826,7 @@ class DatasetRecordingService(
 		val events = ArrayList<DatasetEvent>()
 		val resetLabels = ArrayList<DatasetResetLabel>()
 		try {
+			var finalDurationNs = 0L
 			FileChannel.open(telemetry, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).use { channel ->
 				val bufferedOutput = BufferedOutputStream(Channels.newOutputStream(channel), 64 * 1024)
 				ZstdOutputStream(bufferedOutput, 3).use { zstd ->
@@ -732,6 +858,7 @@ class DatasetRecordingService(
 									}
 								}
 							}
+
 							is RecorderItem.EventFlush -> {
 								events += item.events
 								resetLabels += item.resetLabels
@@ -741,11 +868,12 @@ class DatasetRecordingService(
 									resetLabels.clear()
 								}
 							}
+
 							RecorderItem.Finish -> finishing = true
 						}
 					}
 					if (frames.isNotEmpty()) {
-					writeRecord(zstd, DatasetV1Bindings.frames(frames, ++sequence), footerChecksum)
+						writeRecord(zstd, DatasetV1Bindings.frames(frames, ++sequence), footerChecksum)
 						written.addAndGet(frames.size.toLong())
 					}
 					if (events.isNotEmpty() || resetLabels.isNotEmpty()) {
@@ -754,8 +882,8 @@ class DatasetRecordingService(
 						resetLabels.clear()
 					}
 					val preFooterChecksum = footerChecksum.digestHex()
-					val duration = (clockNs() - sessionStartNs).coerceAtLeast(0)
-					writeRecord(zstd, DatasetV1Bindings.footer(duration, duration, counters(), preFooterChecksum, true, ++sequence))
+					finalDurationNs = (clockNs() - sessionStartNs).coerceAtLeast(0)
+					writeRecord(zstd, DatasetV1Bindings.footer(finalDurationNs, finalDurationNs, counters(), preFooterChecksum, true, ++sequence))
 					zstd.flush()
 					channel.force(true)
 				}
@@ -763,7 +891,7 @@ class DatasetRecordingService(
 			val telemetryChecksum = sha256(telemetry)
 			val finalManifest = initialManifest.copy(
 				endedUtc = Instant.now().toString(),
-				durationNs = (clockNs() - sessionStartNs).coerceAtLeast(0),
+				durationNs = finalDurationNs,
 				quality = counters(),
 				telemetrySha256 = telemetryChecksum,
 				telemetryBytes = telemetry.fileSize(),
@@ -773,7 +901,9 @@ class DatasetRecordingService(
 			writeManifestDurably(work, finalManifest)
 			val archive = finalizeArchive(work, finalManifest, telemetry)
 			validationReport = DatasetArchiveValidator().validate(archive)
-			require(validationReport?.valid == true) { "Final archive failed canonical validation" }
+			require(validationReport?.valid == true) {
+				"Final archive failed canonical validation: ${validationReport?.findings.orEmpty()}"
+			}
 			finalizationProgress.set(1f)
 			manifest = finalManifest
 			outputArchive = archive
@@ -849,12 +979,14 @@ class DatasetRecordingService(
 
 	private fun putStored(zip: ZipOutputStream, name: String, bytes: ByteArray) {
 		val crc = CRC32().apply { update(bytes) }
-		zip.putNextEntry(ZipEntry(name).apply {
-			method = ZipEntry.STORED
-			size = bytes.size.toLong()
-			compressedSize = size
-			this.crc = crc.value
-		})
+		zip.putNextEntry(
+			ZipEntry(name).apply {
+				method = ZipEntry.STORED
+				size = bytes.size.toLong()
+				compressedSize = size
+				this.crc = crc.value
+			},
+		)
 		zip.write(bytes)
 		zip.closeEntry()
 	}
@@ -869,21 +1001,20 @@ class DatasetRecordingService(
 				crc.update(bytes, 0, read)
 			}
 		}
-		zip.putNextEntry(ZipEntry(name).apply {
-			method = ZipEntry.STORED
-			size = source.fileSize()
-			compressedSize = size
-			this.crc = crc.value
-		})
+		zip.putNextEntry(
+			ZipEntry(name).apply {
+				method = ZipEntry.STORED
+				size = source.fileSize()
+				compressedSize = size
+				this.crc = crc.value
+			},
+		)
 		Files.newInputStream(source).use { it.copyTo(zip) }
 		zip.closeEntry()
 	}
 
 	private fun validateProfile(profile: CollectionProfile, roster: List<SessionTrackerMetadata>) {
-		if (profile != CollectionProfile.FULL_FIDELITY) return
-		val required = TelemetryChannelRegistry.requiredFor(profile)
-		val incomplete = roster.filter { !it.capabilities.containsAll(required) }
-		require(incomplete.isEmpty()) { "Full-fidelity profile is unsupported by ${incomplete.size} tracker(s)" }
+		TelemetryChannelRegistry.requireSupportedProfile(profile, roster)
 	}
 
 	private fun resetCounters() {
@@ -892,6 +1023,8 @@ class DatasetRecordingService(
 		pendingResetEvents.clear()
 		pendingResetLabels.clear()
 		activeContextLabels.clear()
+		resetLifecycles.clear()
+		pendingControlItems.set(0)
 		frameRingBuffer.clear()
 		contextEventRingBuffer.clear()
 		lastAppliedResetFrame = -1L
@@ -907,8 +1040,12 @@ class DatasetRecordingService(
 	}
 
 	private fun counters() = DatasetQualityCounters(
-		sampledFrames = sampled.get(), writtenFrames = written.get(), droppedFrames = dropped.get(),
-		gapEvents = gapEvents.get(), invalidSamples = invalid.get(), queueHighWatermark = highWatermark.get().toInt(),
+		sampledFrames = sampled.get(),
+		writtenFrames = written.get(),
+		droppedFrames = dropped.get(),
+		gapEvents = gapEvents.get(),
+		invalidSamples = invalid.get(),
+		queueHighWatermark = highWatermark.get().toInt(),
 	)
 
 	private fun sha256(path: Path): String {

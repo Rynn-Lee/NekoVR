@@ -28,7 +28,7 @@ export const IPC_CHANNELS = {
 } as const;
 
 export interface IpcInvokeMap {
-  [IPC_CHANNELS.OPEN_URL]: (url: string) => void;
+  [IPC_CHANNELS.OPEN_URL]: (url: string) => Promise<boolean>;
   [IPC_CHANNELS.OS_STATS]: () => Promise<OSStats>;
   [IPC_CHANNELS.WINDOW_ACTIONS]: (
     action: 'close' | 'minimize' | 'toggle-maximize' | 'hide'

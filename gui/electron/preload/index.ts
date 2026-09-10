@@ -1,6 +1,19 @@
-import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
-import { IElectronAPI, ServerStatusEvent } from './interface';
-import { IPC_CHANNELS } from '../shared';
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron';
+import type { GHGet, GHReturn, IElectronAPI, ServerStatusEvent } from './interface';
+import { IPC_CHANNELS, type IpcInvokeMap } from '../shared';
+
+function invokeIpc<K extends keyof IpcInvokeMap>(
+  channel: K,
+  ...args: Parameters<IpcInvokeMap[K]>
+): Promise<Awaited<ReturnType<IpcInvokeMap[K]>>> {
+  return ipcRenderer.invoke(channel, ...args);
+}
+
+function invokeGh<T extends GHGet>(request: T): Promise<GHReturn[T['type']]> {
+  return invokeIpc(IPC_CHANNELS.GH_FETCH, request) as unknown as Promise<
+    GHReturn[T['type']]
+  >;
+}
 
 contextBridge.exposeInMainWorld('electronAPI', {
   onServerStatus: (callback) => {
@@ -9,52 +22,59 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on(IPC_CHANNELS.SERVER_STATUS, subscription);
     return () => ipcRenderer.removeListener(IPC_CHANNELS.SERVER_STATUS, subscription);
   },
-  openUrl: (url) => ipcRenderer.invoke(IPC_CHANNELS.OPEN_URL, url),
-  osStats: () => ipcRenderer.invoke(IPC_CHANNELS.OS_STATS),
-  close: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_ACTIONS, 'close'),
-  hide: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_ACTIONS, 'hide'),
-  minimize: () => ipcRenderer.invoke(IPC_CHANNELS.WINDOW_ACTIONS, 'minimize'),
-  toggleMaximize: () =>
-    ipcRenderer.invoke(IPC_CHANNELS.WINDOW_ACTIONS, 'toggle-maximize'),
+  openUrl: (url) => invokeIpc(IPC_CHANNELS.OPEN_URL, url),
+  osStats: () => invokeIpc(IPC_CHANNELS.OS_STATS),
+  close: () => invokeIpc(IPC_CHANNELS.WINDOW_ACTIONS, 'close'),
+  hide: () => invokeIpc(IPC_CHANNELS.WINDOW_ACTIONS, 'hide'),
+  minimize: () => invokeIpc(IPC_CHANNELS.WINDOW_ACTIONS, 'minimize'),
+  toggleMaximize: () => invokeIpc(IPC_CHANNELS.WINDOW_ACTIONS, 'toggle-maximize'),
   getStorage: async (type) => {
     return {
-      get: (key) =>
-        ipcRenderer.invoke(IPC_CHANNELS.STORAGE, { type, method: 'get', key }),
-      set: (key, value) =>
-        ipcRenderer.invoke(IPC_CHANNELS.STORAGE, { type, method: 'set', key, value }),
-      delete: (key) =>
-        ipcRenderer.invoke(IPC_CHANNELS.STORAGE, { type, method: 'delete', key }),
-      save: () => ipcRenderer.invoke(IPC_CHANNELS.STORAGE, { type, method: 'save' }),
+      get: async <T>(key: string) =>
+        (await invokeIpc(IPC_CHANNELS.STORAGE, {
+          type,
+          method: 'get',
+          key,
+        })) as T | undefined,
+      set: async (key, value) => {
+        await invokeIpc(IPC_CHANNELS.STORAGE, {
+          type,
+          method: 'set',
+          key,
+          value,
+        });
+      },
+      delete: async (key) =>
+        Boolean(await invokeIpc(IPC_CHANNELS.STORAGE, { type, method: 'delete', key })),
+      save: async () =>
+        Boolean(await invokeIpc(IPC_CHANNELS.STORAGE, { type, method: 'save' })),
     };
   },
-  log: (type, ...args) => ipcRenderer.invoke(IPC_CHANNELS.LOG, type, ...args),
-  i18nOverride: async () => ipcRenderer.invoke(IPC_CHANNELS.I18N_OVERRIDE),
+  log: (type, ...args) => invokeIpc(IPC_CHANNELS.LOG, type, ...args),
+  i18nOverride: async () => invokeIpc(IPC_CHANNELS.I18N_OVERRIDE),
   showDecorations: () => {},
   setTranslations: () => {},
-  openDialog: (options) => ipcRenderer.invoke(IPC_CHANNELS.OPEN_DIALOG, options),
-  saveDialog: (options) => ipcRenderer.invoke(IPC_CHANNELS.SAVE_DIALOG, options),
+  openDialog: (options) => invokeIpc(IPC_CHANNELS.OPEN_DIALOG, options),
+  saveDialog: (options) => invokeIpc(IPC_CHANNELS.SAVE_DIALOG, options),
   openConfigFolder: async () =>
-    ipcRenderer.invoke(
+    invokeIpc(
       IPC_CHANNELS.OPEN_FILE,
-      await ipcRenderer.invoke(IPC_CHANNELS.GET_FOLDER, 'config')
+      await invokeIpc(IPC_CHANNELS.GET_FOLDER, 'config')
     ),
   openLogsFolder: async () =>
-    ipcRenderer.invoke(
-      IPC_CHANNELS.OPEN_FILE,
-      await ipcRenderer.invoke(IPC_CHANNELS.GET_FOLDER, 'logs')
-    ),
+    invokeIpc(IPC_CHANNELS.OPEN_FILE, await invokeIpc(IPC_CHANNELS.GET_FOLDER, 'logs')),
   openDatasetsFolder: async () =>
-    ipcRenderer.invoke(
+    invokeIpc(
       IPC_CHANNELS.OPEN_FILE,
-      await ipcRenderer.invoke(IPC_CHANNELS.GET_FOLDER, 'datasets')
+      await invokeIpc(IPC_CHANNELS.GET_FOLDER, 'datasets')
     ),
   revealDataset: (sessionId: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.REVEAL_DATASET, sessionId),
+    invokeIpc(IPC_CHANNELS.REVEAL_DATASET, sessionId),
   exportDataset: (sessionId: string) =>
-    ipcRenderer.invoke(IPC_CHANNELS.EXPORT_DATASET, sessionId),
-  openFile: (path) => ipcRenderer.invoke(IPC_CHANNELS.OPEN_FILE, path),
-  ghGet: (req) => ipcRenderer.invoke(IPC_CHANNELS.GH_FETCH, req),
-  setPresence: (options) => ipcRenderer.invoke(IPC_CHANNELS.DISCORD_PRESENCE, options),
-  getInstallDir: () => ipcRenderer.invoke(IPC_CHANNELS.GET_FOLDER, 'exe'),
-  isSteam: () => ipcRenderer.invoke(IPC_CHANNELS.IS_STEAM),
+    invokeIpc(IPC_CHANNELS.EXPORT_DATASET, sessionId),
+  openFile: (path) => invokeIpc(IPC_CHANNELS.OPEN_FILE, path),
+  ghGet: invokeGh,
+  setPresence: (options) => invokeIpc(IPC_CHANNELS.DISCORD_PRESENCE, options),
+  getInstallDir: () => invokeIpc(IPC_CHANNELS.GET_FOLDER, 'exe'),
+  isSteam: () => invokeIpc(IPC_CHANNELS.IS_STEAM),
 } satisfies IElectronAPI);

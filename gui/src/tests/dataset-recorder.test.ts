@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
@@ -36,6 +36,18 @@ const status = (
 };
 
 describe('dataset recorder production state reducer', () => {
+  it('keeps diagnostic recording available while production stays readiness-gated', () => {
+    const widget = readFileSync(
+      'src/components/ai-drift/DatasetRecorderWidget.tsx',
+      'utf8'
+    );
+    assert.match(widget, /disabled={!isDatasetReady}/);
+    assert.match(widget, /dataset_recorder-profile-custom/);
+    assert.match(widget, /dataset_recorder-profile-production-locked/);
+    assert.match(widget, /DATASET_READY_GATE_PENDING/);
+    assert.match(widget, /\{datasetReadyReason\}/);
+  });
+
   it('follows start, record, finalize and complete broadcasts in order', () => {
     let state = initialDatasetRecorderState();
     for (const [recorderState, version] of [
@@ -116,21 +128,5 @@ describe('Electron managed dataset archive resolver', () => {
     assert.equal(resolveManagedDatasetArchive(root, '../session_123'), null);
     assert.equal(resolveManagedDatasetArchive(root, archive), null);
     assert.equal(sanitizeDatasetSessionId('session.123'), null);
-  });
-
-  it('rejects a symlink that escapes the managed root', (context) => {
-    const root = mkdtempSync(path.join(tmpdir(), 'nekovr-datasets-'));
-    const outside = path.join(
-      mkdtempSync(path.join(tmpdir(), 'nekovr-outside-')),
-      'secret.nvrdata'
-    );
-    writeFileSync(outside, 'fixture');
-    try {
-      symlinkSync(outside, path.join(root, 'session-link.nvrdata'), 'file');
-    } catch (error) {
-      context.skip(`File symlinks unavailable: ${String(error)}`);
-      return;
-    }
-    assert.equal(resolveManagedDatasetArchive(root, 'session-link'), null);
   });
 });

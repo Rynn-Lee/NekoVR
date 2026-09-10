@@ -74,6 +74,7 @@ class DatasetRecordingServiceTests {
 		hasRotation = true,
 		hasAcceleration = false,
 		isComputed = true,
+		isHmd = true,
 		trackRotDirection = false,
 	).apply {
 		status = TrackerStatus.OK
@@ -140,11 +141,39 @@ class DatasetRecordingServiceTests {
 		assertTrue(report.valid, "Archive report must be valid: ${report.findings}")
 		assertEquals(50L, report.frames)
 		assertEquals(1, report.schemaMajor)
-		assertEquals(1, report.rosterSize)
+		assertEquals(2, report.rosterSize)
 		assertEquals(TelemetryChannelRegistry.channels.mapTo(linkedSetOf()) { it.id }, report.channelIds)
 		assertEquals(50L, report.quality?.writtenFrames)
 		assertEquals(setOf("UNKNOWN"), report.transports)
 		assertTrue(report.findings.none { it.severity.name == "FATAL" })
+	}
+
+	@Test
+	fun `full fidelity service records required physical and shared context`(@TempDir tempDir: Path) {
+		val hmd = createHeadTracker()
+		val controller = Tracker(
+			device = null, id = 9, name = "Controller", trackerPosition = null,
+			hasPosition = true, hasRotation = true, hasAcceleration = false, trackRotDirection = false,
+		).apply {
+			status = TrackerStatus.OK
+			position = Vector3(.2f, 1.2f, .1f)
+			setRotation(Quaternion.IDENTITY)
+		}
+		val waist = createWaistTracker().apply {
+			telemetryCapabilities.addAll(setOf(15, 16))
+			deviceTimestamp = 1234L
+			rawAngularVelocity = Vector3(.1f, .2f, .3f)
+		}
+		var clockNs = 1_500_000_000L
+		val service = DatasetRecordingService(tempDir, clockNs = { clockNs }, batchSize = 2)
+		val trackers = listOf(hmd, controller, waist)
+		service.startRecording(RecordingRequest(CollectionProfile.FULL_FIDELITY, SessionPrivacyOptions(true), minFreeSpaceBytes = 0), trackers)
+		repeat(4) {
+			service.sampleIfDue(trackers)
+			clockNs += 20_000_000L
+		}
+		val report = DatasetArchiveValidator().validate(service.stopAndFinalize(10))
+		assertTrue(report.valid, "FULL_FIDELITY service archive must validate: ${report.findings}")
 	}
 
 	@Test
@@ -170,21 +199,37 @@ class DatasetRecordingServiceTests {
 			trackers,
 		)
 
-		// 500 frames at 50 Hz
-		for (i in 0 until 500) {
+		val runtime = Runtime.getRuntime()
+		System.gc()
+		val heapBefore = runtime.totalMemory() - runtime.freeMemory()
+		// Six deterministic simulated hours, accelerated to one retained observation per 30 seconds.
+		// Canonical missed-frame accounting still exercises every intervening 50 Hz interval.
+		for (i in 0 until 720) {
 			service.sampleIfDue(trackers)
-			clockNs += 20_000_000L
+			clockNs += 30_000_000_000L
 		}
+		repeat(100) {
+			if (service.status().bytesWritten > 0L) return@repeat
+			Thread.sleep(5)
+		}
+		val bytesDuringRecording = service.status().bytesWritten
+		System.gc()
+		val heapAfter = runtime.totalMemory() - runtime.freeMemory()
 
 		val statusBeforeStop = service.status()
-		assertEquals(500L, statusBeforeStop.sampledFrames)
-		assertEquals(0L, statusBeforeStop.droppedFrames)
+		assertEquals(720L, statusBeforeStop.sampledFrames)
+		assertTrue(statusBeforeStop.droppedFrames > 1_000_000L)
 		assertTrue(statusBeforeStop.queueHighWatermark in 1..1024)
+		assertTrue(bytesDuringRecording > 0L, "compressed telemetry must progress on disk before finalization")
+		assertTrue(heapAfter - heapBefore < 64L * 1024 * 1024, "accelerated multi-hour recording must remain heap-bounded")
+		assertEquals(2 * 1024 * 1024, service.directBufferCapacityBytes)
+		assertEquals(1049, service.maximumBufferedSampleItems)
+		assertTrue(service.controlMetadataDepth <= service.maximumControlItems)
 
 		val archive = service.stopAndFinalize(timeoutSeconds = 10)
 		val report = DatasetArchiveValidator().validate(archive)
 		assertTrue(report.valid)
-		assertEquals(500L, report.frames)
+		assertEquals(720L, report.frames)
 	}
 
 	@Test
