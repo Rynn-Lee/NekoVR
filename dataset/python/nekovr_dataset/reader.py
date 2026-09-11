@@ -853,8 +853,8 @@ class DatasetReader:
                 }
                 for label in labels
                 if label.session_tracker_id in tracker_ids
-                and 0 <= label.pre_start_frame <= label.pre_end_frame <= last_frame
-                and 0 <= label.post_start_frame <= label.post_end_frame <= last_frame
+                and 0 <= label.pre_start_frame <= label.pre_end_frame <= label.post_start_frame
+                and label.post_start_frame <= label.post_end_frame <= last_frame + 1
                 and not (label.quality_flags & invalid_window_mask)
                 and label.training_policy != "EXCLUDE"
             ]
@@ -884,6 +884,9 @@ class DatasetReader:
                         if sample.validity == 3 and any(not math.isfinite(value) for value in sample.values):
                             raise DatasetFormatError(f"valid channel {sample.channel_id} carries a non-finite value")
 
+            partial_reset_events = [event for event in events if bool(event.request_id) != bool(event.reset_outcome)]
+            if partial_reset_events:
+                raise DatasetFormatError("reset lifecycle events must carry both requestId and resetOutcome")
             reset_events = [event for event in events if event.request_id and event.reset_outcome]
             indexes = [event.event_index for event in reset_events]
             if any(index <= 0 for index in indexes) or len(indexes) != len(set(indexes)):
@@ -894,12 +897,47 @@ class DatasetReader:
                 terminal = [event for event in lifecycle if event.reset_outcome in ("APPLIED", "CANCELLED", "FAILED")]
                 if len(requested) != 1 or len(terminal) != 1:
                     raise DatasetFormatError(f"reset lifecycle continuity is missing for {request_id}")
+                request_event = requested[0]
+                terminal_event = terminal[0]
+                if (request_event.event_index >= terminal_event.event_index
+                        or request_event.reset_kind != terminal_event.reset_kind
+                        or request_event.reset_source != terminal_event.reset_source
+                        or request_event.request_monotonic_ns != terminal_event.request_monotonic_ns
+                        or request_event.affected_body_parts != terminal_event.affected_body_parts):
+                    raise DatasetFormatError(f"reset request and terminal metadata are inconsistent for {request_id}")
                 request_labels = [label for label in labels if label.request_id == request_id]
-                if terminal[0].reset_outcome == "APPLIED":
-                    if not request_labels or any(label.event_index != terminal[0].event_index for label in request_labels):
+                if terminal_event.reset_outcome == "APPLIED":
+                    if not request_labels or any(label.event_index != terminal_event.event_index for label in request_labels):
                         raise DatasetFormatError(f"applied reset label continuity is missing for {request_id}")
                 elif request_labels:
                     raise DatasetFormatError(f"non-applied reset {request_id} carries labels")
+                label_tracker_ids = [label.session_tracker_id for label in request_labels]
+                if len(label_tracker_ids) != len(set(label_tracker_ids)):
+                    raise DatasetFormatError(f"duplicate reset labels for one tracker in {request_id}")
+                frame_indexes = {frame.index for frame in frames}
+                for label in request_labels:
+                    if (label.request_monotonic_ns != request_event.request_monotonic_ns
+                            or label.applied_monotonic_ns != terminal_event.applied_monotonic_ns):
+                        raise DatasetFormatError(f"reset label timestamps are inconsistent for {request_id}")
+                    expected_axis = {"YAW": 1, "FULL": 7, "MOUNTING": 8}.get(label.reset_domain)
+                    if label.reset_domain != terminal_event.reset_kind or label.axis_mask != expected_axis:
+                        raise DatasetFormatError(f"reset label domain or axis is incompatible for {request_id}")
+                    epoch_valid = (label.reset_epoch > label.reset_epoch_before
+                                   and label.calibration_epoch >= label.calibration_epoch_before
+                                   and ((label.reset_domain == "YAW" and label.calibration_epoch == label.calibration_epoch_before)
+                                        or (label.reset_domain in ("FULL", "MOUNTING")
+                                            and label.calibration_epoch > label.calibration_epoch_before)))
+                    if not epoch_valid:
+                        raise DatasetFormatError(f"reset label epochs regress or are incompatible for {request_id}")
+                    ordered = (0 <= label.pre_start_frame <= label.pre_end_frame
+                               <= label.post_start_frame <= label.post_end_frame)
+                    if not ordered:
+                        raise DatasetFormatError(f"reset label window is unordered for {request_id}")
+                    if not (label.quality_flags & FLAG_WINDOW_TRUNCATED):
+                        unresolved = (any(index not in frame_indexes for index in range(label.pre_start_frame, label.pre_end_frame))
+                                      or any(index not in frame_indexes for index in range(label.post_start_frame, label.post_end_frame)))
+                        if unresolved:
+                            raise DatasetFormatError(f"reset label window has unresolved frames without truncation for {request_id}")
             if any(not any(event.event_index == label.event_index and event.request_id == label.request_id
                            and event.reset_outcome == "APPLIED" for event in reset_events) for label in labels):
                 raise DatasetFormatError("orphan reset label")

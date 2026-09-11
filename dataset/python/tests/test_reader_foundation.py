@@ -51,6 +51,20 @@ class DatasetDecompressionTests(unittest.TestCase):
             self.skipTest("aggregate baseline supplies Kotlin-generated archives")
         return Path(fixture_dir) / "kotlin-conformance-v1.nvrdata"
 
+    def test_reset_relationship_mutation_archives_are_rejected(self) -> None:
+        fixture_dir = os.environ.get("NEKOVR_KOTLIN_DATASET_FIXTURES")
+        if not fixture_dir:
+            self.skipTest("aggregate baseline supplies Kotlin-generated archives")
+        for name in (
+            "reset-wrong-axis.nvrdata",
+            "reset-regressing-epoch.nvrdata",
+            "reset-unrostered-label.nvrdata",
+            "reset-unordered-window.nvrdata",
+            "reset-unresolved-window.nvrdata",
+        ):
+            with self.subTest(name=name), self.assertRaises(DatasetFormatError):
+                DatasetReader().inspect_archive(Path(fixture_dir) / name)
+
     @staticmethod
     def _write_archive(path: Path, manifest: dict, telemetry: bytes, *,
                        compression: int = zipfile.ZIP_STORED, extra: tuple[str, bytes] | None = None) -> None:
@@ -168,7 +182,7 @@ class DatasetDecompressionTests(unittest.TestCase):
         source = self._kotlin_fixture()
         fixture_dir = source.parent
         profiles = set()
-        for archive_path in fixture_dir.glob("*.nvrdata"):
+        for archive_path in (path for path in fixture_dir.glob("*.nvrdata") if not path.name.startswith("reset-")):
             with zipfile.ZipFile(archive_path) as archive:
                 profiles.add(json.loads(archive.read("manifest.json"))["profile"])
             self.assertTrue(DatasetReader().inspect_archive(archive_path)["valid"])
@@ -227,7 +241,7 @@ class DatasetDecompressionTests(unittest.TestCase):
         fixture_dir = os.environ.get("NEKOVR_KOTLIN_DATASET_FIXTURES")
         if not fixture_dir:
             self.skipTest("aggregate baseline supplies Kotlin-generated archives")
-        archives = sorted(Path(fixture_dir).glob("*.nvrdata"))
+        archives = sorted(path for path in Path(fixture_dir).glob("*.nvrdata") if not path.name.startswith("reset-"))
         self.assertEqual(3, len(archives))
         for archive in archives:
             with self.subTest(archive=archive.name):

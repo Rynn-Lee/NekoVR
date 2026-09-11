@@ -1608,7 +1608,7 @@ class HumanSkeleton(
                 val applyMonotonicNs = System.nanoTime()
                 val postSnapshots = affectedTrackers.associateWith { it.snapshotResetState(applyMonotonicNs) }
                 val hmdPost = headTracker?.snapshotResetState(applyMonotonicNs)
-		val hmdValid = ResetLabelCalculator.isValidHmdReference(hmdPre, hmdPost)
+		val hmdValid = ResetLabelCalculator.isValidHmdReference(hmdPre, hmdPost, humanPoseManager.resetLabelQualityConfig)
 
 		val labels = mutableListOf<ResetLabelRecord>()
 		for (tracker in affectedTrackers) {
@@ -1628,7 +1628,8 @@ class HumanSkeleton(
 							hmdPost = hmdPost,
                                                         requestMonotonicNs = request.requestMonotonicNs,
                                                         applyMonotonicNs = applyMonotonicNs,
-                                                        requestId = request.requestId,
+						requestId = request.requestId,
+						qualityConfig = humanPoseManager.resetLabelQualityConfig,
 						),
 					)
 				}
@@ -1692,7 +1693,7 @@ class HumanSkeleton(
                 val applyMonotonicNs = System.nanoTime()
                 val postSnapshots = affectedTrackers.associateWith { it.snapshotResetState(applyMonotonicNs) }
                 val hmdPost = headTracker?.snapshotResetState(applyMonotonicNs)
-		val hmdValid = ResetLabelCalculator.isValidHmdReference(hmdPre, hmdPost)
+		val hmdValid = ResetLabelCalculator.isValidHmdReference(hmdPre, hmdPost, humanPoseManager.resetLabelQualityConfig)
 
 		val labels = mutableListOf<ResetLabelRecord>()
 		for (tracker in affectedTrackers) {
@@ -1712,7 +1713,8 @@ class HumanSkeleton(
 							hmdPost = hmdPost,
                                                         requestMonotonicNs = request.requestMonotonicNs,
                                                         applyMonotonicNs = applyMonotonicNs,
-                                                        requestId = request.requestId,
+						requestId = request.requestId,
+						qualityConfig = humanPoseManager.resetLabelQualityConfig,
 						),
 					)
 				}
@@ -1802,7 +1804,7 @@ class HumanSkeleton(
                 val applyMonotonicNs = System.nanoTime()
                 val postSnapshots = affectedTrackers.associateWith { it.snapshotResetState(applyMonotonicNs) }
                 val hmdPost = headTracker?.snapshotResetState(applyMonotonicNs)
-		val hmdValid = ResetLabelCalculator.isValidHmdReference(hmdPre, hmdPost)
+		val hmdValid = ResetLabelCalculator.isValidHmdReference(hmdPre, hmdPost, humanPoseManager.resetLabelQualityConfig)
 
 		val labels = mutableListOf<ResetLabelRecord>()
 		for (tracker in affectedTrackers) {
@@ -1822,7 +1824,8 @@ class HumanSkeleton(
 							hmdPost = hmdPost,
                                                         requestMonotonicNs = request.requestMonotonicNs,
                                                         applyMonotonicNs = applyMonotonicNs,
-                                                        requestId = request.requestId,
+						requestId = request.requestId,
+						qualityConfig = humanPoseManager.resetLabelQualityConfig,
 						),
 					)
 				}

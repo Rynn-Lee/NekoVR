@@ -7,6 +7,7 @@ import dev.slimevr.dataset.generated.DatasetV1Reader
 import dev.slimevr.reset.FLAG_EXCESS_MOTION
 import dev.slimevr.reset.FLAG_INSUFFICIENT_CONTEXT
 import dev.slimevr.reset.FLAG_INVALID_OR_STALE_HMD
+import dev.slimevr.reset.FLAG_INVALID_QUATERNIONS
 import dev.slimevr.reset.FLAG_OVERLAPPING_RESETS
 import dev.slimevr.reset.FLAG_PACKET_GAPS
 import dev.slimevr.reset.FLAG_RECONNECT_OR_REASSIGNMENT
@@ -15,6 +16,7 @@ import dev.slimevr.reset.ResetEvent
 import dev.slimevr.reset.ResetEventListener
 import dev.slimevr.reset.ResetEventPublisher
 import dev.slimevr.reset.ResetKind
+import dev.slimevr.reset.ResetLabelQualityConfig
 import dev.slimevr.reset.ResetOutcome
 import dev.slimevr.reset.ResetSupervisionPolicy
 import dev.slimevr.tracking.trackers.Tracker
@@ -40,6 +42,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 import java.util.zip.CRC32
@@ -114,7 +117,7 @@ class DatasetRecordingService(
 	private val writerDelayMillis: Long = 0,
 	private val resetPreContextFrames: Int = 50,
 	private val resetPostContextFrames: Int = 50,
-	private val maxReferenceAgeNs: Long = 250_000_000L,
+	private val resetLabelQualityConfig: ResetLabelQualityConfig = ResetLabelQualityConfig(),
 ) : AutoCloseable {
 	internal val directBufferCapacityBytes: Int = 2 * 1024 * 1024
 	internal val maximumBufferedSampleItems: Int get() = queueCapacity + batchSize
@@ -125,6 +128,7 @@ class DatasetRecordingService(
 		repeat(2) { add(ByteBuffer.allocateDirect(1024 * 1024).order(ByteOrder.LITTLE_ENDIAN)) }
 	}
 	private val currentState = AtomicReference(RecordingState.IDLE)
+	private val cancellationRequested = AtomicBoolean()
 	private val statusVersion = AtomicLong()
 	private val finalizationProgress = AtomicReference(0f)
 	private val statusListeners = CopyOnWriteArrayList<RecordingStatusListener>()
@@ -184,6 +188,16 @@ class DatasetRecordingService(
 
 	private fun transitionTo(state: RecordingState) {
 		currentState.set(state)
+		publishTransition()
+	}
+
+	private fun transitionFrom(expected: RecordingState, state: RecordingState): Boolean {
+		if (!currentState.compareAndSet(expected, state)) return false
+		publishTransition()
+		return true
+	}
+
+	private fun publishTransition() {
 		statusVersion.incrementAndGet()
 		val snapshot = status()
 		statusListeners.forEach { listener ->
@@ -389,9 +403,9 @@ class DatasetRecordingService(
 		val windowFrames = frameRingBuffer.filter { it.frameIndex >= label.preStartFrame && it.frameIndex < endFrame }
 		var flags = label.qualityFlags
 		if (truncated) flags = flags or FLAG_WINDOW_TRUNCATED or FLAG_INSUFFICIENT_CONTEXT
-		if (windowFrames.size.toLong() < endFrame - label.preStartFrame) flags = flags or FLAG_INSUFFICIENT_CONTEXT
+		if (windowFrames.size.toLong() < endFrame - label.preStartFrame) flags = flags or FLAG_WINDOW_TRUNCATED or FLAG_INSUFFICIENT_CONTEXT
 		for (frame in windowFrames) {
-			if (frame.hmd.validity != ChannelValidity.VALID || frame.hmd.sampleAgeNs > maxReferenceAgeNs) flags = flags or FLAG_INVALID_OR_STALE_HMD
+			if (frame.hmd.validity != ChannelValidity.VALID || frame.hmd.sampleAgeNs > resetLabelQualityConfig.maxHmdSampleAgeNs) flags = flags or FLAG_INVALID_OR_STALE_HMD
 			val tracker = frame.trackers.firstOrNull { it.sessionTrackerId == label.sessionTrackerId }
 			if (tracker == null) {
 				flags = flags or FLAG_RECONNECT_OR_REASSIGNMENT or FLAG_INSUFFICIENT_CONTEXT
@@ -401,8 +415,9 @@ class DatasetRecordingService(
 			val gyro = tracker.angularVelocity
 			val accelMagnitude = kotlin.math.sqrt(accel.x * accel.x + accel.y * accel.y + accel.z * accel.z)
 			val gyroMagnitude = kotlin.math.sqrt(gyro.x * gyro.x + gyro.y * gyro.y + gyro.z * gyro.z)
-			if (accelMagnitude > 2.5f || gyroMagnitude > 1.0f) flags = flags or FLAG_EXCESS_MOTION
-			if (tracker.orientationValidity != ChannelValidity.VALID) flags = flags or FLAG_RECONNECT_OR_REASSIGNMENT
+			if (accelMagnitude > resetLabelQualityConfig.maxLinearAcceleration || gyroMagnitude > resetLabelQualityConfig.maxAngularVelocity) flags = flags or FLAG_EXCESS_MOTION
+			if (!tracker.rawOrientation.isValidUnitQuaternion() || !tracker.calibratedPreAiOrientation.isValidUnitQuaternion() || !tracker.finalOrientation.isValidUnitQuaternion()) flags = flags or FLAG_INVALID_QUATERNIONS
+			if (tracker.orientationValidity != ChannelValidity.VALID) flags = flags or FLAG_INVALID_QUATERNIONS or FLAG_RECONNECT_OR_REASSIGNMENT
 			if (tracker.nativeChannels.any { it.channelId == 26 && (it.integerValue ?: 0L) > 0L }) flags = flags or FLAG_PACKET_GAPS
 		}
 		val events = contextEventRingBuffer.filter { it.frameIndex >= label.preStartFrame && it.frameIndex < endFrame }
@@ -416,6 +431,11 @@ class DatasetRecordingService(
 			qualityFlags = flags,
 			trainingPolicy = ResetSupervisionPolicy.evaluate(domain, flags).action.name,
 		)
+	}
+
+	private fun QuaternionSample.isValidUnitQuaternion(): Boolean {
+		val norm = x * x + y * y + z * z + w * w
+		return x.isFinite() && y.isFinite() && z.isFinite() && w.isFinite() && norm in 0.98f..1.02f
 	}
 
 	init {
@@ -442,6 +462,7 @@ class DatasetRecordingService(
 			require(assignedImus.isNotEmpty()) { "At least one assigned physical IMU tracker is required" }
 			require(freeSpace(datasetsRoot) >= request.minFreeSpaceBytes) { "Insufficient free space for recording" }
 			resetCounters()
+			cancellationRequested.set(false)
 			val newSessionId = UUID.randomUUID().toString()
 			val start = clockNs()
 			val trackerRegistry = SessionTrackerRegistry(trackers, request.privacy)
@@ -532,6 +553,7 @@ class DatasetRecordingService(
 		readyLabels.addAll(queuedLabels)
 
 		if (!queue.offer(RecorderItem.Sample(frame, allEvents, readyLabels))) {
+			if (frameRingBuffer.lastOrNull()?.frameIndex == frame.frameIndex) frameRingBuffer.removeLast()
 			dropped.incrementAndGet()
 			pendingQueueDrops.incrementAndGet()
 			for (event in topologyEvents) enqueueControlEvent(event)
@@ -682,19 +704,26 @@ class DatasetRecordingService(
 	}
 
 	@Synchronized
-	fun cancelRecording() {
+	fun requestCancellation(): Boolean {
 		val state = currentState.get()
 		if (state != RecordingState.RECORDING && state != RecordingState.STARTING && state != RecordingState.FINALIZING) {
-			return
+			return false
 		}
+		cancellationRequested.set(true)
 		transitionTo(RecordingState.CANCELLED)
 		queue.clear()
 		writerThread?.interrupt()
+		return true
+	}
+
+	fun finishCancellation(timeoutMillis: Long = 2_000L) {
 		try {
-			writerThread?.join(2000)
+			completion.await(timeoutMillis, TimeUnit.MILLISECONDS)
 		} catch (_: InterruptedException) {
 			Thread.currentThread().interrupt()
 		}
+		val thread = writerThread
+		if (thread?.isAlive == true) return
 		writerThread = null
 		workingDirectory?.let { work ->
 			runCatching {
@@ -705,10 +734,18 @@ class DatasetRecordingService(
 				}
 			}
 		}
+		sessionId?.let { cancelledSessionId ->
+			val archive = datasetsRoot.resolve("$cancelledSessionId.nvrdata").normalize()
+			if (archive.parent == datasetsRoot.normalize() && !Files.isSymbolicLink(archive)) runCatching { Files.deleteIfExists(archive) }
+		}
 		outputArchive = null
 		lastError = null
 		resetCounters()
 		LogManager.info("[Dataset] Cancelled recording session $sessionId")
+	}
+
+	fun cancelRecording() {
+		if (requestCancellation()) finishCancellation()
 	}
 
 	fun recoverPartial(session: RecoverableSession): Path {
@@ -826,6 +863,7 @@ class DatasetRecordingService(
 		val events = ArrayList<DatasetEvent>()
 		val resetLabels = ArrayList<DatasetResetLabel>()
 		try {
+			checkNotCancelled()
 			var finalDurationNs = 0L
 			FileChannel.open(telemetry, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).use { channel ->
 				val bufferedOutput = BufferedOutputStream(Channels.newOutputStream(channel), 64 * 1024)
@@ -834,6 +872,7 @@ class DatasetRecordingService(
 					writeRecord(zstd, DatasetV1Bindings.roster(initialManifest.trackers, sequence = ++sequence), footerChecksum)
 					var finishing = false
 					while (!finishing) {
+						checkNotCancelled()
 						when (val item = queue.take()) {
 							is RecorderItem.Sample -> {
 								frames += item.frame
@@ -889,6 +928,7 @@ class DatasetRecordingService(
 				}
 			}
 			val telemetryChecksum = sha256(telemetry)
+			checkNotCancelled()
 			val finalManifest = initialManifest.copy(
 				endedUtc = Instant.now().toString(),
 				durationNs = finalDurationNs,
@@ -900,6 +940,7 @@ class DatasetRecordingService(
 			finalizationProgress.set(0.75f)
 			writeManifestDurably(work, finalManifest)
 			val archive = finalizeArchive(work, finalManifest, telemetry)
+			checkNotCancelled()
 			validationReport = DatasetArchiveValidator().validate(archive)
 			require(validationReport?.valid == true) {
 				"Final archive failed canonical validation: ${validationReport?.findings.orEmpty()}"
@@ -907,7 +948,7 @@ class DatasetRecordingService(
 			finalizationProgress.set(1f)
 			manifest = finalManifest
 			outputArchive = archive
-			transitionTo(RecordingState.COMPLETED)
+			check(transitionFrom(RecordingState.FINALIZING, RecordingState.COMPLETED)) { "Dataset finalization was cancelled before commit" }
 			LogManager.info("[Dataset] Finalized ${finalManifest.quality.writtenFrames} frames to $archive")
 		} catch (error: Throwable) {
 			lastError = error.message ?: error.javaClass.simpleName
@@ -1015,6 +1056,12 @@ class DatasetRecordingService(
 
 	private fun validateProfile(profile: CollectionProfile, roster: List<SessionTrackerMetadata>) {
 		TelemetryChannelRegistry.requireSupportedProfile(profile, roster)
+	}
+
+	private fun checkNotCancelled() {
+		if (cancellationRequested.get() || currentState.get() == RecordingState.CANCELLED || Thread.currentThread().isInterrupted) {
+			throw InterruptedException("Dataset finalization cancelled")
+		}
 	}
 
 	private fun resetCounters() {

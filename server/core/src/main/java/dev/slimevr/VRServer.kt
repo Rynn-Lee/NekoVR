@@ -127,6 +127,9 @@ class VRServer @JvmOverloads constructor(
 	val resetEventPublisher = dev.slimevr.reset.DefaultResetEventPublisher()
 
 	@JvmField
+	val resetLabelQualityConfig = dev.slimevr.reset.ResetLabelQualityConfig()
+
+	@JvmField
 	val statusSystem = StatusSystem()
 
 	@JvmField
@@ -150,7 +153,7 @@ class VRServer @JvmOverloads constructor(
 	}
 
 	@JvmField
-	val datasetRecorder = dev.slimevr.dataset.DatasetRecordingService()
+	val datasetRecorder = dev.slimevr.dataset.DatasetRecordingService(resetLabelQualityConfig = resetLabelQualityConfig)
 
 	@JvmField
 	val personalTrainingStore = dev.slimevr.ai.personal.PersonalTrainingStore(
@@ -186,7 +189,7 @@ class VRServer @JvmOverloads constructor(
 		provisioningHandler = ProvisioningHandler(this)
 		resetHandler = ResetHandler()
 		tapSetupHandler = TapSetupHandler()
-		humanPoseManager = HumanPoseManager(this, resetEventPublisher)
+		humanPoseManager = HumanPoseManager(this, resetEventPublisher, resetLabelQualityConfig)
 		datasetRecorder.bindResetPublisher(resetEventPublisher)
 		// AutoBone requires HumanPoseManager first
 		autoBoneHandler = AutoBoneHandler(this)

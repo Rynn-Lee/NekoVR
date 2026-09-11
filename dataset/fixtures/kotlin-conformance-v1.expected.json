@@ -2,7 +2,7 @@
   "format": "NekoVR deterministic Kotlin/Python v1 conformance source",
   "generator": "dev.slimevr.dataset.DatasetConformanceFixture",
   "archive": "kotlin-conformance-v1.nvrdata",
-  "archiveSha256": "25f41c1162c0e4c94a37ab1834bd58badecb95ddaccc179015458db3914c2167",
+  "archiveSha256": "cf74c956720ebb89cfcf131763f3b6159ad6d2a19130bede46b078a89d42b20d",
   "floatAbsoluteTolerance": 0.001,
   "sessionId": "kotlin-conformance-v1",
   "recordTypes": [0, 1, 2, 3, 4],
@@ -52,7 +52,7 @@
   "reset": {
     "correction": [-0.5, 0.5, 0.5, 0.5],
     "axisMask": 7,
-    "qualityFlags": 5,
+    "qualityFlags": 133,
     "resetEpoch": 4,
     "calibrationEpoch": 6,
     "bodyRole": "WAIST",

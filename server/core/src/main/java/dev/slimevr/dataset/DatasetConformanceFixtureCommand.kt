@@ -15,6 +15,13 @@ import java.util.zip.ZipOutputStream
 /** Reproducible, cross-language v1 fixture. Values are intentionally non-trivial. */
 object DatasetConformanceFixture {
 	const val FILE_NAME = "kotlin-conformance-v1.nvrdata"
+	val RESET_RELATION_MUTATIONS = listOf(
+		"reset-wrong-axis.nvrdata",
+		"reset-regressing-epoch.nvrdata",
+		"reset-unrostered-label.nvrdata",
+		"reset-unordered-window.nvrdata",
+		"reset-unresolved-window.nvrdata",
+	)
 	const val SESSION_ID = "kotlin-conformance-v1"
 	const val START_NS = 1_000_000_000L
 	private val sin45 = 0.70710677f
@@ -154,7 +161,7 @@ object DatasetConformanceFixture {
 		val label = DatasetResetLabel(
 			eventIndex = 9, sessionTrackerId = "tracker-1", correction = canonicalCorrection,
 			diagnosticYawRadians = 1.0471976f, axisMask = 7, preStartFrame = 10, preEndFrame = 11,
-			postStartFrame = 12, postEndFrame = 14, qualityFlags = 5, domain = "FULL", requestId = "reset-1",
+			postStartFrame = 12, postEndFrame = 14, qualityFlags = 133, domain = "FULL", requestId = "reset-1",
 			requestMonotonicNs = START_NS + 1_000_000, appliedMonotonicNs = START_NS + 5_000_000,
 			rawOrientationBefore = preAdjusted, rawOrientationAfter = postAdjusted,
 			calibratedPreAiBefore = preAdjusted, calibratedPreAiAfter = postAdjusted,
@@ -239,6 +246,14 @@ object DatasetConformanceFixture {
 		return target
 	}
 
+	fun writeResetRelationMutations(directory: Path): List<Path> = listOf(
+		writeArchive(directory, RESET_RELATION_MUTATIONS[0], labelsTransform = { labels -> labels.map { it.copy(axisMask = 1) } }),
+		writeArchive(directory, RESET_RELATION_MUTATIONS[1], labelsTransform = { labels -> labels.map { it.copy(resetEpoch = it.resetEpochBefore) } }),
+		writeArchive(directory, RESET_RELATION_MUTATIONS[2], labelsTransform = { labels -> labels.map { it.copy(sessionTrackerId = "not-in-roster") } }),
+		writeArchive(directory, RESET_RELATION_MUTATIONS[3], labelsTransform = { labels -> labels.map { it.copy(preEndFrame = it.postStartFrame + 1) } }),
+		writeArchive(directory, RESET_RELATION_MUTATIONS[4], labelsTransform = { labels -> labels.map { it.copy(qualityFlags = it.qualityFlags and 128.inv()) } }),
+	)
+
 	private fun framed(records: List<ByteArray>): ByteArray = ByteArrayOutputStream().also { output ->
 		records.forEach { record ->
 			output.write(ByteBuffer.allocate(4).order(ByteOrder.LITTLE_ENDIAN).putInt(record.size).array())
@@ -267,5 +282,7 @@ object DatasetConformanceFixture {
 fun main(arguments: Array<String>) {
 	val outputIndex = arguments.indexOf("--output")
 	require(outputIndex >= 0 && outputIndex + 1 < arguments.size) { "Usage: --output DIRECTORY" }
-	println(DatasetConformanceFixture.writeArchive(Path.of(arguments[outputIndex + 1]).toAbsolutePath().normalize()))
+	val output = Path.of(arguments[outputIndex + 1]).toAbsolutePath().normalize()
+	println(DatasetConformanceFixture.writeArchive(output))
+	DatasetConformanceFixture.writeResetRelationMutations(output).forEach(::println)
 }

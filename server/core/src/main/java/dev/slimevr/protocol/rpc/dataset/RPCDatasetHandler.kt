@@ -11,17 +11,36 @@ import solarxr_protocol.MessageBundle
 import solarxr_protocol.datatypes.TransactionId
 import solarxr_protocol.rpc.*
 import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.nio.file.Path
+import java.nio.file.attribute.BasicFileAttributes
 import java.security.MessageDigest
 import java.util.Comparator
+import java.util.concurrent.ArrayBlockingQueue
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executor
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.util.zip.ZipFile
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.fileSize
 import kotlin.io.path.isDirectory
 import kotlin.io.path.name
+
+private const val MAX_INVENTORY_ENTRIES = 10_000
+
+private fun boundedDatasetExecutor(): Executor = ThreadPoolExecutor(
+	2,
+	2,
+	0L,
+	TimeUnit.MILLISECONDS,
+	ArrayBlockingQueue(32),
+	{ runnable -> Thread(runnable, "dataset-inventory-worker").apply { isDaemon = true } },
+	ThreadPoolExecutor.AbortPolicy(),
+)
 
 /** Server-authoritative recorder control plane. Renderer clients never supply filesystem paths. */
 class RPCDatasetHandler(
@@ -35,8 +54,18 @@ class RPCDatasetHandler(
 	@Suppress("unused") val taskQueue: (Runnable) -> Unit = { runnable -> api?.server?.queueTask(runnable) ?: runnable.run() },
 	val broadcaster: ((GenericConnection) -> Unit) -> Unit = { action -> api?.apiServers?.forEach { server -> server.apiConnections.forEach(action) } },
 	val workerExecutor: Executor = Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "dataset-rpc-worker").apply { isDaemon = true } },
+	val inventoryExecutor: Executor = boundedDatasetExecutor(),
 ) {
 	private val statusListener = RecordingStatusListener { broadcastStatusResponse() }
+	private data class ArchiveIdentity(val canonicalPath: Path, val size: Long, val modifiedMillis: Long, val fileKey: String?)
+	private data class CachedArchive(
+		val identity: ArchiveIdentity,
+		val report: DatasetValidationReport,
+		val manifest: DatasetManifest?,
+		val sha256: String,
+	)
+	private val archiveCache = ConcurrentHashMap<Path, CachedArchive>()
+	internal val archiveCacheSize: Int get() = archiveCache.size
 
 	init {
 		rpcHandler?.registerPacketListener(RpcMessage.StartDatasetRecordingRequest, ::onStartDatasetRecordingRequest)
@@ -171,49 +200,82 @@ class RPCDatasetHandler(
 		broadcaster { it.send(java.nio.ByteBuffer.wrap(bytes)) }
 	}
 
+	private fun submitRecorderCommand(command: () -> Unit) {
+		taskQueue(Runnable(command))
+	}
+
 	fun onStartDatasetRecordingRequest(conn: GenericConnection, header: RpcMessageHeader) {
 		val req = header.message(StartDatasetRecordingRequest()) as? StartDatasetRecordingRequest ?: return
-		if (!req.consent()) { sendStatus(conn, header, DatasetOperation.START, DatasetErrorCode.CONSENT_REQUIRED, "Explicit recording consent is required"); return }
-		if (datasetRecorder.isRecording || datasetRecorder.status().state in setOf(RecordingState.STARTING, RecordingState.FINALIZING)) {
-			sendStatus(conn, header, DatasetOperation.START, DatasetErrorCode.ALREADY_RECORDING, "A recorder operation is already active"); return
-		}
-		if (getReadinessFindings().any { it.severity == DatasetReadinessSeverity.ERROR }) {
-			sendStatus(conn, header, DatasetOperation.START, DatasetErrorCode.READINESS_FAILED, "Recorder readiness checks failed"); return
-		}
-		if (req.profile() != 0 && !datasetReadyStatusProvider().ready) {
-			sendStatus(conn, header, DatasetOperation.START, DatasetErrorCode.READINESS_FAILED, "Higher-fidelity recording profiles remain locked until the dataset-ready gate passes")
+		val profileValue = req.profile()
+		if (profileValue !in 0..2) {
+			sendStatus(conn, header, DatasetOperation.START, DatasetErrorCode.INVALID_ARGUMENT, "Unknown collection profile $profileValue")
 			return
 		}
-		val profile = when (req.profile()) { 1 -> CollectionProfile.STANDARD; 2 -> CollectionProfile.FULL_FIDELITY; else -> CollectionProfile.MINIMUM }
-		try {
-			datasetRecorder.startRecording(RecordingRequest(profile, SessionPrivacyOptions(req.consent(), req.subjectPseudonym()?.takeIf(String::isNotBlank), req.hashHardwareIdentifiers())), trackerProvider())
-			sendStatus(conn, header, DatasetOperation.START)
-		} catch (error: Throwable) {
-			LogManager.severe("[Dataset RPC] Start failed: ${error.message}", error)
-			sendStatus(conn, header, DatasetOperation.START, DatasetErrorCode.INTERNAL_ERROR, error.message ?: "Start failed")
+		val consent = req.consent()
+		val pseudonym = req.subjectPseudonym()?.takeIf(String::isNotBlank)
+		val hashHardwareIdentifiers = req.hashHardwareIdentifiers()
+		submitRecorderCommand {
+			if (!consent) { sendStatus(conn, header, DatasetOperation.START, DatasetErrorCode.CONSENT_REQUIRED, "Explicit recording consent is required"); return@submitRecorderCommand }
+			if (datasetRecorder.status().state in setOf(RecordingState.STARTING, RecordingState.RECORDING, RecordingState.FINALIZING)) {
+				sendStatus(conn, header, DatasetOperation.START, DatasetErrorCode.ALREADY_RECORDING, "A recorder operation is already active"); return@submitRecorderCommand
+			}
+			if (getReadinessFindings().any { it.severity == DatasetReadinessSeverity.ERROR }) {
+				sendStatus(conn, header, DatasetOperation.START, DatasetErrorCode.READINESS_FAILED, "Recorder readiness checks failed"); return@submitRecorderCommand
+			}
+			if (profileValue != 0 && !datasetReadyStatusProvider().ready) {
+				sendStatus(conn, header, DatasetOperation.START, DatasetErrorCode.READINESS_FAILED, "Higher-fidelity recording profiles remain locked until the dataset-ready gate passes")
+				return@submitRecorderCommand
+			}
+			val profile = CollectionProfile.entries[profileValue]
+			try {
+				datasetRecorder.startRecording(RecordingRequest(profile, SessionPrivacyOptions(consent, pseudonym, hashHardwareIdentifiers)), trackerProvider())
+				invalidateArchiveCache()
+				sendStatus(conn, header, DatasetOperation.START)
+			} catch (error: IllegalArgumentException) {
+				sendStatus(conn, header, DatasetOperation.START, DatasetErrorCode.INVALID_ARGUMENT, error.message ?: "Invalid recording arguments")
+			} catch (error: IllegalStateException) {
+				sendStatus(conn, header, DatasetOperation.START, DatasetErrorCode.INVALID_STATE, error.message ?: "Recorder state changed")
+			} catch (error: Throwable) {
+				LogManager.severe("[Dataset RPC] Start failed: ${error.message}", error)
+				sendStatus(conn, header, DatasetOperation.START, DatasetErrorCode.INTERNAL_ERROR, error.message ?: "Start failed")
+			}
 		}
 	}
 
 	fun onStopDatasetRecordingRequest(conn: GenericConnection, header: RpcMessageHeader) {
 		val req = header.message(StopDatasetRecordingRequest()) as? StopDatasetRecordingRequest ?: return
-		val status = datasetRecorder.status()
-		if (status.state != RecordingState.RECORDING) { sendStatus(conn, header, DatasetOperation.STOP_FINALIZE, DatasetErrorCode.NOT_RECORDING, "Recorder is not recording"); return }
-		if (!req.sessionId().isNullOrBlank() && req.sessionId() != status.sessionId) { sendStatus(conn, header, DatasetOperation.STOP_FINALIZE, DatasetErrorCode.SESSION_MISMATCH, "Session ID mismatch"); return }
-		try {
-			datasetRecorder.beginFinalization()
-			sendStatus(conn, header, DatasetOperation.STOP_FINALIZE)
-			workerExecutor.execute { runCatching { datasetRecorder.stopAndFinalize(req.timeoutSeconds().coerceAtLeast(5L)) }.onFailure { LogManager.severe("[Dataset RPC] Finalization failed: ${it.message}", it) } }
-		} catch (error: Throwable) {
-			sendStatus(conn, header, DatasetOperation.STOP_FINALIZE, DatasetErrorCode.INVALID_STATE, error.message ?: "Stop failed")
+		val requestedSessionId = req.sessionId()?.takeIf(String::isNotBlank)
+		val timeoutSeconds = req.timeoutSeconds().coerceAtLeast(5L)
+		submitRecorderCommand {
+			val status = datasetRecorder.status()
+			if (status.state != RecordingState.RECORDING) { sendStatus(conn, header, DatasetOperation.STOP_FINALIZE, DatasetErrorCode.NOT_RECORDING, "Recorder is not recording"); return@submitRecorderCommand }
+			if (requestedSessionId != null && requestedSessionId != status.sessionId) { sendStatus(conn, header, DatasetOperation.STOP_FINALIZE, DatasetErrorCode.SESSION_MISMATCH, "Session ID mismatch"); return@submitRecorderCommand }
+			try {
+				datasetRecorder.beginFinalization()
+				sendStatus(conn, header, DatasetOperation.STOP_FINALIZE)
+				workerExecutor.execute {
+					runCatching { datasetRecorder.stopAndFinalize(timeoutSeconds) }
+						.onSuccess { invalidateArchiveCache(status.sessionId) }
+						.onFailure { LogManager.severe("[Dataset RPC] Finalization failed: ${it.message}", it) }
+				}
+			} catch (error: Throwable) {
+				sendStatus(conn, header, DatasetOperation.STOP_FINALIZE, DatasetErrorCode.INVALID_STATE, error.message ?: "Stop failed")
+			}
 		}
 	}
 
 	fun onCancelDatasetRecordingRequest(conn: GenericConnection, header: RpcMessageHeader) {
 		val req = header.message(CancelDatasetRecordingRequest()) as? CancelDatasetRecordingRequest ?: return
-		val status = datasetRecorder.status()
-		if (status.state !in setOf(RecordingState.STARTING, RecordingState.RECORDING, RecordingState.FINALIZING)) { sendStatus(conn, header, DatasetOperation.CANCEL, DatasetErrorCode.NOT_RECORDING, "No active recording"); return }
-		if (!req.sessionId().isNullOrBlank() && req.sessionId() != status.sessionId) { sendStatus(conn, header, DatasetOperation.CANCEL, DatasetErrorCode.SESSION_MISMATCH, "Session ID mismatch"); return }
-		workerExecutor.execute { datasetRecorder.cancelRecording(); sendStatus(conn, header, DatasetOperation.CANCEL, DatasetErrorCode.CANCELLED) }
+		val requestedSessionId = req.sessionId()?.takeIf(String::isNotBlank)
+		submitRecorderCommand {
+			val status = datasetRecorder.status()
+			if (status.state !in setOf(RecordingState.STARTING, RecordingState.RECORDING, RecordingState.FINALIZING)) { sendStatus(conn, header, DatasetOperation.CANCEL, DatasetErrorCode.NOT_RECORDING, "No active recording"); return@submitRecorderCommand }
+			if (requestedSessionId != null && requestedSessionId != status.sessionId) { sendStatus(conn, header, DatasetOperation.CANCEL, DatasetErrorCode.SESSION_MISMATCH, "Session ID mismatch"); return@submitRecorderCommand }
+			if (!datasetRecorder.requestCancellation()) { sendStatus(conn, header, DatasetOperation.CANCEL, DatasetErrorCode.INVALID_STATE, "Recorder state changed"); return@submitRecorderCommand }
+			invalidateArchiveCache(status.sessionId)
+			sendStatus(conn, header, DatasetOperation.CANCEL, DatasetErrorCode.CANCELLED)
+			workerExecutor.execute { datasetRecorder.finishCancellation() }
+		}
 	}
 
 	fun onDatasetRecordingStatusRequest(conn: GenericConnection, header: RpcMessageHeader) = sendStatus(conn, header, DatasetOperation.STATUS)
@@ -224,39 +286,99 @@ class RPCDatasetHandler(
 	}
 
 	fun onDatasetListRequest(conn: GenericConnection, header: RpcMessageHeader) {
-		val sessions = mutableListOf<DatasetSessionInfoT>()
-		val root = runCatching { managedRoot() }.getOrNull()
-		if (root != null) Files.list(root).use { paths -> paths.filter { it.name.endsWith(".nvrdata") && !Files.isSymbolicLink(it) }.forEach { archive ->
-			val report = DatasetArchiveValidator().validate(archive)
-			val manifest = runCatching { ZipFile(archive.toFile()).use { zip -> zip.getEntry("manifest.json")?.let { DatasetManifest.fromJsonString(zip.getInputStream(it).reader().readText()) } } }.getOrNull()
-			sessions += DatasetSessionInfoT().apply {
-				sessionId = manifest?.sessionId ?: archive.name.removeSuffix(".nvrdata"); archiveSha256 = fileSha256(archive); archivePath = ""; archiveBytes = runCatching { archive.fileSize() }.getOrDefault(0)
-				durationNs = manifest?.durationNs ?: 0; sampledFrames = manifest?.quality?.sampledFrames ?: report.frames; writtenFrames = manifest?.quality?.writtenFrames ?: report.frames
-				droppedFrames = manifest?.quality?.droppedFrames ?: 0; resetCount = report.resetLabels; schemaMajor = (manifest?.schemaMajor ?: report.schemaMajor ?: 0).toLong(); schemaMinor = (manifest?.schemaMinor ?: report.schemaMinor ?: 0).toLong()
-				createdUtc = manifest?.createdUtc ?: ""; isValid = report.valid; validationError = report.findings.filter { it.severity == FindingSeverity.FATAL }.joinToString("; ") { it.message }
-				trackersCount = (manifest?.trackers?.size ?: 0).toLong(); validationState = if (report.valid) DatasetValidationState.VALID else DatasetValidationState.INVALID
-				validationFindings = report.findings.map { it.toRpc() }.toTypedArray(); roster = manifest?.trackers?.map { it.toRpc() }?.toTypedArray() ?: emptyArray()
+		try {
+			inventoryExecutor.execute {
+				runCatching { buildInventory() }
+					.onSuccess { (sessions, recoverable) -> sendList(conn, header, sessions, recoverable, DatasetErrorCode.OK) }
+					.onFailure { error ->
+						LogManager.severe("[Dataset RPC] Inventory failed: ${error.message}", error)
+						sendList(conn, header, emptyList(), emptyList(), DatasetErrorCode.IO_ERROR)
+					}
 			}
-		} }
-		val recoverable = datasetRecorder.discoverRecoverableSessions().map { session ->
-			val recoveryFindings = datasetRecorder.recoverabilityFindings(session)
-			DatasetRecoverableInfoT().apply {
-			sessionId = session.sessionId; directory = ""; reason = session.reason
-			canRecover = recoveryFindings.none { it.severity == FindingSeverity.FATAL }
-			validationState = DatasetValidationState.RECOVERABLE
-			findings = recoveryFindings.map { it.toRpc() }.toTypedArray()
-		} }
-		val response = DatasetListResponseT().apply { this.sessions = sessions.toTypedArray(); this.recoverable = recoverable.toTypedArray(); errorCode = DatasetErrorCode.OK }
-		val fbb = FlatBufferBuilder(256); val offset = DatasetListResponse.pack(fbb, response); fbb.finish(createRPCMessage(fbb, RpcMessage.DatasetListResponse, offset, header)); conn.send(fbb.dataBuffer())
+		} catch (_: RejectedExecutionException) {
+			sendList(conn, header, emptyList(), emptyList(), DatasetErrorCode.BUSY)
+		}
 	}
 
 	fun onDatasetValidateRequest(conn: GenericConnection, header: RpcMessageHeader) {
 		val req = header.message(DatasetValidateRequest()) as? DatasetValidateRequest ?: return
 		val id = sanitizeSessionId(req.sessionId())
 		if (id == null) { sendValidate(conn, header, req.sessionId() ?: "", null, DatasetErrorCode.INVALID_ARGUMENT, "Invalid session ID"); return }
-		val archive = managedArchive(id)
-		if (archive == null) { sendValidate(conn, header, id, null, DatasetErrorCode.SESSION_NOT_FOUND, "Archive not found"); return }
-		sendValidate(conn, header, id, DatasetArchiveValidator().validate(archive))
+		try {
+			inventoryExecutor.execute {
+				val archive = managedArchive(id)
+				if (archive == null) {
+					sendValidate(conn, header, id, null, DatasetErrorCode.SESSION_NOT_FOUND, "Archive not found")
+				} else {
+					runCatching { cachedArchive(archive).report }
+						.onSuccess { sendValidate(conn, header, id, it) }
+						.onFailure { sendValidate(conn, header, id, null, DatasetErrorCode.IO_ERROR, it.message ?: "Validation failed") }
+				}
+			}
+		} catch (_: RejectedExecutionException) {
+			sendValidate(conn, header, id, null, DatasetErrorCode.BUSY, "Dataset inventory workers are busy")
+		}
+	}
+
+	private fun buildInventory(): Pair<List<DatasetSessionInfoT>, List<DatasetRecoverableInfoT>> {
+		val root = managedRoot()
+		val sessions = Files.list(root).use { paths ->
+			paths.filter { it.name.endsWith(".nvrdata") && !Files.isSymbolicLink(it) }
+				.limit(MAX_INVENTORY_ENTRIES.toLong())
+				.map { cachedArchive(it).toRpc() }
+				.toList()
+		}
+		archiveCache.keys.removeIf { !Files.exists(it, LinkOption.NOFOLLOW_LINKS) }
+		val recoverable = datasetRecorder.discoverRecoverableSessions().take(MAX_INVENTORY_ENTRIES).map { session ->
+			val recoveryFindings = datasetRecorder.recoverabilityFindings(session)
+			DatasetRecoverableInfoT().apply {
+				sessionId = session.sessionId; directory = ""; reason = session.reason
+				canRecover = recoveryFindings.none { it.severity == FindingSeverity.FATAL }
+				validationState = DatasetValidationState.RECOVERABLE
+				findings = recoveryFindings.map { it.toRpc() }.toTypedArray()
+			}
+		}
+		return sessions to recoverable
+	}
+
+	private fun CachedArchive.toRpc() = DatasetSessionInfoT().apply {
+		val archive = identity.canonicalPath
+		sessionId = manifest?.sessionId ?: archive.name.removeSuffix(".nvrdata"); archiveSha256 = sha256; archivePath = ""; archiveBytes = identity.size
+		durationNs = manifest?.durationNs ?: 0; sampledFrames = manifest?.quality?.sampledFrames ?: report.frames; writtenFrames = manifest?.quality?.writtenFrames ?: report.frames
+		droppedFrames = manifest?.quality?.droppedFrames ?: 0; resetCount = report.resetLabels; schemaMajor = (manifest?.schemaMajor ?: report.schemaMajor ?: 0).toLong(); schemaMinor = (manifest?.schemaMinor ?: report.schemaMinor ?: 0).toLong()
+		createdUtc = manifest?.createdUtc ?: ""; isValid = report.valid; validationError = report.findings.filter { it.severity == FindingSeverity.FATAL }.joinToString("; ") { it.message }
+		trackersCount = (manifest?.trackers?.size ?: 0).toLong(); validationState = if (report.valid) DatasetValidationState.VALID else DatasetValidationState.INVALID
+		validationFindings = report.findings.map { it.toRpc() }.toTypedArray(); roster = manifest?.trackers?.map { it.toRpc() }?.toTypedArray() ?: emptyArray()
+	}
+
+	private fun cachedArchive(archive: Path): CachedArchive {
+		val identity = archiveIdentity(archive)
+		archiveCache[identity.canonicalPath]?.takeIf { it.identity == identity }?.let { return it }
+		return archiveCache.compute(identity.canonicalPath) { _, current ->
+			if (current?.identity == identity) current else CachedArchive(
+				identity,
+				DatasetArchiveValidator().validate(identity.canonicalPath),
+				runCatching { ZipFile(identity.canonicalPath.toFile()).use { zip -> zip.getEntry("manifest.json")?.let { DatasetManifest.fromJsonString(zip.getInputStream(it).reader().readText()) } } }.getOrNull(),
+				fileSha256(identity.canonicalPath),
+			)
+		}!!
+	}
+
+	private fun archiveIdentity(path: Path): ArchiveIdentity {
+		val canonical = path.toRealPath()
+		require(canonical.parent == managedRoot() && !Files.isSymbolicLink(path)) { "Archive is outside the managed root" }
+		val attributes = Files.readAttributes(canonical, BasicFileAttributes::class.java, LinkOption.NOFOLLOW_LINKS)
+		require(attributes.isRegularFile) { "Archive is not a regular file" }
+		return ArchiveIdentity(canonical, attributes.size(), attributes.lastModifiedTime().toMillis(), attributes.fileKey()?.toString())
+	}
+
+	internal fun invalidateArchiveCache(sessionId: String? = null) {
+		if (sessionId == null) archiveCache.clear() else archiveCache.keys.removeIf { it.fileName.toString() == "$sessionId.nvrdata" }
+	}
+
+	private fun sendList(conn: GenericConnection, header: RpcMessageHeader, sessions: List<DatasetSessionInfoT>, recoverable: List<DatasetRecoverableInfoT>, errorCodeValue: Int) {
+		val response = DatasetListResponseT().apply { this.sessions = sessions.toTypedArray(); this.recoverable = recoverable.toTypedArray(); errorCode = errorCodeValue }
+		val fbb = FlatBufferBuilder(256); val offset = DatasetListResponse.pack(fbb, response); fbb.finish(createRPCMessage(fbb, RpcMessage.DatasetListResponse, offset, header)); conn.send(fbb.dataBuffer())
 	}
 
 	private fun sendValidate(conn: GenericConnection, header: RpcMessageHeader, id: String, report: DatasetValidationReport?, errorCodeValue: Int = DatasetErrorCode.OK, errorText: String = "") {
@@ -272,25 +394,30 @@ class RPCDatasetHandler(
 		val req = header.message(DatasetRecoverRequest()) as? DatasetRecoverRequest ?: return
 		val id = sanitizeSessionId(req.sessionId())
 		if (id == null) { sendAction(conn, header, req.sessionId() ?: "", false, DatasetOperation.RECOVER, DatasetErrorCode.INVALID_ARGUMENT, "Invalid session ID"); return }
-		val session = datasetRecorder.discoverRecoverableSessions().firstOrNull { it.sessionId == id && managedPartial(id) == it.directory.toRealPath() }
-		if (session == null) { sendAction(conn, header, id, false, DatasetOperation.RECOVER, DatasetErrorCode.NOT_RECOVERABLE, "Recoverable session not found"); return }
 		val quarantine = req.action() == DatasetRecoveryAction.QUARANTINE || req.quarantine()
-		if (!quarantine && datasetRecorder.recoverabilityFindings(session).any { it.severity == FindingSeverity.FATAL }) {
-			sendAction(conn, header, id, false, DatasetOperation.RECOVER, DatasetErrorCode.NOT_RECOVERABLE, "Session does not contain a trustworthy recoverable prefix")
-			return
+		submitRecorderCommand {
+			val session = datasetRecorder.discoverRecoverableSessions().firstOrNull { it.sessionId == id && managedPartial(id) == it.directory.toRealPath() }
+			if (session == null) { sendAction(conn, header, id, false, DatasetOperation.RECOVER, DatasetErrorCode.NOT_RECOVERABLE, "Recoverable session not found"); return@submitRecorderCommand }
+			if (!quarantine && datasetRecorder.recoverabilityFindings(session).any { it.severity == FindingSeverity.FATAL }) {
+				sendAction(conn, header, id, false, DatasetOperation.RECOVER, DatasetErrorCode.NOT_RECOVERABLE, "Session does not contain a trustworthy recoverable prefix")
+				return@submitRecorderCommand
+			}
+			workerExecutor.execute { runCatching { if (quarantine) datasetRecorder.quarantinePartial(session) else datasetRecorder.recoverPartial(session) }
+				.onSuccess { invalidateArchiveCache(id); sendAction(conn, header, id, true, if (quarantine) DatasetOperation.QUARANTINE else DatasetOperation.RECOVER) }
+				.onFailure { sendAction(conn, header, id, false, if (quarantine) DatasetOperation.QUARANTINE else DatasetOperation.RECOVER, DatasetErrorCode.RECOVERY_FAILED, it.message ?: "Recovery failed") } }
 		}
-		workerExecutor.execute { runCatching { if (quarantine) datasetRecorder.quarantinePartial(session) else datasetRecorder.recoverPartial(session) }
-			.onSuccess { sendAction(conn, header, id, true, if (quarantine) DatasetOperation.QUARANTINE else DatasetOperation.RECOVER) }
-			.onFailure { sendAction(conn, header, id, false, if (quarantine) DatasetOperation.QUARANTINE else DatasetOperation.RECOVER, DatasetErrorCode.RECOVERY_FAILED, it.message ?: "Recovery failed") } }
 	}
 
 	fun onDatasetDeleteRequest(conn: GenericConnection, header: RpcMessageHeader) {
 		val req = header.message(DatasetDeleteRequest()) as? DatasetDeleteRequest ?: return
 		val id = sanitizeSessionId(req.sessionId())
 		if (id == null) { sendAction(conn, header, req.sessionId() ?: "", false, DatasetOperation.DELETE, DatasetErrorCode.INVALID_ARGUMENT, "Invalid session ID"); return }
-		val targets = listOfNotNull(managedArchive(id), managedPartial(id))
-		for (target in targets) if (target.isDirectory()) Files.walk(target).use { it.sorted(Comparator.reverseOrder()).forEach(Files::deleteIfExists) } else Files.deleteIfExists(target)
-		sendAction(conn, header, id, targets.isNotEmpty(), DatasetOperation.DELETE, if (targets.isEmpty()) DatasetErrorCode.SESSION_NOT_FOUND else DatasetErrorCode.OK, if (targets.isEmpty()) "Session not found" else "")
+		submitRecorderCommand {
+			val targets = listOfNotNull(managedArchive(id), managedPartial(id))
+			for (target in targets) if (target.isDirectory()) Files.walk(target).use { it.sorted(Comparator.reverseOrder()).forEach(Files::deleteIfExists) } else Files.deleteIfExists(target)
+			invalidateArchiveCache(id)
+			sendAction(conn, header, id, targets.isNotEmpty(), DatasetOperation.DELETE, if (targets.isEmpty()) DatasetErrorCode.SESSION_NOT_FOUND else DatasetErrorCode.OK, if (targets.isEmpty()) "Session not found" else "")
+		}
 	}
 
 	fun onDatasetExportRequest(conn: GenericConnection, header: RpcMessageHeader) {

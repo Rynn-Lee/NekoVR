@@ -118,6 +118,18 @@ data class ResetRequest(
 	val bodyParts: List<Int> = emptyList(),
 )
 
+data class ResetLabelQualityConfig(
+	val maxHmdSampleAgeNs: Long = 250_000_000L,
+	val maxLinearAcceleration: Float = 2.5f,
+	val maxAngularVelocity: Float = 1.0f,
+) {
+	init {
+		require(maxHmdSampleAgeNs >= 0L) { "maxHmdSampleAgeNs must be non-negative" }
+		require(maxLinearAcceleration.isFinite() && maxLinearAcceleration >= 0f) { "maxLinearAcceleration must be finite and non-negative" }
+		require(maxAngularVelocity.isFinite() && maxAngularVelocity >= 0f) { "maxAngularVelocity must be finite and non-negative" }
+	}
+}
+
 data class ResetEvent(
 	val requestId: String,
 	val kind: ResetKind,
@@ -171,9 +183,10 @@ object ResetLabelCalculator {
 		postStartFrame: Long = 0L,
 		postEndFrame: Long = 0L,
 		requestId: String? = null,
+		qualityConfig: ResetLabelQualityConfig = ResetLabelQualityConfig(),
 	): ResetLabelRecord {
 		val (correction, yaw) = computeCorrection(preState.adjustedOrientation, postState.adjustedOrientation)
-		val hmdValid = isValidHmdReference(hmdPre, hmdPost)
+		val hmdValid = isValidHmdReference(hmdPre, hmdPost, qualityConfig)
                 val flags = computeQualityFlags(
                         hmdValid = hmdValid,
                         preState = preState,
@@ -181,6 +194,7 @@ object ResetLabelCalculator {
 			targetQuat = correction,
 			packetGap = postState.packetGapCount > preState.packetGapCount,
 			reconnectOrReassigned = preState.status != postState.status || preState.trackerPosition != postState.trackerPosition,
+			qualityConfig = qualityConfig,
 		)
 		val axisMask = when (kind) {
 			ResetKind.YAW -> AXIS_MASK_YAW
@@ -245,11 +259,10 @@ object ResetLabelCalculator {
 	fun isFiniteQuaternion(q: Quaternion): Boolean =
 		q.w.isFinite() && q.x.isFinite() && q.y.isFinite() && q.z.isFinite()
 
-	private const val MAX_REFERENCE_AGE_NS = 250_000_000L
-
 	fun isValidHmdReference(
 		before: TrackerResetStateSnapshot?,
 		after: TrackerResetStateSnapshot?,
+		qualityConfig: ResetLabelQualityConfig = ResetLabelQualityConfig(),
 	): Boolean = before != null &&
 		after != null &&
 		before.status == TrackerStatus.OK &&
@@ -258,8 +271,8 @@ object ResetLabelCalculator {
 		isFiniteQuaternion(after.calibratedPreAiOrientation) &&
 		before.calibratedPreAiOrientation.lenSq() in 0.98f..1.02f &&
 		after.calibratedPreAiOrientation.lenSq() in 0.98f..1.02f &&
-		before.sampleAgeNs <= MAX_REFERENCE_AGE_NS &&
-		after.sampleAgeNs <= MAX_REFERENCE_AGE_NS
+		before.sampleAgeNs <= qualityConfig.maxHmdSampleAgeNs &&
+		after.sampleAgeNs <= qualityConfig.maxHmdSampleAgeNs
 
 	fun computeQualityFlags(
 		hmdValid: Boolean,
@@ -271,20 +284,19 @@ object ResetLabelCalculator {
 		reconnectOrReassigned: Boolean = false,
 		insufficientContext: Boolean = false,
 		truncatedWindow: Boolean = false,
-		motionThresholdLinear: Float = 2.5f,
-		motionThresholdAngular: Float = 1.0f,
+		qualityConfig: ResetLabelQualityConfig = ResetLabelQualityConfig(),
 	): Int {
 		var flags = FLAG_OK
 		if (!hmdValid) {
 			flags = flags or FLAG_INVALID_OR_STALE_HMD
 		}
-		if (!isFiniteQuaternion(preState.rawOrientation) ||
-			!isFiniteQuaternion(postState.rawOrientation) ||
-			!isFiniteQuaternion(preState.calibratedPreAiOrientation) ||
-			!isFiniteQuaternion(postState.calibratedPreAiOrientation) ||
-			!isFiniteQuaternion(preState.adjustedOrientation) ||
-			!isFiniteQuaternion(postState.adjustedOrientation) ||
-			!isFiniteQuaternion(targetQuat)
+		if (!isValidUnitQuaternion(preState.rawOrientation) ||
+			!isValidUnitQuaternion(postState.rawOrientation) ||
+			!isValidUnitQuaternion(preState.calibratedPreAiOrientation) ||
+			!isValidUnitQuaternion(postState.calibratedPreAiOrientation) ||
+			!isValidUnitQuaternion(preState.adjustedOrientation) ||
+			!isValidUnitQuaternion(postState.adjustedOrientation) ||
+			!isValidUnitQuaternion(targetQuat)
 			|| preState.rawOrientationValidity != ResetChannelValidity.VALID
 			|| postState.rawOrientationValidity != ResetChannelValidity.VALID
 			|| preState.calibratedPreAiValidity != ResetChannelValidity.VALID
@@ -296,7 +308,7 @@ object ResetLabelCalculator {
 		}
 		val accelMag = maxOf(preState.acceleration.len(), postState.acceleration.len())
 		val angMag = maxOf(preState.angularVelocity.len(), postState.angularVelocity.len())
-		if (accelMag > motionThresholdLinear || angMag > motionThresholdAngular) {
+		if (accelMag > qualityConfig.maxLinearAcceleration || angMag > qualityConfig.maxAngularVelocity) {
 			flags = flags or FLAG_EXCESS_MOTION
 		}
 		if (packetGap) {
@@ -316,6 +328,8 @@ object ResetLabelCalculator {
 		}
 		return flags
 	}
+
+	private fun isValidUnitQuaternion(q: Quaternion): Boolean = isFiniteQuaternion(q) && q.lenSq() in 0.98f..1.02f
 }
 
 object ResetSupervisionPolicy {

@@ -80,28 +80,28 @@
 - [x] 10.1 Serialize raw, calibrated pre-AI, and adjusted orientations plus adjustment-chain state and per-channel validity immediately before/after every affected physical IMU reset.
 - [x] 10.2 Derive and test the canonical target as `normalize(q_post_adjusted * inverse(q_pre_adjusted))`; retain pre-AI values as observations but never substitute them for the declared adjusted target.
 - [x] 10.3 Preserve exactly one correlated REQUESTED terminal-outcome lifecycle and every successful per-tracker label across recorder backlog, including cancelled and failed delayed resets.
-- [ ] 10.4 Move HMD age and motion thresholds into explicit labeler/recorder configuration and deterministically evaluate stale reference, motion, packet-gap, reconnect/reassignment, invalid quaternion, overlap, and truncation over the resolved context window.
-- [ ] 10.5 Validate event-index/request-ID relationships, reset domain/axis masks, before/after epochs, tracker roster membership, and that pre/post frame ranges are ordered and resolve to available frames or carry an explicit truncation flag.
-- [ ] 10.6 Add non-commuting adjusted-transform, full/yaw/mounting, partial/multi-tracker, delayed cancel/failure, overflow, reconnect/reassignment, packet-gap, overlap, truncated-window, and invalid-reference integration fixtures through the real reset publisher and recorder.
-- [ ] 10.7 Extend reset-history tests to full, yaw, and mounting operations and prove queued/in-flight results from every previous epoch cannot restore a stale AI correction.
-- [ ] 10.8 Re-audit original tasks 3.1–4.8 after these fixes and change their completion state only when direct tests demonstrate the exact task and specification semantics.
+- [x] 10.4 Move HMD age and motion thresholds into explicit labeler/recorder configuration and deterministically evaluate stale reference, motion, packet-gap, reconnect/reassignment, invalid quaternion, overlap, and truncation over the resolved context window.
+- [x] 10.5 Validate event-index/request-ID relationships, reset domain/axis masks, before/after epochs, tracker roster membership, and that pre/post frame ranges are ordered and resolve to available frames or carry an explicit truncation flag.
+- [x] 10.6 Add non-commuting adjusted-transform, full/yaw/mounting, partial/multi-tracker, delayed cancel/failure, overflow, reconnect/reassignment, packet-gap, overlap, truncated-window, and invalid-reference integration fixtures through the real reset publisher and recorder.
+- [x] 10.7 Extend reset-history tests to full, yaw, and mounting operations and prove queued/in-flight results from every previous epoch cannot restore a stale AI correction.
+- [x] 10.8 Re-audit original tasks 3.1–4.8 after these fixes and change their completion state only when direct tests demonstrate the exact task and specification semantics.
 
 ## 11. Repair Dataset RPC and GUI Lifecycle
 
-- [ ] 11.1 Route recorder state mutations through one server-owned command boundary, validate profile enum values strictly, and return typed errors for invalid arguments and state races.
-- [ ] 11.2 Give finalization an independently observable cancellation signal so a cancel request in `FINALIZING` interrupts or deterministically rolls back the in-flight operation instead of waiting behind it on the same executor.
-- [ ] 11.3 Move archive discovery, ZIP parsing, validation, and SHA-256 calculation off the RPC callback thread; bound concurrency and cache results using canonical file identity with explicit invalidation.
-- [ ] 11.4 Add race tests for stop/cancel, repeated commands, disconnect/reconnect, and multi-client broadcasts, including cancellation while finalization is blocked.
-- [ ] 11.5 Add generated-binding integration tests and a mounted recorder-widget test that drives start, live status, stop/finalize, cancel, inventory, validation, and path-free reveal/export authorization through real request/response state.
-- [ ] 11.6 Re-audit original tasks 5.1–5.7 and update their completion state only after the protocol thread remains responsive and the full rendered lifecycle has direct evidence.
+- [x] 11.1 Route recorder state mutations through one server-owned command boundary, validate profile enum values strictly, and return typed errors for invalid arguments and state races.
+- [x] 11.2 Give finalization an independently observable cancellation signal so a cancel request in `FINALIZING` interrupts or deterministically rolls back the in-flight operation instead of waiting behind it on the same executor.
+- [x] 11.3 Move archive discovery, ZIP parsing, validation, and SHA-256 calculation off the RPC callback thread; bound concurrency and cache results using canonical file identity with explicit invalidation.
+- [x] 11.4 Add race tests for stop/cancel, repeated commands, disconnect/reconnect, and multi-client broadcasts, including cancellation while finalization is blocked.
+- [x] 11.5 Add generated-binding integration tests and a mounted recorder-widget test that drives start, live status, stop/finalize, cancel, inventory, validation, and path-free reveal/export authorization through real request/response state.
+- [x] 11.6 Re-audit original tasks 5.1–5.7 and update their completion state only after the protocol thread remains responsive and the full rendered lifecycle has direct evidence.
 
 ## 12. Bind Dataset Readiness to Direct Evidence
 
-- [ ] 12.1 Replace the shared `:server:core:test` result assigned to six evidence IDs with distinct machine-readable checks that directly exercise schema, numerical, metadata, reset-label, crash-recovery, and memory-soak semantics.
-- [ ] 12.2 Version the readiness report to record verifier identity, exact build commit, dirty-tree policy, generation time, each command/result artifact hash, and each pilot archive SHA-256.
-- [ ] 12.3 Reject duplicate evidence IDs, unknown or mismatched build identities, disallowed dirty builds, expired reports, missing evidence artifacts, and artifact/pilot hash changes during runtime evaluation.
-- [ ] 12.4 Add negative tests proving a copied, hand-authored, stale, duplicated, or post-generation-mutated report cannot unlock a production collection profile.
-- [ ] 12.5 Generate and retain direct simulated-pilot evidence through both readers; keep the gate closed until the required physical real-pilot artifacts are supplied and hashed rather than marking their absence as implemented evidence.
+- [x] 12.1 Replace the shared `:server:core:test` result assigned to six evidence IDs with distinct machine-readable checks that directly exercise schema, numerical, metadata, reset-label, crash-recovery, and memory-soak semantics.
+- [x] 12.2 Version the readiness report to record verifier identity, exact build commit, dirty-tree policy, generation time, each command/result artifact hash, and each pilot archive SHA-256.
+- [x] 12.3 Reject duplicate evidence IDs, unknown or mismatched build identities, disallowed dirty builds, expired reports, missing evidence artifacts, and artifact/pilot hash changes during runtime evaluation.
+- [x] 12.4 Add negative tests proving a copied, hand-authored, stale, duplicated, or post-generation-mutated report cannot unlock a production collection profile.
+- [x] 12.5 Generate and retain direct simulated-pilot evidence through both readers; keep the gate closed until the required physical real-pilot artifacts are supplied and hashed rather than marking their absence as implemented evidence.
 - [ ] 12.6 Re-run the GUI/server readiness surfaces against accepted and rejected reports and prove server enforcement cannot be bypassed by forged renderer state.
 - [ ] 12.7 Re-audit original tasks 6.1–6.5 and update their completion state only from direct category checks and actual pilot artifacts.
 

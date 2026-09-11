@@ -21,6 +21,14 @@ import kotlin.test.assertTrue
 
 class DatasetArchiveValidatorTests {
 	@Test
+	fun `reset relationship mutation archives are rejected`(@TempDir root: Path) {
+		DatasetConformanceFixture.writeResetRelationMutations(root).forEach { archive ->
+			val report = DatasetArchiveValidator().validate(archive)
+			assertFalse(report.valid, "${archive.fileName} must fail reset relationship validation: ${report.findings}")
+		}
+	}
+
+	@Test
 	fun `minimum standard and full profiles validate without fabricated optional samples`(@TempDir root: Path) {
 		CollectionProfile.entries.forEach { profile ->
 			val archive = DatasetConformanceFixture.writeArchive(root, "${profile.name}.nvrdata", profile)

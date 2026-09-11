@@ -7,6 +7,7 @@ import dev.slimevr.autobone.errors.BodyProportionError
 import dev.slimevr.config.ConfigManager
 import dev.slimevr.reset.NoopResetEventPublisher
 import dev.slimevr.reset.ResetKind
+import dev.slimevr.reset.ResetLabelQualityConfig
 import dev.slimevr.reset.ResetOutcome
 import dev.slimevr.reset.ResetEventPublisher
 import dev.slimevr.reset.ResetRequest
@@ -36,6 +37,7 @@ import kotlin.math.*
 class HumanPoseManager(
 	val server: VRServer?,
 	var resetEventPublisher: ResetEventPublisher = NoopResetEventPublisher,
+	val resetLabelQualityConfig: ResetLabelQualityConfig = ResetLabelQualityConfig(),
 ) {
 	val computedTrackers: MutableList<Tracker> = FastList()
 	private val onSkeletonUpdated: MutableList<Consumer<HumanSkeleton>> = FastList()
@@ -71,7 +73,8 @@ class HumanPoseManager(
 	constructor(
 		trackers: List<Tracker>?,
 		resetEventPublisher: ResetEventPublisher = NoopResetEventPublisher,
-	) : this(server = null, resetEventPublisher = resetEventPublisher) {
+		resetLabelQualityConfig: ResetLabelQualityConfig = ResetLabelQualityConfig(),
+	) : this(server = null, resetEventPublisher = resetEventPublisher, resetLabelQualityConfig = resetLabelQualityConfig) {
 		skeleton = HumanSkeleton(this, trackers)
 		// Set default node offsets on the new skeleton
 		skeletonConfigManager.computeAllNodeOffsets()

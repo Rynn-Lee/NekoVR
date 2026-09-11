@@ -5,12 +5,20 @@ import dev.slimevr.dataset.CollectionProfile
 import dev.slimevr.dataset.DatasetArchiveValidator
 import dev.slimevr.dataset.DatasetManifest
 import dev.slimevr.dataset.DatasetPrivacy
+import dev.slimevr.dataset.DatasetReadyBuild
+import dev.slimevr.dataset.DatasetReadyEvidence
+import dev.slimevr.dataset.DatasetReadyPilotEvidence
+import dev.slimevr.dataset.DatasetReadyReport
+import dev.slimevr.dataset.DatasetReadyReportStore
+import dev.slimevr.dataset.DatasetReadyRuntimeIdentity
+import dev.slimevr.dataset.DatasetReadyVerifier
 import dev.slimevr.dataset.DatasetRecordingService
-import dev.slimevr.dataset.DatasetReadyStatus
 import dev.slimevr.dataset.FindingSeverity
 import dev.slimevr.dataset.RecordingRequest
 import dev.slimevr.dataset.RecordingState
 import dev.slimevr.dataset.SessionPrivacyOptions
+import dev.slimevr.dataset.PilotSource
+import dev.slimevr.dataset.REQUIRED_DATASET_READY_EVIDENCE
 import dev.slimevr.protocol.ConnectionContext
 import dev.slimevr.protocol.GenericConnection
 import dev.slimevr.protocol.rpc.dataset.RPCDatasetHandler
@@ -27,19 +35,97 @@ import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import solarxr_protocol.MessageBundle
 import solarxr_protocol.datatypes.TransactionId
 import solarxr_protocol.rpc.*
 import java.nio.ByteBuffer
 import java.nio.file.Path
+import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.time.Instant
 import java.util.UUID
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executor
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
-import kotlin.io.path.writeText
 import kotlin.io.path.writeBytes
+import kotlin.io.path.writeText
 
 class DatasetRPCHandlerTests {
+	private data class ReadyReportFixture(
+		val reportPath: Path,
+		val runtime: DatasetReadyRuntimeIdentity,
+		val mutableEvidence: Path,
+	)
+
+	private fun writeReadyReportFixture(root: Path): ReadyReportFixture {
+		root.createDirectories()
+		fun hash(bytes: ByteArray): String = MessageDigest.getInstance("SHA-256")
+			.digest(bytes).joinToString("") { "%02x".format(it) }
+		fun artifact(name: String): Pair<Path, String> {
+			val path = root.resolve(name)
+			path.writeText("direct test evidence: $name")
+			return path.toRealPath() to DatasetReadyReportStore.sha256(path)
+		}
+
+		val result = artifact("direct-result.json")
+		val serverResult = artifact("server-pilots.json")
+		val pythonResult = artifact("python-pilots.json")
+		val simulated = artifact("simulated.nvrdata")
+		val real = artifact("real-test-fixture.nvrdata")
+		val reportPath = root.resolve("dataset-ready-report.json")
+		reportPath.writeText("pending")
+		val commit = "0123456789abcdef0123456789abcdef01234567"
+		val generated = Instant.now()
+		val evidence = REQUIRED_DATASET_READY_EVIDENCE.map { id ->
+			val command = "verify-$id"
+			DatasetReadyEvidence(
+				id = id,
+				passed = true,
+				commands = listOf(command),
+				commandSha256 = listOf(hash(command.toByteArray(StandardCharsets.UTF_8))),
+				resultArtifact = result.first.toString(),
+				resultSha256 = result.second,
+			)
+		}
+		fun pilot(source: PilotSource, archive: Pair<Path, String>, rosterSize: Int, transports: Set<String>) =
+			DatasetReadyPilotEvidence(
+				source = source,
+				archive = archive.first.toString(),
+				archiveSha256 = archive.second,
+				serverResultArtifact = serverResult.first.toString(),
+				serverResultSha256 = serverResult.second,
+				pythonResultArtifact = pythonResult.first.toString(),
+				pythonResultSha256 = pythonResult.second,
+				serverValid = true,
+				pythonValid = true,
+				statisticsMatch = true,
+				provenanceValid = true,
+				rosterSize = rosterSize,
+				transports = transports,
+			)
+		val report = DatasetReadyReport(
+			verifier = DatasetReadyVerifier("nekovr-dataset-ready", "2"),
+			reportPath = reportPath.toRealPath().toString(),
+			generatedUtc = generated.toString(),
+			expiresUtc = generated.plusSeconds(3_600).toString(),
+			build = DatasetReadyBuild(commit, false, "REQUIRE_CLEAN"),
+			ready = true,
+			evidence = evidence,
+			pilots = listOf(
+				pilot(PilotSource.SIMULATED, simulated, 5, setOf("UDP")),
+				pilot(PilotSource.REAL, real, 8, setOf("HID", "NRF")),
+			),
+		)
+		reportPath.writeText(Json.encodeToString(report))
+		return ReadyReportFixture(reportPath, DatasetReadyRuntimeIdentity(commit, false), result.first)
+	}
+
 	private fun waitUntil(timeoutMs: Long = 5_000, condition: () -> Boolean) {
 		val deadline = System.nanoTime() + timeoutMs * 1_000_000
 		while (!condition() && System.nanoTime() < deadline) Thread.sleep(10)
@@ -49,7 +135,7 @@ class DatasetRPCHandlerTests {
 	private class TestConnection : GenericConnection {
 		override val connectionId: UUID = UUID.randomUUID()
 		override val context: ConnectionContext = ConnectionContext()
-		val responses = mutableListOf<ByteBuffer>()
+		val responses = CopyOnWriteArrayList<ByteBuffer>()
 
 		override fun send(bytes: ByteBuffer) {
 			val copy = ByteBuffer.allocate(bytes.remaining())
@@ -109,6 +195,211 @@ class DatasetRPCHandlerTests {
 		val headerOffset = RpcMessageHeader.endRpcMessageHeader(fbb)
 		fbb.finish(headerOffset)
 		return RpcMessageHeader.getRootAsRpcMessageHeader(fbb.dataBuffer())
+	}
+
+	@Test
+	fun `profile validation is strict and recorder mutation waits for command boundary`(@TempDir tempDir: Path) {
+		val recorder = DatasetRecordingService(datasetsRoot = tempDir)
+		val trackers = listOf(createHeadTracker(), createImuTracker(1, TrackerPosition.WAIST))
+		val commands = ArrayDeque<Runnable>()
+		val handler = RPCDatasetHandler(
+			datasetRecorder = recorder,
+			trackerProvider = { trackers },
+			taskQueue = { commands.addLast(it) },
+		)
+
+		val invalidConnection = TestConnection()
+		val invalidBuilder = FlatBufferBuilder(64)
+		val invalidRequest = StartDatasetRecordingRequest.createStartDatasetRecordingRequest(
+			invalidBuilder,
+			0,
+			99,
+			true,
+			0,
+			true,
+		)
+		handler.onStartDatasetRecordingRequest(invalidConnection, createHeader(invalidBuilder, RpcMessage.StartDatasetRecordingRequest, invalidRequest))
+		val invalidResponse = invalidConnection.lastRpcHeader().message(DatasetRecordingStatusResponse()) as DatasetRecordingStatusResponse
+		assertEquals(DatasetErrorCode.INVALID_ARGUMENT, invalidResponse.errorCode())
+		assertTrue(commands.isEmpty())
+
+		val connection = TestConnection()
+		val builder = FlatBufferBuilder(64)
+		val request = StartDatasetRecordingRequest.createStartDatasetRecordingRequest(builder, 0, 0, true, 0, true)
+		handler.onStartDatasetRecordingRequest(connection, createHeader(builder, RpcMessage.StartDatasetRecordingRequest, request))
+		assertEquals(RecordingState.IDLE, recorder.status().state)
+		assertTrue(connection.responses.isEmpty())
+		commands.removeFirst().run()
+		assertEquals(RecordingState.RECORDING, recorder.status().state)
+		assertEquals(DatasetErrorCode.OK, (connection.lastRpcHeader().message(DatasetRecordingStatusResponse()) as DatasetRecordingStatusResponse).errorCode())
+		recorder.cancelRecording()
+	}
+
+	@Test
+	fun `cancel reaches finalization while its worker executor is occupied`(@TempDir tempDir: Path) {
+		val recorder = DatasetRecordingService(datasetsRoot = tempDir, queueCapacity = 4, batchSize = 1, writerDelayMillis = 5_000)
+		val trackers = listOf(createHeadTracker(), createImuTracker(1, TrackerPosition.WAIST))
+		val workerJobs = ArrayDeque<Runnable>()
+		val handler = RPCDatasetHandler(
+			datasetRecorder = recorder,
+			trackerProvider = { trackers },
+			taskQueue = { it.run() },
+			workerExecutor = Executor { workerJobs.addLast(it) },
+		)
+		val connection = TestConnection()
+		val startBuilder = FlatBufferBuilder(64)
+		val startRequest = StartDatasetRecordingRequest.createStartDatasetRecordingRequest(startBuilder, 0, 0, true, 0, true)
+		handler.onStartDatasetRecordingRequest(connection, createHeader(startBuilder, RpcMessage.StartDatasetRecordingRequest, startRequest))
+		val sessionId = recorder.status().sessionId!!
+		recorder.sampleIfDue(trackers)
+
+		val stopBuilder = FlatBufferBuilder(64)
+		val stopRequest = StopDatasetRecordingRequest.createStopDatasetRecordingRequest(stopBuilder, 30, stopBuilder.createString(sessionId))
+		handler.onStopDatasetRecordingRequest(connection, createHeader(stopBuilder, RpcMessage.StopDatasetRecordingRequest, stopRequest))
+		assertEquals(RecordingState.FINALIZING, recorder.status().state)
+		assertEquals(1, workerJobs.size)
+
+		val cancelBuilder = FlatBufferBuilder(64)
+		val cancelRequest = CancelDatasetRecordingRequest.createCancelDatasetRecordingRequest(cancelBuilder, cancelBuilder.createString(sessionId))
+		handler.onCancelDatasetRecordingRequest(connection, createHeader(cancelBuilder, RpcMessage.CancelDatasetRecordingRequest, cancelRequest))
+		assertEquals(RecordingState.CANCELLED, recorder.status().state)
+		assertEquals(DatasetErrorCode.CANCELLED, (connection.lastRpcHeader().message(DatasetRecordingStatusResponse()) as DatasetRecordingStatusResponse).errorCode())
+		assertEquals(2, workerJobs.size, "cleanup may queue behind finalization, but the cancellation signal must not")
+		recorder.finishCancellation()
+	}
+
+	@Test
+	fun `stop cancel and repeated commands have one deterministic terminal result while finalization runs`(@TempDir tempDir: Path) {
+		val recorder = DatasetRecordingService(
+			datasetsRoot = tempDir,
+			queueCapacity = 4,
+			batchSize = 1,
+			writerDelayMillis = 5_000,
+		)
+		val trackers = listOf(createHeadTracker(), createImuTracker(1, TrackerPosition.WAIST))
+		val finalizationExecutor = Executors.newSingleThreadExecutor()
+		val finalizationStarted = CountDownLatch(1)
+		try {
+			val handler = RPCDatasetHandler(
+				datasetRecorder = recorder,
+				trackerProvider = { trackers },
+				taskQueue = { it.run() },
+				workerExecutor = Executor { operation ->
+					finalizationExecutor.execute {
+						finalizationStarted.countDown()
+						operation.run()
+					}
+				},
+			)
+			val firstClient = TestConnection()
+			val secondClient = TestConnection()
+
+			val startBuilder = FlatBufferBuilder(64)
+			val startRequest = StartDatasetRecordingRequest.createStartDatasetRecordingRequest(
+				startBuilder,
+				0,
+				0,
+				true,
+				0,
+				true,
+			)
+			handler.onStartDatasetRecordingRequest(
+				firstClient,
+				createHeader(startBuilder, RpcMessage.StartDatasetRecordingRequest, startRequest, 1L),
+			)
+			val sessionId = recorder.status().sessionId!!
+			recorder.sampleIfDue(trackers)
+
+			val stopBuilder = FlatBufferBuilder(64)
+			val stopRequest = StopDatasetRecordingRequest.createStopDatasetRecordingRequest(
+				stopBuilder,
+				30,
+				stopBuilder.createString(sessionId),
+			)
+			handler.onStopDatasetRecordingRequest(
+				firstClient,
+				createHeader(stopBuilder, RpcMessage.StopDatasetRecordingRequest, stopRequest, 2L),
+			)
+			assertEquals(RecordingState.FINALIZING, recorder.status().state)
+			assertTrue(finalizationStarted.await(5, TimeUnit.SECONDS), "Finalization worker did not start")
+
+			val repeatedStopBuilder = FlatBufferBuilder(64)
+			val repeatedStop = StopDatasetRecordingRequest.createStopDatasetRecordingRequest(
+				repeatedStopBuilder,
+				30,
+				repeatedStopBuilder.createString(sessionId),
+			)
+			handler.onStopDatasetRecordingRequest(
+				secondClient,
+				createHeader(repeatedStopBuilder, RpcMessage.StopDatasetRecordingRequest, repeatedStop, 3L),
+			)
+			val repeatedStopResponse = secondClient.lastRpcHeader()
+				.message(DatasetRecordingStatusResponse()) as DatasetRecordingStatusResponse
+			assertEquals(DatasetErrorCode.NOT_RECORDING, repeatedStopResponse.errorCode())
+			assertEquals(RecordingState.FINALIZING, recorder.status().state)
+
+			val cancelBuilder = FlatBufferBuilder(64)
+			val cancelRequest = CancelDatasetRecordingRequest.createCancelDatasetRecordingRequest(
+				cancelBuilder,
+				cancelBuilder.createString(sessionId),
+			)
+			handler.onCancelDatasetRecordingRequest(
+				secondClient,
+				createHeader(cancelBuilder, RpcMessage.CancelDatasetRecordingRequest, cancelRequest, 4L),
+			)
+			assertEquals(RecordingState.CANCELLED, recorder.status().state)
+			val cancelResponse = secondClient.lastRpcHeader()
+				.message(DatasetRecordingStatusResponse()) as DatasetRecordingStatusResponse
+			assertEquals(DatasetErrorCode.CANCELLED, cancelResponse.errorCode())
+
+			val repeatedCancelBuilder = FlatBufferBuilder(64)
+			val repeatedCancel = CancelDatasetRecordingRequest.createCancelDatasetRecordingRequest(
+				repeatedCancelBuilder,
+				repeatedCancelBuilder.createString(sessionId),
+			)
+			handler.onCancelDatasetRecordingRequest(
+				firstClient,
+				createHeader(repeatedCancelBuilder, RpcMessage.CancelDatasetRecordingRequest, repeatedCancel, 5L),
+			)
+			val repeatedCancelResponse = firstClient.lastRpcHeader()
+				.message(DatasetRecordingStatusResponse()) as DatasetRecordingStatusResponse
+			assertEquals(DatasetErrorCode.NOT_RECORDING, repeatedCancelResponse.errorCode())
+
+			assertTrue(finalizationExecutor.shutdownNow().isNotEmpty() || finalizationExecutor.awaitTermination(5, TimeUnit.SECONDS))
+			recorder.finishCancellation()
+			assertFalse(tempDir.resolve("$sessionId.nvrdata").exists())
+		} finally {
+			finalizationExecutor.shutdownNow()
+			recorder.close()
+		}
+	}
+
+	@Test
+	fun `inventory work is asynchronous cached and explicitly invalidatable`(@TempDir tempDir: Path) {
+		val recorder = DatasetRecordingService(datasetsRoot = tempDir)
+		val trackers = listOf(createHeadTracker(), createImuTracker(1, TrackerPosition.WAIST))
+		recorder.startRecording(RecordingRequest(privacy = SessionPrivacyOptions(consent = true), minFreeSpaceBytes = 0), trackers)
+		recorder.stopAndFinalize(10)
+		val inventoryJobs = ArrayDeque<Runnable>()
+		val handler = RPCDatasetHandler(datasetRecorder = recorder, inventoryExecutor = Executor { inventoryJobs.addLast(it) })
+		val connection = TestConnection()
+		fun requestList() {
+			val builder = FlatBufferBuilder(32)
+			DatasetListRequest.startDatasetListRequest(builder)
+			val request = DatasetListRequest.endDatasetListRequest(builder)
+			handler.onDatasetListRequest(connection, createHeader(builder, RpcMessage.DatasetListRequest, request))
+		}
+
+		requestList()
+		assertTrue(connection.responses.isEmpty())
+		inventoryJobs.removeFirst().run()
+		assertEquals(1, handler.archiveCacheSize)
+		assertEquals(1, (connection.lastRpcHeader().message(DatasetListResponse()) as DatasetListResponse).sessionsLength())
+		requestList()
+		inventoryJobs.removeFirst().run()
+		assertEquals(1, handler.archiveCacheSize)
+		handler.invalidateArchiveCache()
+		assertEquals(0, handler.archiveCacheSize)
 	}
 
 	@Test
@@ -179,13 +470,20 @@ class DatasetRPCHandlerTests {
 
 	@Test
 	fun testHigherFidelityProfilesRemainLocked(@TempDir tempDir: Path) {
-		val recorder = DatasetRecordingService(datasetsRoot = tempDir)
+		val fixture = writeReadyReportFixture(tempDir.resolve("report"))
+		fixture.mutableEvidence.writeText("changed after report generation")
+		val recorder = DatasetRecordingService(datasetsRoot = tempDir.resolve("datasets"))
 		val trackers = listOf(createHeadTracker(), createImuTracker(1, TrackerPosition.WAIST))
 		val handler = RPCDatasetHandler(
 			datasetRecorder = recorder,
 			trackerProvider = { trackers },
+			datasetReadyStatusProvider = {
+				DatasetReadyReportStore.load(fixture.reportPath, fixture.runtime)
+			},
 			taskQueue = { it.run() },
 		)
+		val readiness = handler.getReadinessFindings().single { it.code == "DATASET_READY_GATE_PENDING" }
+		assertTrue(readiness.message.contains("artifact bytes changed"))
 		val conn = TestConnection()
 		val fbb = FlatBufferBuilder(64)
 		val startReq = StartDatasetRecordingRequest.createStartDatasetRecordingRequest(
@@ -211,12 +509,15 @@ class DatasetRPCHandlerTests {
 
 	@Test
 	fun testProductionProfileStartsOnlyAfterDatasetReadyGatePasses(@TempDir tempDir: Path) {
-		val recorder = DatasetRecordingService(datasetsRoot = tempDir)
+		val fixture = writeReadyReportFixture(tempDir.resolve("report"))
+		val recorder = DatasetRecordingService(datasetsRoot = tempDir.resolve("datasets"))
 		val trackers = listOf(createHeadTracker(), createImuTracker(1, TrackerPosition.WAIST))
 		val handler = RPCDatasetHandler(
 			datasetRecorder = recorder,
 			trackerProvider = { trackers },
-			datasetReadyStatusProvider = { DatasetReadyStatus(true, "dataset-ready test evidence") },
+			datasetReadyStatusProvider = {
+				DatasetReadyReportStore.load(fixture.reportPath, fixture.runtime)
+			},
 			taskQueue = { it.run() },
 		)
 		assertTrue(handler.getReadinessFindings().any { it.code == "DATASET_READY" })
@@ -418,6 +719,7 @@ class DatasetRPCHandlerTests {
 		DatasetListRequest.startDatasetListRequest(fbbList)
 		val listReq = DatasetListRequest.endDatasetListRequest(fbbList)
 		handler.onDatasetListRequest(conn, createHeader(fbbList, RpcMessage.DatasetListRequest, listReq))
+		waitUntil { conn.responses.size >= 1 }
 
 		val listHeader = conn.lastRpcHeader()
 		assertEquals(RpcMessage.DatasetListResponse, listHeader.messageType())
@@ -431,6 +733,7 @@ class DatasetRPCHandlerTests {
 		val fbbVal = FlatBufferBuilder(64)
 		val valReq = DatasetValidateRequest.createDatasetValidateRequest(fbbVal, fbbVal.createString(sId))
 		handler.onDatasetValidateRequest(conn, createHeader(fbbVal, RpcMessage.DatasetValidateRequest, valReq))
+		waitUntil { conn.responses.size >= 2 }
 
 		val valHeader = conn.lastRpcHeader()
 		assertEquals(RpcMessage.DatasetValidateResponse, valHeader.messageType())
@@ -527,6 +830,7 @@ class DatasetRPCHandlerTests {
 		DatasetListRequest.startDatasetListRequest(fbbList)
 		val listReq = DatasetListRequest.endDatasetListRequest(fbbList)
 		handler.onDatasetListRequest(conn, createHeader(fbbList, RpcMessage.DatasetListRequest, listReq))
+		waitUntil { conn.responses.isNotEmpty() }
 		val listResp = conn.lastRpcHeader().message(DatasetListResponse()) as DatasetListResponse
 		assertEquals(1, listResp.recoverableLength())
 		val recInfo = listResp.recoverable(0)!!
@@ -669,6 +973,124 @@ class DatasetRPCHandlerTests {
 	}
 
 	@Test
+	fun `generated bindings drive cancel finalize inventory validation and path free desktop authorization`(@TempDir tempDir: Path) {
+		val recorder = DatasetRecordingService(datasetsRoot = tempDir)
+		val trackers = listOf(createHeadTracker(), createImuTracker(1, TrackerPosition.WAIST))
+		val handler = RPCDatasetHandler(
+			datasetRecorder = recorder,
+			trackerProvider = { trackers },
+			taskQueue = { it.run() },
+			workerExecutor = Executor { it.run() },
+			inventoryExecutor = Executor { it.run() },
+		)
+		val connection = TestConnection()
+
+		fun start(transactionId: Long): String {
+			val builder = FlatBufferBuilder(128)
+			val request = StartDatasetRecordingRequest.createStartDatasetRecordingRequest(
+				builder,
+				builder.createString("binding-lifecycle"),
+				0,
+				true,
+				builder.createString("mounted-widget"),
+				true,
+			)
+			handler.onStartDatasetRecordingRequest(
+				connection,
+				createHeader(builder, RpcMessage.StartDatasetRecordingRequest, request, transactionId),
+			)
+			val responseHeader = connection.lastRpcHeader()
+			val response = responseHeader.message(DatasetRecordingStatusResponse()) as DatasetRecordingStatusResponse
+			assertEquals(transactionId, responseHeader.txId()!!.id())
+			assertEquals(DatasetErrorCode.OK, response.errorCode())
+			assertEquals(DatasetRecordingState.RECORDING, response.state())
+			return response.sessionId()!!
+		}
+
+		val cancelledSession = start(101L)
+		val cancelBuilder = FlatBufferBuilder(64)
+		val cancelRequest = CancelDatasetRecordingRequest.createCancelDatasetRecordingRequest(
+			cancelBuilder,
+			cancelBuilder.createString(cancelledSession),
+		)
+		handler.onCancelDatasetRecordingRequest(
+			connection,
+			createHeader(cancelBuilder, RpcMessage.CancelDatasetRecordingRequest, cancelRequest, 102L),
+		)
+		val cancelResponse = connection.lastRpcHeader().message(DatasetRecordingStatusResponse()) as DatasetRecordingStatusResponse
+		assertEquals(DatasetRecordingState.CANCELLED, cancelResponse.state())
+		assertEquals(DatasetErrorCode.CANCELLED, cancelResponse.errorCode())
+		assertFalse(tempDir.resolve("$cancelledSession.nvrdata").exists())
+
+		val completedSession = start(201L)
+		recorder.sampleIfDue(trackers)
+		val stopBuilder = FlatBufferBuilder(64)
+		val stopRequest = StopDatasetRecordingRequest.createStopDatasetRecordingRequest(
+			stopBuilder,
+			30,
+			stopBuilder.createString(completedSession),
+		)
+		handler.onStopDatasetRecordingRequest(
+			connection,
+			createHeader(stopBuilder, RpcMessage.StopDatasetRecordingRequest, stopRequest, 202L),
+		)
+		assertEquals(RecordingState.COMPLETED, recorder.status().state)
+		assertTrue(tempDir.resolve("$completedSession.nvrdata").exists())
+
+		val listBuilder = FlatBufferBuilder(32)
+		DatasetListRequest.startDatasetListRequest(listBuilder)
+		val listRequest = DatasetListRequest.endDatasetListRequest(listBuilder)
+		handler.onDatasetListRequest(
+			connection,
+			createHeader(listBuilder, RpcMessage.DatasetListRequest, listRequest, 203L),
+		)
+		val listResponse = connection.lastRpcHeader().message(DatasetListResponse()) as DatasetListResponse
+		assertEquals(1, listResponse.sessionsLength())
+		assertEquals(completedSession, listResponse.sessions(0)!!.sessionId())
+
+		val validateBuilder = FlatBufferBuilder(64)
+		val validateRequest = DatasetValidateRequest.createDatasetValidateRequest(
+			validateBuilder,
+			validateBuilder.createString(completedSession),
+		)
+		handler.onDatasetValidateRequest(
+			connection,
+			createHeader(validateBuilder, RpcMessage.DatasetValidateRequest, validateRequest, 204L),
+		)
+		val validateResponse = connection.lastRpcHeader().message(DatasetValidateResponse()) as DatasetValidateResponse
+		assertTrue(validateResponse.valid())
+
+		val revealBuilder = FlatBufferBuilder(64)
+		val revealRequest = DatasetRevealRequest.createDatasetRevealRequest(
+			revealBuilder,
+			revealBuilder.createString(completedSession),
+		)
+		handler.onDatasetRevealRequest(
+			connection,
+			createHeader(revealBuilder, RpcMessage.DatasetRevealRequest, revealRequest, 205L),
+		)
+		val revealResponse = connection.lastRpcHeader().message(DatasetActionResponse()) as DatasetActionResponse
+		assertTrue(revealResponse.success())
+		assertEquals(DatasetOperation.REVEAL, revealResponse.operation())
+		assertEquals("", revealResponse.path())
+
+		val exportBuilder = FlatBufferBuilder(64)
+		val exportRequest = DatasetExportRequest.createDatasetExportRequest(
+			exportBuilder,
+			exportBuilder.createString(completedSession),
+			0,
+		)
+		handler.onDatasetExportRequest(
+			connection,
+			createHeader(exportBuilder, RpcMessage.DatasetExportRequest, exportRequest, 206L),
+		)
+		val exportResponse = connection.lastRpcHeader().message(DatasetActionResponse()) as DatasetActionResponse
+		assertTrue(exportResponse.success())
+		assertEquals(DatasetOperation.EXPORT, exportResponse.operation())
+		assertEquals("", exportResponse.path())
+	}
+
+	@Test
 	fun testMultiClientAuthoritativeBroadcast(@TempDir tempDir: Path) {
 		val recorder = DatasetRecordingService(datasetsRoot = tempDir)
 		val head = createHeadTracker()
@@ -711,9 +1133,10 @@ class DatasetRPCHandlerTests {
 
 		// Client B should have received the stop broadcast!
 		waitUntil {
-			recorder.status().state == RecordingState.COMPLETED && runCatching {
-				(clientB.lastRpcHeader().message(DatasetRecordingStatusResponse()) as DatasetRecordingStatusResponse).state() == DatasetRecordingState.COMPLETED
-			}.getOrDefault(false)
+			recorder.status().state == RecordingState.COMPLETED &&
+				runCatching {
+					(clientB.lastRpcHeader().message(DatasetRecordingStatusResponse()) as DatasetRecordingStatusResponse).state() == DatasetRecordingState.COMPLETED
+				}.getOrDefault(false)
 		}
 		val stopBroadcastResp = clientB.lastRpcHeader().message(DatasetRecordingStatusResponse()) as DatasetRecordingStatusResponse
 		assertEquals(DatasetRecordingState.COMPLETED, stopBroadcastResp.state())

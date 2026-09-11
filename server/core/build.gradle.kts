@@ -11,6 +11,14 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 val onnxRuntimeVersion = "1.29.0"
 val onnxRuntimeFlavor = providers.gradleProperty("onnxRuntimeFlavor").orElse("cpu")
 val supportedOnnxRuntimeFlavors = setOf("cpu", "nvidia", "directml")
+val repositoryCommit = providers.exec {
+	workingDir(rootProject.projectDir)
+	commandLine("git", "rev-parse", "HEAD")
+}.standardOutput.asText.map { it.trim() }
+val repositoryDirty = providers.exec {
+	workingDir(rootProject.projectDir)
+	commandLine("git", "status", "--porcelain")
+}.standardOutput.asText.map { it.isNotBlank() }
 require(onnxRuntimeFlavor.get() in supportedOnnxRuntimeFlavors) {
 	"onnxRuntimeFlavor must be one of ${supportedOnnxRuntimeFlavors.sorted()}"
 }
@@ -119,9 +127,54 @@ tasks.test {
 	useJUnitPlatform()
 }
 
+val datasetReadyEvidenceTests = mapOf(
+	"Schema" to listOf(
+		"dev.slimevr.unit.DatasetArchiveValidatorTests",
+		"dev.slimevr.unit.DatasetConformanceFixtureTests",
+		"dev.slimevr.unit.DatasetTelemetryChecksumTests",
+	),
+	"Numerical" to listOf("dev.slimevr.unit.FP16BinaryPackerTests"),
+	"Metadata" to listOf(
+		"dev.slimevr.unit.DatasetRecordingServiceTests.testMixedWiFiAndHIDnRFOriginTrackers",
+		"dev.slimevr.unit.DatasetReplayTests",
+	),
+	"ResetLabel" to listOf(
+		"dev.slimevr.unit.ResetLabelBindingsTests",
+		"dev.slimevr.unit.ResetSupervisionTests",
+	),
+	"CrashRecovery" to listOf(
+		"dev.slimevr.unit.DatasetRecordingServiceTests.testForcedCrashAndStartupRecovery",
+		"dev.slimevr.unit.DatasetRecordingServiceTests.testRecoveryPreservesDurableManifestAndProducesValidArchive",
+	),
+	"MemorySoak" to listOf(
+		"dev.slimevr.unit.DatasetRecordingServiceTests.testLongSoakRecordingMemoryAndWatermark",
+	),
+)
+
+datasetReadyEvidenceTests.forEach { (category, testPatterns) ->
+	tasks.register<Test>("datasetReady${category}Evidence") {
+		group = "verification"
+		description = "Runs the direct ${category.lowercase()} dataset-readiness check"
+		testClassesDirs = sourceSets.test.get().output.classesDirs
+		classpath = sourceSets.test.get().runtimeClasspath
+		useJUnitPlatform()
+		filter {
+			testPatterns.forEach(::includeTestsMatching)
+			isFailOnNoMatchingTests = true
+		}
+		reports.junitXml.outputLocation.set(layout.buildDirectory.dir("test-results/dataset-ready/${category.lowercase()}"))
+		reports.html.outputLocation.set(layout.buildDirectory.dir("reports/tests/dataset-ready/${category.lowercase()}"))
+	}
+}
+
 tasks.processResources {
 	inputs.property("onnxRuntimeFlavor", onnxRuntimeFlavor)
 	inputs.property("onnxRuntimeVersion", onnxRuntimeVersion)
+	inputs.property("repositoryCommit", repositoryCommit)
+	inputs.property("repositoryDirty", repositoryDirty)
+	filesMatching("dev/slimevr/dataset/build-identity.properties") {
+		expand("commit" to repositoryCommit.get(), "dirty" to repositoryDirty.get())
+	}
 	filesMatching("dev/slimevr/ai/onnx-runtime.properties") {
 		expand("flavor" to onnxRuntimeFlavor.get(), "version" to onnxRuntimeVersion)
 	}
@@ -196,7 +249,8 @@ tasks.register<JavaExec>("aiInferenceBenchmark") {
 	doFirst {
 		val benchmarkArgs = mutableListOf(
 			"--provider", providers.gradleProperty("aiBenchmarkProvider").orElse("CPU").get(),
-			"--output", providers.gradleProperty("aiBenchmarkOutput")
+			"--output",
+			providers.gradleProperty("aiBenchmarkOutput")
 				.orElse(layout.buildDirectory.file("reports/ai-inference/benchmark.json").map { it.asFile.path }).get(),
 			"--iterations", providers.gradleProperty("aiBenchmarkIterations").orElse("500").get(),
 			"--warmup", providers.gradleProperty("aiBenchmarkWarmup").orElse("30").get(),

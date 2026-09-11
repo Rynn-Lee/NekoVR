@@ -109,7 +109,7 @@ class DatasetArchiveValidator {
 		val trackerIds = manifest?.trackers?.mapTo(hashSetOf()) { it.sessionTrackerId }.orEmpty()
 		val invalidWindowMask = FLAG_INSUFFICIENT_CONTEXT or FLAG_WINDOW_TRUNCATED
 		val validWindows = labels.filter { label ->
-			label.sessionTrackerId in trackerIds && label.preStartFrame in 0..lastFrameIndex && label.preEndFrame in label.preStartFrame..lastFrameIndex && label.postStartFrame in 0..lastFrameIndex && label.postEndFrame in label.postStartFrame..lastFrameIndex && (label.qualityFlags and invalidWindowMask) == 0 && label.trainingPolicy != "EXCLUDE"
+			label.sessionTrackerId in trackerIds && label.preStartFrame >= 0L && label.preStartFrame <= label.preEndFrame && label.preEndFrame <= label.postStartFrame && label.postStartFrame <= label.postEndFrame && label.postEndFrame <= lastFrameIndex + 1L && (label.qualityFlags and invalidWindowMask) == 0 && label.trainingPolicy != "EXCLUDE"
 		}.map { label -> ResetWindowSummary(label.eventIndex, label.sessionTrackerId, label.preStartFrame, label.preEndFrame, label.postStartFrame, label.postEndFrame, label.qualityFlags, label.trainingPolicy) }
 		return DatasetValidationReport(path.toString(), manifest?.schemaMajor, manifest?.schemaMinor, frames, resetLabels, findings, manifest?.trackers?.size ?: 0, manifest?.channelIds.orEmpty(), manifest?.quality, validWindows, manifest?.trackers?.mapTo(linkedSetOf()) { it.transport }.orEmpty())
 	}
@@ -207,22 +207,55 @@ class DatasetArchiveValidator {
 		val missingContext = TelemetryChannelRegistry.requiredContext(header.profile) - producedContext
 		if (missingContext.isNotEmpty()) findings += fatal("REQUIRED_CONTEXT_MISSING", "Required session context was never produced: ${missingContext.sorted()}")
 
-		val resetEvents = events.filter { it.requestId != null && it.resetOutcome != null }
-		if (resetEvents.map { it.eventIndex }.any { it <= 0L } || resetEvents.map { it.eventIndex }.size != resetEvents.map { it.eventIndex }.toSet().size) {
+		val resetEvents = events.filter { it.requestId != null || it.resetOutcome != null }
+		if (resetEvents.any { it.requestId == null || it.resetOutcome == null }) {
+			findings += fatal("RESET_METADATA", "Reset lifecycle events must carry both requestId and resetOutcome")
+		}
+		val completeResetEvents = resetEvents.filter { it.requestId != null && it.resetOutcome != null }
+		if (completeResetEvents.map { it.eventIndex }.any { it <= 0L } || completeResetEvents.map { it.eventIndex }.size != completeResetEvents.map { it.eventIndex }.toSet().size) {
 			findings += fatal("RESET_EVENT_INDEX", "Reset lifecycle event indexes must be positive and unique")
 		}
-		for ((requestId, lifecycle) in resetEvents.groupBy { it.requestId!! }) {
+		val frameIndexes = frames.mapTo(hashSetOf()) { it.frameIndex }
+		for ((requestId, lifecycle) in completeResetEvents.groupBy { it.requestId!! }) {
 			val requested = lifecycle.count { it.resetOutcome == "REQUESTED" }
 			val terminal = lifecycle.filter { it.resetOutcome in setOf("APPLIED", "CANCELLED", "FAILED") }
 			if (requested != 1 || terminal.size != 1) findings += fatal("RESET_CONTINUITY", "Reset $requestId must have one REQUESTED and one terminal event")
 			val requestLabels = labels.filter { it.requestId == requestId }
-			if (terminal.singleOrNull()?.resetOutcome == "APPLIED") {
-				if (requestLabels.isEmpty() || requestLabels.any { it.eventIndex != terminal.single().eventIndex }) findings += fatal("RESET_LABEL_CONTINUITY", "Applied reset $requestId must retain labels linked to its terminal event")
+			val requestedEvent = lifecycle.singleOrNull { it.resetOutcome == "REQUESTED" }
+			val terminalEvent = terminal.singleOrNull()
+			if (requestedEvent != null && terminalEvent != null) {
+				if (requestedEvent.eventIndex >= terminalEvent.eventIndex || requestedEvent.resetKind != terminalEvent.resetKind || requestedEvent.resetSource != terminalEvent.resetSource || requestedEvent.requestMonotonicNs != terminalEvent.requestMonotonicNs || requestedEvent.affectedBodyParts != terminalEvent.affectedBodyParts) {
+					findings += fatal("RESET_RELATIONSHIP", "Reset $requestId request and terminal metadata are inconsistent")
+				}
+			}
+			if (terminalEvent?.resetOutcome == "APPLIED") {
+				if (requestLabels.isEmpty() || requestLabels.any { it.eventIndex != terminalEvent.eventIndex }) findings += fatal("RESET_LABEL_CONTINUITY", "Applied reset $requestId must retain labels linked to its terminal event")
 			} else if (requestLabels.isNotEmpty()) {
 				findings += fatal("RESET_LABEL_CONTINUITY", "Non-applied reset $requestId cannot carry training labels")
 			}
+			if (requestLabels.groupBy { it.sessionTrackerId }.any { it.value.size != 1 }) findings += fatal("RESET_LABEL_DUPLICATE", "Reset $requestId has duplicate labels for one tracker")
+			for (label in requestLabels) {
+				if (requestedEvent == null || terminalEvent == null || label.requestMonotonicNs != requestedEvent.requestMonotonicNs || label.appliedMonotonicNs != terminalEvent.appliedMonotonicNs) {
+					findings += fatal("RESET_LABEL_TIMING", "Reset label $requestId is not linked to canonical lifecycle timestamps")
+				}
+				val expectedAxis = when (label.domain) { "YAW" -> 1; "FULL" -> 7; "MOUNTING" -> 8; else -> -1 }
+				if (label.domain != terminalEvent?.resetKind || label.axisMask.toInt() != expectedAxis) findings += fatal("RESET_LABEL_DOMAIN", "Reset label $requestId has an incompatible domain or axis mask")
+				val epochValid = label.resetEpoch > label.resetEpochBefore && label.calibrationEpoch >= label.calibrationEpochBefore && when (label.domain) {
+					"YAW" -> label.calibrationEpoch == label.calibrationEpochBefore
+					"FULL", "MOUNTING" -> label.calibrationEpoch > label.calibrationEpochBefore
+					else -> false
+				}
+				if (!epochValid) findings += fatal("RESET_LABEL_EPOCH", "Reset label $requestId has regressing or incompatible epochs")
+				val ordered = label.preStartFrame >= 0L && label.preStartFrame <= label.preEndFrame && label.preEndFrame <= label.postStartFrame && label.postStartFrame <= label.postEndFrame
+				if (!ordered) {
+					findings += fatal("RESET_LABEL_WINDOW", "Reset label $requestId has an unordered context window")
+				} else if ((label.qualityFlags and FLAG_WINDOW_TRUNCATED) == 0) {
+					val unresolved = (label.preStartFrame until label.preEndFrame).any { it !in frameIndexes } || (label.postStartFrame until label.postEndFrame).any { it !in frameIndexes }
+					if (unresolved) findings += fatal("RESET_LABEL_WINDOW", "Reset label $requestId references unresolved frames without truncation")
+				}
+			}
 		}
-		if (labels.any { label -> resetEvents.none { it.eventIndex == label.eventIndex && it.requestId == label.requestId && it.resetOutcome == "APPLIED" } }) {
+		if (labels.any { label -> completeResetEvents.none { it.eventIndex == label.eventIndex && it.requestId == label.requestId && it.resetOutcome == "APPLIED" } }) {
 			findings += fatal("ORPHAN_RESET_LABEL", "Every reset label must reference a retained APPLIED lifecycle event")
 		}
 		val gaps = events.count { it.type == "GAP" }.toLong()

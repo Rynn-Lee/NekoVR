@@ -4,7 +4,8 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -22,29 +23,52 @@ REQUIRED_SERVER_EVIDENCE = (
     "memory-soak",
 )
 
-DIRECT_SERVER_TESTS = {
+DIRECT_SERVER_CHECKS = {
     "schema": (
-        "dev.slimevr.unit.DatasetArchiveValidatorTests",
-        "dev.slimevr.unit.DatasetConformanceFixtureTests",
-        "dev.slimevr.unit.DatasetTelemetryChecksumTests",
+        ":server:core:datasetReadySchemaEvidence",
+        (
+            "dev.slimevr.unit.DatasetArchiveValidatorTests",
+            "dev.slimevr.unit.DatasetConformanceFixtureTests",
+            "dev.slimevr.unit.DatasetTelemetryChecksumTests",
+        ),
     ),
-    "numerical": ("dev.slimevr.unit.FP16BinaryPackerTests",),
+    "numerical": (
+        ":server:core:datasetReadyNumericalEvidence",
+        ("dev.slimevr.unit.FP16BinaryPackerTests",),
+    ),
     "metadata": (
-        "dev.slimevr.unit.DatasetRecordingServiceTests.testMixedWiFiAndHIDnRFOriginTrackers",
-        "dev.slimevr.unit.DatasetReplayTests",
+        ":server:core:datasetReadyMetadataEvidence",
+        (
+            "dev.slimevr.unit.DatasetRecordingServiceTests.testMixedWiFiAndHIDnRFOriginTrackers",
+            "dev.slimevr.unit.DatasetReplayTests",
+        ),
     ),
     "reset-label": (
-        "dev.slimevr.unit.ResetLabelBindingsTests",
-        "dev.slimevr.unit.ResetSupervisionTests",
+        ":server:core:datasetReadyResetLabelEvidence",
+        (
+            "dev.slimevr.unit.ResetLabelBindingsTests",
+            "dev.slimevr.unit.ResetSupervisionTests",
+        ),
     ),
     "crash-recovery": (
-        "dev.slimevr.unit.DatasetRecordingServiceTests.testForcedCrashAndStartupRecovery",
-        "dev.slimevr.unit.DatasetRecordingServiceTests.testRecoveryPreservesDurableManifestAndProducesValidArchive",
+        ":server:core:datasetReadyCrashRecoveryEvidence",
+        (
+            "dev.slimevr.unit.DatasetRecordingServiceTests.testForcedCrashAndStartupRecovery",
+            "dev.slimevr.unit.DatasetRecordingServiceTests.testRecoveryPreservesDurableManifestAndProducesValidArchive",
+        ),
     ),
     "memory-soak": (
-        "dev.slimevr.unit.DatasetRecordingServiceTests.testLongSoakRecordingMemoryAndWatermark",
+        ":server:core:datasetReadyMemorySoakEvidence",
+        (
+            "dev.slimevr.unit.DatasetRecordingServiceTests.testLongSoakRecordingMemoryAndWatermark",
+        ),
     ),
 }
+
+REPORT_SCHEMA_VERSION = 2
+VERIFIER_ID = "nekovr-dataset-ready"
+VERIFIER_VERSION = "2"
+REPORT_LIFETIME = timedelta(hours=24)
 
 
 def run(command: list[str], cwd: Path, env: dict[str, str] | None = None) -> tuple[bool, str]:
@@ -52,17 +76,32 @@ def run(command: list[str], cwd: Path, env: dict[str, str] | None = None) -> tup
     return completed.returncode == 0, " ".join(command)
 
 
-def git_commit(root: Path) -> str:
+def sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as source:
+        for chunk in iter(lambda: source.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def command_hash(command: str) -> str:
+    return sha256_bytes(command.encode("utf-8"))
+
+
+def git_build_identity(root: Path) -> tuple[str, bool]:
     completed = subprocess.run(
         ["git", "rev-parse", "HEAD"], cwd=root, text=True, capture_output=True
     )
     if completed.returncode != 0:
-        return "UNKNOWN"
+        return "UNKNOWN", True
     dirty = subprocess.run(
         ["git", "status", "--porcelain"], cwd=root, text=True, capture_output=True
     )
-    suffix = "-dirty" if dirty.returncode != 0 or dirty.stdout.strip() else ""
-    return completed.stdout.strip() + suffix
+    return completed.stdout.strip(), dirty.returncode != 0 or bool(dirty.stdout.strip())
 
 
 def normalized_windows(report: dict) -> list[dict]:
@@ -100,6 +139,65 @@ def write_atomic(path: Path, value: dict) -> None:
     os.replace(temporary, path)
 
 
+def run_direct_server_check(
+    evidence_id: str,
+    gradle_task: str,
+    test_patterns: tuple[str, ...],
+    gradle: str,
+    root: Path,
+    artifact_root: Path,
+) -> tuple[bool, str, Path]:
+    command = [gradle, gradle_task]
+    completed = subprocess.run(command, cwd=root, text=True)
+    artifact = artifact_root / f"{evidence_id}.json"
+    junit_xml = (
+        root
+        / "server"
+        / "core"
+        / "build"
+        / "test-results"
+        / "dataset-ready"
+        / evidence_id.replace("-", "").lower()
+    )
+    write_atomic(
+        artifact,
+        {
+            "format": "nekovr-dataset-direct-evidence-v1",
+            "id": evidence_id,
+            "generatedUtc": datetime.now(timezone.utc)
+            .isoformat()
+            .replace("+00:00", "Z"),
+            "command": command,
+            "testPatterns": list(test_patterns),
+            "junitXml": str(junit_xml.relative_to(root)),
+            "passed": completed.returncode == 0,
+            "exitCode": completed.returncode,
+        },
+    )
+    return completed.returncode == 0, " ".join(command), artifact
+
+
+def write_command_artifact(
+    evidence_id: str,
+    commands: list[str],
+    passed: bool,
+    artifact_root: Path,
+) -> Path:
+    artifact = artifact_root / f"{evidence_id}.json"
+    write_atomic(
+        artifact,
+        {
+            "format": "nekovr-dataset-direct-evidence-v2",
+            "id": evidence_id,
+            "generatedUtc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "commands": commands,
+            "commandSha256": [command_hash(command) for command in commands],
+            "passed": passed,
+        },
+    )
+    return artifact
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run schema/numerical/recorder/RPC/UI checks and validate pilot archives"
@@ -110,6 +208,11 @@ def main() -> int:
         "--report", type=Path, default=Path("dataset/dataset-ready-report.json")
     )
     parser.add_argument("--skip-checks", action="store_true", help="pilot-only diagnostic mode")
+    parser.add_argument(
+        "--allow-dirty-development",
+        action="store_true",
+        help="label a dirty-tree report as development-only; production runtime still rejects it",
+    )
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parents[1]
@@ -118,19 +221,37 @@ def main() -> int:
         *(("SIMULATED", path.resolve()) for path in args.simulated_pilot),
         *(("REAL", path.resolve()) for path in args.real_pilot),
     ]
-    check_results: dict[str, tuple[bool, str]] = {}
+    check_results: dict[str, tuple[bool, str, list[str]]] = {}
+    evidence_artifacts: dict[str, Path] = {}
     gradle = str(root / ("gradlew.bat" if os.name == "nt" else "gradlew"))
     pnpm = "pnpm.cmd" if os.name == "nt" else "pnpm"
+    direct_evidence_root = (
+        root / "server" / "core" / "build" / "reports" / "dataset-ready" / "direct"
+    )
 
     if args.skip_checks:
         for evidence_id in (*REQUIRED_SERVER_EVIDENCE, "rpc-ui", "baseline"):
-            check_results[evidence_id] = (False, "skipped; diagnostic reports never pass the gate")
+            check_results[evidence_id] = (
+                False,
+                "skipped; diagnostic reports never pass the gate",
+                ["SKIPPED"],
+            )
     else:
-        for evidence_id, test_patterns in DIRECT_SERVER_TESTS.items():
-            command = [gradle, ":server:core:test"]
-            for pattern in test_patterns:
-                command.extend(("--tests", pattern))
-            check_results[evidence_id] = run(command, root)
+        for evidence_id, (gradle_task, test_patterns) in DIRECT_SERVER_CHECKS.items():
+            passed, command, artifact = run_direct_server_check(
+                evidence_id,
+                gradle_task,
+                test_patterns,
+                gradle,
+                root,
+                direct_evidence_root,
+            )
+            check_results[evidence_id] = (
+                passed,
+                f"{command}; result={artifact.relative_to(root)}",
+                [command],
+            )
+            evidence_artifacts[evidence_id] = artifact
         rpc_ok, rpc_command = run(
             [
                 gradle,
@@ -141,30 +262,36 @@ def main() -> int:
             root,
         )
         gui_test_ok, gui_test_command = run([pnpm, "-C", "gui", "test"], root)
+        rpc_ui_commands = [rpc_command, gui_test_command]
         check_results["rpc-ui"] = (
             rpc_ok and gui_test_ok,
             f"{rpc_command}; {gui_test_command}",
+            rpc_ui_commands,
         )
-        check_results["baseline"] = run(
-            ["node", "scripts/foundation-baseline.mjs"], root
-        )
+        baseline_ok, baseline_command = run(["node", "scripts/foundation-baseline.mjs"], root)
+        check_results["baseline"] = (baseline_ok, baseline_command, [baseline_command])
+        for evidence_id in ("rpc-ui", "baseline"):
+            passed, _, commands = check_results[evidence_id]
+            evidence_artifacts[evidence_id] = write_command_artifact(
+                evidence_id, commands, passed, direct_evidence_root
+            )
 
+    pilot_evidence_root = direct_evidence_root.parent / "pilots"
+    server_report_path = pilot_evidence_root / "server-pilots.json"
     server_reports: list[dict] = []
     server_command_ok = False
-    with tempfile.TemporaryDirectory(prefix="nekovr-dataset-ready-") as temporary_dir:
-        server_report_path = Path(temporary_dir) / "server-pilots.json"
-        if pilots:
-            server_command_ok, _ = run(
-                [
-                    gradle,
-                    ":server:core:datasetArchiveReport",
-                    f"-PdatasetArchives={os.pathsep.join(str(path) for _, path in pilots)}",
-                    f"-PdatasetArchiveReport={server_report_path}",
-                ],
-                root,
-            )
-            if server_command_ok and server_report_path.exists():
-                server_reports = json.loads(server_report_path.read_text(encoding="utf-8")).get("reports", [])
+    if pilots:
+        server_command_ok, _ = run(
+            [
+                gradle,
+                ":server:core:datasetArchiveReport",
+                f"-PdatasetArchives={os.pathsep.join(str(path) for _, path in pilots)}",
+                f"-PdatasetArchiveReport={server_report_path}",
+            ],
+            root,
+        )
+        if server_command_ok and server_report_path.exists():
+            server_reports = json.loads(server_report_path.read_text(encoding="utf-8")).get("reports", [])
 
     python_root = root / "dataset" / "python"
     sys.path.insert(0, str(python_root))
@@ -190,10 +317,26 @@ def main() -> int:
         provenance_valid = source != "REAL" or python_report.get("applicationCommit") != "SIMULATED"
         if not provenance_valid:
             python_fatals.append("REAL pilot declares SIMULATED provenance")
+        python_report_path = pilot_evidence_root / f"python-pilot-{index}.json"
+        write_atomic(
+            python_report_path,
+            {
+                "format": "nekovr-dataset-python-pilot-evidence-v1",
+                "source": source,
+                "archive": str(archive),
+                "report": python_report,
+                "fatalFindings": python_fatals,
+            },
+        )
         pilot_evidence.append(
             {
                 "source": source,
                 "archive": str(archive),
+                "archiveSha256": sha256_file(archive) if archive.is_file() else "",
+                "serverResultArtifact": str(server_report_path.resolve()),
+                "serverResultSha256": sha256_file(server_report_path) if server_report_path.is_file() else "",
+                "pythonResultArtifact": str(python_report_path.resolve()),
+                "pythonResultSha256": sha256_file(python_report_path),
                 "serverValid": server_command_ok and bool(server_report.get("valid")),
                 "pythonValid": python_valid,
                 "statisticsMatch": statistics_match,
@@ -213,7 +356,7 @@ def main() -> int:
         transport for pilot in pilot_evidence for transport in pilot["transports"]
     }
     ready = (
-        all(passed for passed, _ in check_results.values())
+        all(passed for passed, _, _ in check_results.values())
         and has_sources
         and has_multiple_layouts
         and len(covered_transports) >= 2
@@ -227,14 +370,41 @@ def main() -> int:
             for pilot in pilot_evidence
         )
     )
+    generated = datetime.now(timezone.utc)
+    build_commit, build_dirty = git_build_identity(root)
+    dirty_policy = "ALLOW_DEVELOPMENT" if args.allow_dirty_development else "REQUIRE_CLEAN"
+    if build_commit == "UNKNOWN" or (build_dirty and dirty_policy == "REQUIRE_CLEAN"):
+        ready = False
+    missing_real = "REAL" not in {source for source, _ in pilots}
     report = {
-        "schemaVersion": 1,
-        "generatedUtc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
-        "buildCommit": git_commit(root),
+        "format": "nekovr-dataset-ready-report-v2",
+        "schemaVersion": REPORT_SCHEMA_VERSION,
+        "verifier": {"id": VERIFIER_ID, "version": VERIFIER_VERSION},
+        "reportPath": str(report_path.resolve()),
+        "generatedUtc": generated.isoformat().replace("+00:00", "Z"),
+        "expiresUtc": (generated + REPORT_LIFETIME).isoformat().replace("+00:00", "Z"),
+        "build": {
+            "commit": build_commit,
+            "dirty": build_dirty,
+            "dirtyTreePolicy": dirty_policy,
+        },
         "ready": ready,
+        "blockingFindings": (["Missing physical real-pilot evidence"] if missing_real else []),
         "evidence": [
-            {"id": evidence_id, "passed": passed, "detail": detail}
-            for evidence_id, (passed, detail) in check_results.items()
+            {
+                "id": evidence_id,
+                "passed": passed,
+                "detail": detail,
+                "commands": commands,
+                "commandSha256": [command_hash(command) for command in commands],
+                "resultArtifact": str(evidence_artifacts[evidence_id].resolve())
+                if evidence_id in evidence_artifacts
+                else "",
+                "resultSha256": sha256_file(evidence_artifacts[evidence_id])
+                if evidence_id in evidence_artifacts and evidence_artifacts[evidence_id].is_file()
+                else "",
+            }
+            for evidence_id, (passed, detail, commands) in check_results.items()
         ],
         "pilots": pilot_evidence,
     }

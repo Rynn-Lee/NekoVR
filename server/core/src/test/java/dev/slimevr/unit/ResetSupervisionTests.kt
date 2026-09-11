@@ -24,8 +24,10 @@ import dev.slimevr.reset.ResetEvent
 import dev.slimevr.reset.ResetEventListener
 import dev.slimevr.reset.ResetKind
 import dev.slimevr.reset.ResetLabelCalculator
+import dev.slimevr.reset.ResetLabelQualityConfig
 import dev.slimevr.reset.ResetOutcome
 import dev.slimevr.reset.ResetRequest
+import dev.slimevr.reset.ResetTimerManager
 import dev.slimevr.reset.ResetSupervisionPolicy
 import dev.slimevr.reset.TrackerAdjustmentSnapshot
 import dev.slimevr.reset.TrackerResetStateSnapshot
@@ -48,6 +50,9 @@ import org.junit.jupiter.api.io.TempDir
 import java.io.BufferedInputStream
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.ZipFile
 import kotlin.math.abs
 
@@ -211,6 +216,34 @@ class ResetSupervisionTests {
 		assertEquals(ResetOutcome.REQUESTED, capturedEvents[0].outcome)
 		assertEquals(ResetOutcome.CANCELLED, capturedEvents[1].outcome)
 		assertEquals(requestNs, capturedEvents[1].requestMonotonicNs)
+	}
+
+	@Test
+	fun `completion and cancellation race emits exactly one terminal callback`() {
+		val timerManager = ResetTimerManager()
+		val completionEntered = CountDownLatch(1)
+		val releaseCompletion = CountDownLatch(1)
+		val completionDone = CountDownLatch(1)
+		val completed = AtomicInteger()
+		val cancelled = AtomicInteger()
+		resetTimer(
+			timerManager,
+			10L,
+			onTick = {},
+			onComplete = {
+				completionEntered.countDown()
+				releaseCompletion.await(2, TimeUnit.SECONDS)
+				completed.incrementAndGet()
+				completionDone.countDown()
+			},
+			onCancel = { cancelled.incrementAndGet() },
+		)
+		assertTrue(completionEntered.await(2, TimeUnit.SECONDS))
+		timerManager.cancelTimers()
+		releaseCompletion.countDown()
+		assertTrue(completionDone.await(2, TimeUnit.SECONDS))
+		assertEquals(1, completed.get())
+		assertEquals(0, cancelled.get())
 	}
 
 	@Test
@@ -441,6 +474,78 @@ class ResetSupervisionTests {
 	}
 
 	@Test
+	fun `real publisher and recorder retain full yaw mounting partial multi and overlap labels`(@TempDir tempDir: Path) {
+		val trackers = TestTrackerSet()
+		val publisher = DefaultResetEventPublisher()
+		var clock = System.nanoTime()
+		val recorder = DatasetRecordingService(tempDir, clockNs = { clock }, resetPreContextFrames = 1, resetPostContextFrames = 1)
+		recorder.bindResetPublisher(publisher)
+		recorder.startRecording(RecordingRequest(privacy = SessionPrivacyOptions(consent = true), minFreeSpaceBytes = 0), trackers.allL)
+		repeat(3) { recorder.sampleIfDue(trackers.allL); clock += 20_000_000L }
+		trackers.chest.setRotation(EulerAngles(EulerOrder.YZX, toRad(70f), toRad(25f), toRad(-35f)).toQuaternion())
+		val hpm = HumanPoseManager(trackers.allL, resetEventPublisher = publisher)
+		hpm.resetTrackersYaw("integration", listOf(TrackerPosition.CHEST.bodyPart))
+		val twoParts = listOf(TrackerPosition.CHEST.bodyPart, TrackerPosition.HIP.bodyPart)
+		hpm.resetTrackersFull("integration", twoParts)
+		hpm.resetTrackersMounting("integration", twoParts)
+		repeat(5) { recorder.sampleIfDue(trackers.allL); clock += 20_000_000L }
+		val archive = recorder.stopAndFinalize(10)
+		val records = mutableListOf<dev.slimevr.dataset.generated.DatasetRecordSummary>()
+		ZipFile(archive.toFile()).use { zip ->
+			ZstdInputStream(BufferedInputStream(zip.getInputStream(zip.getEntry("telemetry.fbs.zst")))).use { input ->
+				while (true) records += DatasetV1Reader.read(DatasetArchiveValidator.readRecord(input) ?: break)
+			}
+		}
+		val events = records.flatMap { it.events }.filter { it.requestId != null }.groupBy { it.requestId }
+		assertEquals(3, events.size)
+		assertTrue(events.values.all { lifecycle -> lifecycle.map { it.resetOutcome } == listOf("REQUESTED", "APPLIED") })
+		val labels = records.flatMap { it.resetLabels }
+		assertEquals(mapOf("YAW" to 1, "FULL" to 2, "MOUNTING" to 2), labels.groupingBy { it.domain }.eachCount())
+		assertTrue(labels.all { it.qualityFlags and FLAG_OVERLAPPING_RESETS != 0 })
+		labels.forEach { label ->
+			val pre = Quaternion(label.adjustedOrientationBefore.w, label.adjustedOrientationBefore.x, label.adjustedOrientationBefore.y, label.adjustedOrientationBefore.z)
+			val post = Quaternion(label.adjustedOrientationAfter.w, label.adjustedOrientationAfter.x, label.adjustedOrientationAfter.y, label.adjustedOrientationAfter.z)
+			val expected = ResetLabelCalculator.computeCorrection(pre, post).first
+			assertEquals(expected.w, label.correction.w, eps)
+			assertEquals(expected.x, label.correction.x, eps)
+			assertEquals(expected.y, label.correction.y, eps)
+			assertEquals(expected.z, label.correction.z, eps)
+		}
+		assertTrue(DatasetArchiveValidator().validate(archive).valid)
+	}
+
+	@Test
+	fun `real recorder derives invalid reference packet reassignment and truncated flags`(@TempDir tempDir: Path) {
+		val trackers = TestTrackerSet()
+		val publisher = DefaultResetEventPublisher()
+		var clock = System.nanoTime()
+		trackers.chest.telemetryCapabilities += 26
+		val recorder = DatasetRecordingService(tempDir, clockNs = { clock }, resetPreContextFrames = 1, resetPostContextFrames = 5)
+		recorder.bindResetPublisher(publisher)
+		recorder.startRecording(RecordingRequest(privacy = SessionPrivacyOptions(consent = true), minFreeSpaceBytes = 0), trackers.allL)
+		repeat(2) { recorder.sampleIfDue(trackers.allL); clock += 20_000_000L }
+		trackers.head.status = TrackerStatus.DISCONNECTED
+		HumanPoseManager(trackers.allL, resetEventPublisher = publisher).resetTrackersYaw("quality-integration", listOf(TrackerPosition.CHEST.bodyPart))
+		trackers.chest.packetGaps++
+		trackers.chest.status = TrackerStatus.DISCONNECTED
+		recorder.sampleIfDue(trackers.allL)
+		val archive = recorder.stopAndFinalize(10)
+		val records = mutableListOf<dev.slimevr.dataset.generated.DatasetRecordSummary>()
+		ZipFile(archive.toFile()).use { zip ->
+			ZstdInputStream(BufferedInputStream(zip.getInputStream(zip.getEntry("telemetry.fbs.zst")))).use { input ->
+				while (true) records += DatasetV1Reader.read(DatasetArchiveValidator.readRecord(input) ?: break)
+			}
+		}
+		val flags = records.flatMap { it.resetLabels }.single().qualityFlags
+		assertTrue(flags and FLAG_INVALID_OR_STALE_HMD != 0)
+		assertTrue(flags and FLAG_PACKET_GAPS != 0)
+		assertTrue(flags and FLAG_RECONNECT_OR_REASSIGNMENT != 0)
+		assertTrue(flags and FLAG_WINDOW_TRUNCATED != 0)
+		assertTrue(flags and FLAG_INSUFFICIENT_CONTEXT != 0)
+		assertTrue(DatasetArchiveValidator().validate(archive).valid)
+	}
+
+	@Test
 	fun testAllDeterministicQualityFlags() {
 		val pre = TestTrackerSet().chest.snapshotResetState()
 		val post = pre.copy(
@@ -466,5 +571,46 @@ class ResetSupervisionTests {
 			FLAG_RECONNECT_OR_REASSIGNMENT, FLAG_INVALID_QUATERNIONS,
 			FLAG_OVERLAPPING_RESETS, FLAG_INSUFFICIENT_CONTEXT, FLAG_WINDOW_TRUNCATED,
 		)) assertTrue(flags and flag != 0, "Expected quality flag $flag")
+	}
+
+	@Test
+	fun `quality thresholds and invalid quaternion checks use explicit configuration`() {
+		val pre = TestTrackerSet().chest.snapshotResetState().copy(sampleAgeNs = 11L)
+		val post = pre.copy(acceleration = Vector3(.25f, 0f, 0f))
+		val config = ResetLabelQualityConfig(maxHmdSampleAgeNs = 10L, maxLinearAcceleration = .2f, maxAngularVelocity = 10f)
+		assertFalse(ResetLabelCalculator.isValidHmdReference(pre, post, config))
+		val flags = ResetLabelCalculator.computeQualityFlags(true, pre, post, Quaternion(2f, 0f, 0f, 0f), qualityConfig = config)
+		assertTrue(flags and FLAG_EXCESS_MOTION != 0)
+		assertTrue(flags and FLAG_INVALID_QUATERNIONS != 0)
+	}
+
+	@Test
+	fun `all historical AI epochs are rejected after yaw full and mounting resets`() {
+		val trackers = TestTrackerSet()
+		val tracker = trackers.chest
+		var resultEpoch = 0L
+		val resetEpochs = mutableListOf<Long>()
+		tracker.resetsHandler.setDriftCorrectionSource(object : DriftCorrectionSource {
+			override fun correctionFor(trackerId: Int, preAiRotation: Quaternion, acceleration: Vector3, epoch: Long) =
+				DriftCorrectionResult(correction = EulerAngles(EulerOrder.YZX, 0f, toRad(45f), 0f).toQuaternion(), applied = true, epoch = resultEpoch)
+			override fun resetHistory(trackerId: Int, epoch: Long) { resetEpochs += epoch }
+		})
+		val hpm = HumanPoseManager(trackers.allL)
+		val bodyParts = listOf(TrackerPosition.CHEST.bodyPart)
+		repeat(3) { resetIndex ->
+			when (resetIndex) {
+				0 -> hpm.resetTrackersYaw("epoch-test", bodyParts)
+				1 -> hpm.resetTrackersFull("epoch-test", bodyParts)
+				else -> hpm.resetTrackersMounting("epoch-test", bodyParts)
+			}
+			for (previousEpoch in 0L..resetIndex.toLong()) {
+				resultEpoch = previousEpoch
+				tracker.getRotation()
+				assertFalse(tracker.resetsHandler.lastAiCorrection.applied)
+				assertEquals("STALE_EPOCH", tracker.resetsHandler.lastAiCorrection.rejectionReason)
+				assertEquals(tracker.resetsHandler.resetEpoch, tracker.resetsHandler.lastAiCorrection.epoch)
+			}
+		}
+		assertEquals(listOf(1L, 2L, 3L), resetEpochs)
 	}
 }
