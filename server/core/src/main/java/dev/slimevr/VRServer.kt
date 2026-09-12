@@ -312,6 +312,7 @@ class VRServer @JvmOverloads constructor(
 				tracker.tick(fpsTimer.timePerFrame)
 			}
 			humanPoseManager.update()
+			aiDriftEngine.sampleTrackers(trackers, System.nanoTime(), fpsTimer.timePerFrame)
 			datasetRecorder.sampleIfDue(trackers)
 			val nowNs = System.nanoTime()
 			if (nowNs - lastPersonalTrainingResourceCheckNs >= 1_000_000_000L) {

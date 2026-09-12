@@ -12,6 +12,8 @@ from .math3d import IDENTITY, Quat, Vec3, inverse, multiply, rotate, slerp, axis
 
 CANONICAL_FROM_AMASS: Quat = (-math.sqrt(0.5), 0.0, 0.0, math.sqrt(0.5))
 SMPL_PARENTS = (-1, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21)
+CANONICAL_ROOT_ROLE = "body:hip"
+CANONICAL_HMD_REFERENCE_ROLE = "body:head"
 ROLE_TO_SMPL_JOINT = {
     "body:head": 15,
     "body:upper_chest": 9,
@@ -35,6 +37,26 @@ ROLE_TO_SMPL_JOINT = {
 
 class AssetError(ValueError):
     pass
+
+
+def validate_smpl_structure(parents: Sequence[int], joint_count: int) -> tuple[int, ...]:
+    """Validate the structural SMPL contract without redistributing model assets."""
+    if joint_count < 24 or len(parents) < 24:
+        raise AssetError("body model must expose at least 24 SMPL joints")
+    canonical = tuple(int(value) for value in parents[:24])
+    if canonical[0] != -1:
+        raise AssetError("SMPL pelvis must be the unique kinematic root")
+    if any(parent < 0 for parent in canonical[1:]) or any(
+        parent >= joint for joint, parent in enumerate(canonical[1:], start=1)
+    ):
+        raise AssetError("SMPL kinematic tree must be parent-before-child")
+    if ROLE_TO_SMPL_JOINT[CANONICAL_ROOT_ROLE] != 0:
+        raise AssetError("canonical root role must map to the SMPL pelvis")
+    if ROLE_TO_SMPL_JOINT[CANONICAL_HMD_REFERENCE_ROLE] != 15:
+        raise AssetError("canonical HMD reference must map to the SMPL head")
+    if max(ROLE_TO_SMPL_JOINT.values()) >= joint_count:
+        raise AssetError("joint-to-segment mapping exceeds the body-model joint count")
+    return canonical
 
 
 @dataclass(frozen=True)
@@ -85,8 +107,8 @@ def convert_pose_sequence(
     if len(poses_axis_angle) == 0 or len(poses_axis_angle) != len(translations):
         raise AssetError("poses and translations must contain the same non-zero frame count")
     joint_count = min(len(parents), len(rest_joints_m))
-    if joint_count < 24:
-        raise AssetError("body model must expose at least 24 SMPL joints")
+    parents = validate_smpl_structure(parents, joint_count)
+    joint_count = 24
     local_rest = []
     for index in range(joint_count):
         value = tuple(float(v) for v in rest_joints_m[index][:3])
@@ -184,6 +206,7 @@ def load_amass(
             candidate = [int(v) for v in model_npz["kintree_table"][0][:24]]
             candidate[0] = -1
             parents = tuple(candidate)
+        validate_smpl_structure(parents, len(joints))
         frames = convert_pose_sequence(poses, translations, joints, source_rate, target_rate_hz, parents)
     except (KeyError, ValueError, OSError) as error:
         if isinstance(error, AssetError):
@@ -207,4 +230,3 @@ def write_motion_json(motion: CanonicalMotion, output: str | Path) -> None:
         ],
     }
     Path(output).write_text(json.dumps(payload, sort_keys=True, separators=(",", ":")) + "\n", encoding="utf-8")
-

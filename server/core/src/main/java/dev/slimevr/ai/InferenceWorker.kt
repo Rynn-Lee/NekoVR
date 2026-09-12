@@ -64,8 +64,9 @@ class LatestValueInferenceWorker(
 	private val session: LoadedModelSession,
 	private val metadata: ModelArtifactMetadata,
 	initialMappings: List<TrackerSlotMapping> = emptyList(),
+	initialContextFrames: Int = metadata.minimumContext,
 ) : AutoCloseable {
-	private data class MappingState(val version: Long, val byTracker: Map<Int, TrackerSlotMapping>)
+	private data class MappingState(val version: Long, val byTracker: Map<Int, TrackerSlotMapping>, val contextFrames: Int)
 	private data class QueuedSnapshot(val mappingVersion: Long, val snapshot: InferenceSnapshot)
 	private data class HistoryFrame(
 		val deltaTimeSeconds: Float,
@@ -75,7 +76,7 @@ class LatestValueInferenceWorker(
 	private val running = AtomicBoolean(true)
 	private val queue = ArrayBlockingQueue<QueuedSnapshot>(1)
 	private val submitLock = Any()
-	private val mappingState = AtomicReference(MappingState(0L, emptyMap()))
+	private val mappingState = AtomicReference(MappingState(0L, emptyMap(), initialContextFrames))
 	private val epochs = ConcurrentHashMap<Int, Long>()
 	private val latestOutputs = AtomicReference<Map<Int, TrackerInferenceOutput>>(emptyMap())
 	private val droppedSnapshots = AtomicLong()
@@ -90,6 +91,7 @@ class LatestValueInferenceWorker(
 	private val thread: Thread
 
 	init {
+		require(initialContextFrames in metadata.minimumContext..metadata.maximumContext) { "Context is outside model bounds" }
 		configureMappings(initialMappings)
 		thread = Thread(::runLoop, "NekoVR-AI-Inference").apply {
 			isDaemon = true
@@ -133,12 +135,26 @@ class LatestValueInferenceWorker(
 	fun latestOutputs(): Map<Int, TrackerInferenceOutput> = latestOutputs.get()
 
 	fun mappings(): List<TrackerSlotMapping> = mappingState.get().byTracker.values.sortedBy { it.slot }
+	fun configuredContextFrames(): Int = mappingState.get().contextFrames
+
+	fun configureContextFrames(value: Int) {
+		require(value in metadata.minimumContext..metadata.maximumContext) { "Context is outside model bounds" }
+		while (true) {
+			val current = mappingState.get()
+			if (current.contextFrames == value) return
+			if (mappingState.compareAndSet(current, MappingState(current.version + 1, current.byTracker, value))) {
+				queue.clear()
+				latestOutputs.set(emptyMap())
+				return
+			}
+		}
+	}
 
 	fun configureMappings(mappings: List<TrackerSlotMapping>) {
 		validateMappings(mappings)
 		while (true) {
 			val current = mappingState.get()
-			val replacement = MappingState(current.version + 1, mappings.associateBy { it.trackerId })
+			val replacement = MappingState(current.version + 1, mappings.associateBy { it.trackerId }, current.contextFrames)
 			if (mappingState.compareAndSet(current, replacement)) {
 				queue.clear()
 				latestOutputs.set(emptyMap())
@@ -149,7 +165,18 @@ class LatestValueInferenceWorker(
 
 	fun resetHistory(trackerId: Int, epoch: Long) {
 		epochs.compute(trackerId) { _, current -> maxOf(current ?: Long.MIN_VALUE, epoch) }
-		latestOutputs.updateAndGet { outputs -> outputs - trackerId }
+		invalidateHistory()
+	}
+
+	private fun invalidateHistory() {
+		while (true) {
+			val current = mappingState.get()
+			if (mappingState.compareAndSet(current, MappingState(current.version + 1, current.byTracker, current.contextFrames))) {
+				queue.clear()
+				latestOutputs.set(emptyMap())
+				return
+			}
+		}
 	}
 
 	fun submit(snapshot: InferenceSnapshot): Boolean {
@@ -184,14 +211,15 @@ class LatestValueInferenceWorker(
 				for (sample in samples.values) epochs.compute(sample.trackerId) { _, current -> maxOf(current ?: sample.epoch, sample.epoch) }
 				history.addLast(HistoryFrame(queued.snapshot.deltaTimeSeconds, samples))
 				processedSnapshots.incrementAndGet()
-				while (history.size > metadata.maximumContext) history.removeFirst()
-				if (history.size < metadata.minimumContext || mapping.byTracker.size < metadata.minimumSlots) continue
+				val requiredContext = mapping.contextFrames
+				while (history.size > requiredContext) history.removeFirst()
+				if (history.size < requiredContext || mapping.byTracker.size < metadata.minimumSlots) continue
 				val contextReadyTrackers = mapping.byTracker.values.filter { slotMapping ->
 					history.count { frame ->
 						val sample = frame.samples[slotMapping.trackerId]
 						val epoch = epochs[slotMapping.trackerId]
 						sample != null && sample.epoch == epoch && sample.features.indices.any { sample.channelValidity[it] && sample.features[it].isFinite() }
-					} >= metadata.minimumContext
+					} >= requiredContext
 				}.mapTo(mutableSetOf()) { it.trackerId }
 				if (contextReadyTrackers.size < metadata.minimumSlots) continue
 				val input = buildInput(history, mapping)
@@ -229,7 +257,7 @@ class LatestValueInferenceWorker(
 	}
 
 	private fun buildInput(history: ArrayDeque<HistoryFrame>, mapping: MappingState): InferenceTensorBatch {
-		val time = min(history.size, metadata.maximumContext)
+		val time = min(history.size, mapping.contextFrames)
 		val slots = metadata.maximumSlots
 		val featureCount = metadata.featureCount
 		val features = FloatArray(time * slots * featureCount)

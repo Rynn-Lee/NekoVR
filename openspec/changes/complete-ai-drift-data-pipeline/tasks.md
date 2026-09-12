@@ -81,6 +81,9 @@
 - [x] 7.12 Add explicit standing/seated/lying/crouching/transition/locomotion/dance/stationary cohort coverage and non-regression promotion gates.
 - [x] 7.13 Generate frozen-backbone adapter training/eval/optimizer/nominal-checkpoint artifacts for every personalization-ready base model.
 
+Re-audited from the connected CLI and deterministic end-to-end evidence in
+`../fix-ai-drift-foundation-compatibility/reaudit-7.1-7.13.md`.
+
 ## 8. Export and Validate ONNX Models
 
 - [x] 8.1 Define and version model sidecar metadata for feature-schema hash, tensors, normalization, roles/slot/context bounds, output convention, provenance, metrics, opset, size, and SHA-256.
@@ -88,6 +91,9 @@
 - [x] 8.3 Add framework-versus-ONNX Runtime parity tests across 5/6/8/10 layouts, slot permutations, masks, discontinuities, and invalid channels.
 - [x] 8.4 Enforce the small-model 15 MiB size and safety/quality promotion gates before catalog publication.
 - [x] 8.5 Produce a deterministic tiny probe model/fixture for provider, packaging, and server integration tests.
+
+Re-audited from hash-bound atomic publication evidence and authenticated packaged-provider
+probes in `../fix-ai-drift-foundation-compatibility/reaudit-8.1-8.5.md`.
 
 ## 9. Implement Real ONNX Runtime Inference
 

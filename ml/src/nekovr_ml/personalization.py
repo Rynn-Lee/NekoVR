@@ -21,6 +21,8 @@ class BaseModelDescriptor:
     supported_roles: tuple[str, ...]
     supported_layouts: tuple[int, ...]
     maximum_correction_radians: float
+    model_config: Mapping[str, Any]
+    parameter_values: Mapping[str, Any]
 
     def __post_init__(self) -> None:
         names = set(self.parameter_shapes)
@@ -29,6 +31,8 @@ class BaseModelDescriptor:
             raise ValueError("descriptor must partition all parameters and provide a SHA-256 base hash")
         if self.personalization_ready and (not adapter or set(self.adapter_initial_values) != adapter):
             raise ValueError("personalization-ready model must declare adapter parameters")
+        if set(self.parameter_values) != names:
+            raise ValueError("personalization descriptor must carry every canonical parameter value")
 
 
 def descriptor_from_model(model_id: str, model: CompactCausalModel, supported_roles: Sequence[str], supported_layouts: Sequence[int]) -> BaseModelDescriptor:
@@ -47,13 +51,9 @@ def descriptor_from_model(model_id: str, model: CompactCausalModel, supported_ro
         "drift_head": (cfg.hidden_size * 2,),
         "drift_bias": (1,),
     }
-    identity = {
-        "model_id": model_id,
-        "config": asdict(cfg),
-        "parameter_shapes": shapes,
-        "roles": list(supported_roles),
-        "layouts": list(supported_layouts),
-    }
+    parameters = model.state_dict()
+    model_config = asdict(cfg)
+    identity = {"format": "nekovr-framework-checkpoint-v1", "config": model_config, "parameters": parameters}
     return BaseModelDescriptor(
         model_id=model_id,
         model_sha256=canonical_hash(identity),
@@ -61,10 +61,12 @@ def descriptor_from_model(model_id: str, model: CompactCausalModel, supported_ro
         parameter_shapes=shapes,
         frozen_parameters=model.frozen_parameter_names,
         adapter_parameters=model.adapter_parameter_names,
-        adapter_initial_values={name: model.state_dict()[name] for name in model.adapter_parameter_names},
+        adapter_initial_values={name: parameters[name] for name in model.adapter_parameter_names},
         supported_roles=tuple(supported_roles),
         supported_layouts=tuple(supported_layouts),
         maximum_correction_radians=cfg.maximum_correction_radians,
+        model_config=model_config,
+        parameter_values=parameters,
     )
 
 
@@ -95,6 +97,7 @@ def generate_personalization_artifacts(descriptor: BaseModelDescriptor, output_r
         "inputs": ["features", "role_ids", "slot_mask", "channel_validity", "time_deltas", "targets", "loss_masks"],
         "outputs": ["total_loss", "correction_loss", "confidence_loss", "adapter_gradients"],
         "maximum_correction_radians": descriptor.maximum_correction_radians,
+        "worker_backend": "portable_cpu_adapter_v1",
     }
     evaluation = {
         "format": "nekovr-adapter-evaluation-graph-v1",
@@ -102,6 +105,7 @@ def generate_personalization_artifacts(descriptor: BaseModelDescriptor, output_r
         "inputs": ["features", "role_ids", "slot_mask", "channel_validity", "time_deltas"],
         "outputs": ["correction", "confidence", "drift_rate"],
         "gradient_outputs": [],
+        "worker_backend": "portable_cpu_adapter_v1",
     }
     optimizer = {
         "format": "nekovr-adapter-optimizer-v1",
@@ -122,11 +126,42 @@ def generate_personalization_artifacts(descriptor: BaseModelDescriptor, output_r
         },
         "optimizer_state": "zero_initialized",
     }
+    base_checkpoint = {
+        "format": "nekovr-framework-checkpoint-v1",
+        "config": descriptor.model_config,
+        "parameters": descriptor.parameter_values,
+    }
+    feature_count = int(descriptor.model_config["feature_count"])
+    probe_input = {
+        "format": "nekovr-training-input-v1",
+        "examples": [{
+            "sample_id": "personalization-probe", "split": "train",
+            "features": [[[0.0] * feature_count], [[0.01] * feature_count]],
+            "role_ids": [1], "slot_mask": [True],
+            "channel_validity": [[[True] * feature_count], [[True] * feature_count]],
+            "time_deltas_s": [0.02, 0.02],
+            "target_correction_rotation_vectors": [[0.0, 0.0, 0.0]],
+            "target_confidence": [1.0], "loss_weights": [1.0],
+        }],
+    }
+    worker_request = {
+        "format": "nekovr-portable-adapter-worker-request-v1",
+        "base_model_sha256": descriptor.model_sha256,
+        "checkpoint": "base_model_checkpoint.json",
+        "training_input": "probe-training-input.json",
+        "training_graph": "training_graph.json",
+        "evaluation_graph": "evaluation_graph.json",
+        "optimizer": "optimizer.json",
+        "nominal_checkpoint": "nominal_checkpoint.json",
+    }
     files = {
         "training_graph.json": training,
         "evaluation_graph.json": evaluation,
         "optimizer.json": optimizer,
         "nominal_checkpoint.json": checkpoint,
+        "base_model_checkpoint.json": base_checkpoint,
+        "probe-training-input.json": probe_input,
+        "worker-request.json": worker_request,
     }
     for name, value in files.items():
         _write_json(root / name, value)
@@ -135,6 +170,7 @@ def generate_personalization_artifacts(descriptor: BaseModelDescriptor, output_r
         "schema_version": 1,
         "model_id": descriptor.model_id,
         "base_model_sha256": descriptor.model_sha256,
+        "base_identity_kind": "canonical-config-and-parameter-values",
         "personalization_ready": True,
         "frozen_parameters": list(descriptor.frozen_parameters),
         "trainable_parameters": list(descriptor.adapter_parameters),
@@ -144,6 +180,7 @@ def generate_personalization_artifacts(descriptor: BaseModelDescriptor, output_r
         "supported_layouts": list(descriptor.supported_layouts),
         "resource_expectations": {"minimum_ram_mib": 256, "recommended_cpu_threads": 2, "maximum_checkpoint_mib": 8},
         "artifact_sha256": hashes,
+        "portable_worker_request": "worker-request.json",
     }
     _write_json(root / "manifest.json", manifest)
     return root
@@ -168,4 +205,36 @@ def verify_personalization_artifacts(root: str | Path) -> dict[str, Any]:
     actual = {name for name, enabled in training["requires_grad"].items() if enabled}
     if actual != trainable or actual & set(manifest["frozen_parameters"]):
         raise ValueError("training graph does not enforce frozen-backbone adapter-only gradients")
+    base = json.loads((directory / "base_model_checkpoint.json").read_text(encoding="utf-8"))
+    if canonical_hash(base) != manifest["base_model_sha256"]:
+        raise ValueError("personalization base identity differs from canonical parameter values")
+    request = json.loads((directory / manifest["portable_worker_request"]).read_text(encoding="utf-8"))
+    if request.get("base_model_sha256") != manifest["base_model_sha256"]:
+        raise ValueError("portable worker request is bound to another base model")
     return manifest
+
+
+def execute_portable_personalization_probe(root: str | Path) -> dict[str, Any]:
+    """Load the generated bundle through the production portable worker backend and execute one step."""
+    from .personal_trainer import TrainingArtifactBundle
+    from .trainer_worker import PortableCpuAdapterBackend
+
+    directory = Path(root)
+    manifest = verify_personalization_artifacts(directory)
+    bundle = TrainingArtifactBundle.load(directory)
+    request = json.loads((directory / manifest["portable_worker_request"]).read_text(encoding="utf-8"))
+    backend = PortableCpuAdapterBackend(
+        directory / request["checkpoint"], directory / request["training_input"], 0.001, 0,
+    )
+    frozen_before = dict(backend.frozen_parameter_hashes())
+    result = backend.train_epoch(0)
+    if frozen_before != dict(backend.frozen_parameter_hashes()):
+        raise AssertionError("portable personalization probe mutated the global backbone")
+    return {
+        "format": "nekovr-portable-personalization-probe-v1",
+        "base_model_sha256": manifest["base_model_sha256"],
+        "validation_loss": result.validation_loss,
+        "trainable_parameter_count": bundle.trainable_parameter_count,
+        "frozen_parameter_count": bundle.frozen_parameter_count,
+        "passed": True,
+    }

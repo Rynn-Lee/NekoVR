@@ -1,0 +1,9 @@
+# Direct runtime, test, and build inputs. Regenerate requirements.lock with the
+# command documented in README.md; do not add transitive dependencies here.
+numpy==2.3.5
+onnx==1.22.0
+onnxruntime==1.29.0
+zstandard==0.25.0
+pytest==8.3.5
+setuptools==80.9.0
+wheel==0.45.1

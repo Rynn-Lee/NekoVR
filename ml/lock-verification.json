@@ -1,0 +1,12 @@
+{
+  "format": "nekovr-ml-lock-verification-v1",
+  "verified_at": "2026-09-11",
+  "python": "3.14.5",
+  "platform": "windows-amd64",
+  "requirements_lock_sha256": "611bbd6dc947838a71f0120a2b15a3d6740576ba1de2206af9c5e7d46298f95f",
+  "dependency_closure_sha256": "472a3766cb8d777d304e84390dd8594cecd01c2b3ff3bc6369559dddd7b275bb",
+  "package_count": 15,
+  "fresh_offline_install_repeats": 2,
+  "network_disabled_during_install": true,
+  "pip_check_passed_for_each_repeat": true
+}

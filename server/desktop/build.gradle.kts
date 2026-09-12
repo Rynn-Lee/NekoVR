@@ -99,6 +99,8 @@ tasks.register("verifyInferenceDistributionContents") {
 				"ai/onnxruntime/OrtEnvironment.class",
 				"dev/slimevr/ai/probe/probe.onnx",
 				"dev/slimevr/ai/probe/probe.onnx.json",
+				"dev/slimevr/ai/probe/probe-fixture.json",
+				"dev/slimevr/ai/probe/manifest.json",
 				"dev/slimevr/ai/benchmark/small.onnx",
 				"dev/slimevr/ai/benchmark/small.onnx.json",
 				"META-INF/licenses/onnxruntime/ThirdPartyNotices.txt",

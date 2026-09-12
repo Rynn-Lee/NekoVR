@@ -1,12 +1,15 @@
 package dev.slimevr.ai
 
 import io.eiren.util.logging.LogManager
+import dev.slimevr.tracking.trackers.Tracker
 import io.github.axisangles.ktmath.Quaternion
 import io.github.axisangles.ktmath.Vector3
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 data class ProviderAttempt(
 	val provider: ExecutionProviderType,
@@ -97,6 +100,7 @@ class AIDriftEngine(
 	val config: AIModelConfig = AIModelConfig(),
 	private val modelsDir: File = File("models/ai"),
 	private val runtimeFactory: () -> OnnxRuntimeBackend = { JavaOnnxRuntimeBackend() },
+	private val featureRegistries: RuntimeFeatureRegistryCatalog = RuntimeFeatureRegistryCatalog.DEFAULT,
 	private val activeCorrectionAuthorization: (String) -> ActiveCorrectionAuthorization = {
 		ActiveCorrectionAuthorization(true, null)
 	},
@@ -111,7 +115,9 @@ class AIDriftEngine(
 	@Volatile
 	private var activeModel: ActiveModel? = null
 	private var configuredMappings: List<TrackerSlotMapping> = emptyList()
-	private val latestLiveSamples = ConcurrentHashMap<Int, InferenceTrackerSample>()
+	private val lifecycleLock = ReentrantLock()
+	private val sampledEpochs = ConcurrentHashMap<Int, Long>()
+	private val pendingResetEpochs = ConcurrentHashMap<Int, Long>()
 	private val inferenceSequence = AtomicLong()
 	private val safetyGate = CorrectionSafetyGate(config)
 	private val staleResultCount = AtomicLong()
@@ -149,8 +155,7 @@ class AIDriftEngine(
 		initializeEngine()
 	}
 
-	@Synchronized
-	fun initializeEngine(): Boolean {
+	fun initializeEngine(): Boolean = lifecycleLock.withLock {
 		if (runtime != null) return true
 		return try {
 			runtime = runtimeFactory()
@@ -179,11 +184,25 @@ class AIDriftEngine(
 		sidecarPath: Path,
 		requestedProvider: ExecutionProviderType = ExecutionProviderType.AUTO,
 		expectedFeatureSchemaSha256: String? = null,
+	): ModelActivationResult = lifecycleLock.withLock {
+		loadModelLocked(modelPath, sidecarPath, requestedProvider, expectedFeatureSchemaSha256)
+	}
+
+	private fun loadModelLocked(
+		modelPath: Path,
+		sidecarPath: Path,
+		requestedProvider: ExecutionProviderType,
+		expectedFeatureSchemaSha256: String?,
 	): ModelActivationResult {
 		loadState = AIModelLoadState.LOADING
 		val backend = runtime ?: return failed(ModelLoadException(ModelLoadErrorCode.RUNTIME_UNAVAILABLE, "ONNX Runtime is unavailable"))
 		val metadata = try {
 			ModelArtifactValidator.validate(modelPath, sidecarPath, expectedFeatureSchemaSha256)
+		} catch (error: ModelLoadException) {
+			return failed(error)
+		}
+		val featureRegistry = try {
+			featureRegistries.requireFor(metadata)
 		} catch (error: ModelLoadException) {
 			return failed(error)
 		}
@@ -200,8 +219,11 @@ class AIDriftEngine(
 				ModelArtifactValidator.validateTensorContract(metadata, candidate.inputInfo, candidate.outputInfo)
 				candidate.runProbe(metadata)
 				candidate.runProbe(metadata)
-				val worker = LatestValueInferenceWorker(candidate, metadata, synchronized(this) { configuredMappings })
-				val replacement = ActiveModel(candidate, worker, metadata, provider, backend.runtimePackage)
+				val effectiveContext = config.contextFrames.takeIf { it in metadata.minimumContext..metadata.maximumContext }
+					?: metadata.minimumContext
+				config.contextFrames = effectiveContext
+				val worker = LatestValueInferenceWorker(candidate, metadata, configuredMappings, effectiveContext)
+				val replacement = ActiveModel(candidate, worker, metadata, featureRegistry, provider, backend.runtimePackage)
 				val previous = synchronized(this) {
 					val old = activeModel
 					activeModel = replacement
@@ -212,7 +234,8 @@ class AIDriftEngine(
 					old
 				}
 				candidate = null
-				latestLiveSamples.clear()
+				sampledEpochs.clear()
+				pendingResetEpochs.clear()
 				safetyGate.clear()
 				trackerRejections.clear()
 				trackerApplied.clear()
@@ -240,21 +263,21 @@ class AIDriftEngine(
 		)
 	}
 
-	@Synchronized
-	fun unloadModel() {
+	fun unloadModel(): Unit = lifecycleLock.withLock {
 		val previous = activeModel
 		activeModel = null
-		latestLiveSamples.clear()
+		sampledEpochs.clear()
+		pendingResetEpochs.clear()
 		safetyGate.clear()
 		trackerRejections.clear()
 		trackerApplied.clear()
 		watchdogTripped = false
 		loadState = if (runtime == null) AIModelLoadState.RUNTIME_UNAVAILABLE else AIModelLoadState.UNLOADED
 		previous?.close()
+		Unit
 	}
 
-	@Synchronized
-	fun configureMappings(mappings: List<TrackerSlotMapping>) {
+	fun configureMappings(mappings: List<TrackerSlotMapping>) = lifecycleLock.withLock {
 		if (activeModel == null) {
 			require(mappings.map { it.trackerId }.toSet().size == mappings.size) { "Tracker IDs must be unique" }
 			require(mappings.map { it.slot }.toSet().size == mappings.size) { "Slots must be unique" }
@@ -262,7 +285,20 @@ class AIDriftEngine(
 			activeModel!!.worker.configureMappings(mappings)
 		}
 		configuredMappings = mappings.toList()
-		latestLiveSamples.clear()
+		sampledEpochs.clear()
+		pendingResetEpochs.clear()
+		safetyGate.clear()
+		trackerRejections.clear()
+		trackerApplied.clear()
+	}
+
+	fun configureContextFrames(contextFrames: Int) = lifecycleLock.withLock {
+		val active = activeModel
+		if (active != null) active.worker.configureContextFrames(contextFrames)
+		else require(contextFrames in 1..dev.slimevr.config.AIDriftConfig.MAXIMUM_CONTEXT_FRAMES) { "Context is outside server bounds" }
+		config.contextFrames = contextFrames
+		sampledEpochs.clear()
+		pendingResetEpochs.clear()
 		safetyGate.clear()
 		trackerRejections.clear()
 		trackerApplied.clear()
@@ -271,6 +307,21 @@ class AIDriftEngine(
 	fun currentMappings(): List<TrackerSlotMapping> = activeModel?.worker?.mappings() ?: synchronized(this) { configuredMappings }
 
 	fun submitInferenceSnapshot(snapshot: InferenceSnapshot): Boolean = activeModel?.worker?.submit(snapshot) ?: false
+
+	/** Called once from the authoritative VRServer sampling boundary. */
+	fun sampleTrackers(trackers: Collection<Tracker>, monotonicNanos: Long, deltaTimeSeconds: Float): Boolean = lifecycleLock.withLock {
+		val active = activeModel ?: return@withLock false
+		if (!config.enabled && !config.shadowMode) return@withLock false
+		val byId = trackers.associateBy(Tracker::id)
+		val samples = active.worker.mappings().mapNotNull { mapping ->
+			val tracker = byId[mapping.trackerId] ?: return@mapNotNull null
+			val epoch = tracker.resetsHandler.resetEpoch
+			val resetContext = pendingResetEpochs.remove(tracker.id, epoch) || sampledEpochs.put(tracker.id, epoch)?.let { it != epoch } == true
+			active.featureExtractor.extractTracker(tracker, deltaTimeSeconds, monotonicNanos, resetContext)
+		}
+		if (samples.isEmpty()) return@withLock false
+		active.worker.submit(InferenceSnapshot(inferenceSequence.incrementAndGet(), monotonicNanos, deltaTimeSeconds, samples))
+	}
 
 	fun latestInference(trackerId: Int, epoch: Long): TrackerInferenceOutput? = activeModel?.worker?.latest(trackerId, epoch)
 
@@ -324,35 +375,6 @@ class AIDriftEngine(
 			acceleration.x.isFinite() &&
 			acceleration.y.isFinite() &&
 			acceleration.z.isFinite()
-		if (config.enabled && active != null && inputFinite) {
-			val mapping = active.worker.mappings().firstOrNull { it.trackerId == trackerId }
-			if (mapping != null) {
-				val canonical = floatArrayOf(
-					preAiRotation.x,
-					preAiRotation.y,
-					preAiRotation.z,
-					preAiRotation.w,
-					acceleration.x,
-					acceleration.y,
-					acceleration.z,
-				)
-				val features = FloatArray(active.metadata.featureCount)
-				val validity = BooleanArray(active.metadata.featureCount)
-				for (index in 0 until minOf(canonical.size, features.size)) {
-					features[index] = canonical[index]
-					validity[index] = canonical[index].isFinite()
-				}
-				latestLiveSamples[trackerId] = InferenceTrackerSample(trackerId, epoch, features, validity)
-				active.worker.submit(
-					InferenceSnapshot(
-						sequence = inferenceSequence.incrementAndGet(),
-						monotonicNanos = System.nanoTime(),
-						deltaTimeSeconds = 0.02f,
-						samples = active.worker.mappings().mapNotNull { latestLiveSamples[it.trackerId] },
-					),
-				)
-			}
-		}
 		val rejection = when {
 			!config.enabled -> "DISABLED"
 			runtime == null -> "RUNTIME_UNAVAILABLE"
@@ -435,22 +457,24 @@ class AIDriftEngine(
 	}
 
 	/** One-action, synchronous rollback. The next tracker read is identity even if inference is in flight. */
-	@Synchronized
-	fun rollbackToIdentity() {
+	fun rollbackToIdentity() = lifecycleLock.withLock {
 		config.enabled = false
 		config.shadowMode = false
-		latestLiveSamples.clear()
+		sampledEpochs.clear()
+		pendingResetEpochs.clear()
 		safetyGate.clear()
 		trackerRejections.keys.forEach { trackerRejections[it] = "ROLLED_BACK_TO_IDENTITY" }
 		trackerApplied.keys.forEach { trackerApplied[it] = false }
 	}
 
-	override fun resetHistory(trackerId: Int, epoch: Long) {
-		latestLiveSamples.remove(trackerId)
+	override fun resetHistory(trackerId: Int, epoch: Long) = lifecycleLock.withLock {
+		sampledEpochs.remove(trackerId)
+		pendingResetEpochs[trackerId] = epoch
 		safetyGate.reset(trackerId)
 		trackerRejections[trackerId] = "RESET"
 		trackerApplied[trackerId] = false
 		activeModel?.worker?.resetHistory(trackerId, epoch)
+		Unit
 	}
 
 	fun runtimeStatus(): AIRuntimeStatus {
@@ -553,11 +577,11 @@ class AIDriftEngine(
 		return ModelActivationResult(false, failure = error, attempts = attempts)
 	}
 
-	@Synchronized
-	override fun close() {
+	override fun close() = lifecycleLock.withLock {
 		val previous = activeModel
 		activeModel = null
-		latestLiveSamples.clear()
+		sampledEpochs.clear()
+		pendingResetEpochs.clear()
 		safetyGate.clear()
 		trackerRejections.clear()
 		trackerApplied.clear()
@@ -572,9 +596,11 @@ class AIDriftEngine(
 		val session: LoadedModelSession,
 		val worker: LatestValueInferenceWorker,
 		val metadata: ModelArtifactMetadata,
+		val featureRegistry: RuntimeFeatureRegistry,
 		val provider: ExecutionProviderType,
 		val runtimePackage: OnnxRuntimePackage,
 	) : AutoCloseable {
+		val featureExtractor = RuntimeFeatureExtractor(featureRegistry)
 		override fun close() {
 			worker.close()
 			session.close()

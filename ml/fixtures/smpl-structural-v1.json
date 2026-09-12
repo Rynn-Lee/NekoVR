@@ -1,0 +1,27 @@
+{
+  "format": "nekovr-smpl-structural-fixture-v1",
+  "license": "CC0-1.0 synthetic numeric fixture; contains no SMPL/AMASS model or motion data",
+  "joint_names": [
+    "pelvis", "left_hip", "right_hip", "spine1", "left_knee", "right_knee",
+    "spine2", "left_ankle", "right_ankle", "spine3", "left_foot", "right_foot",
+    "neck", "left_collar", "right_collar", "head", "left_shoulder", "right_shoulder",
+    "left_elbow", "right_elbow", "left_wrist", "right_wrist", "left_hand", "right_hand"
+  ],
+  "parents": [-1, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 9, 9, 12, 13, 14, 16, 17, 18, 19, 20, 21],
+  "canonical_root_role": "body:hip",
+  "canonical_hmd_reference_role": "body:head",
+  "source_rate_hz": 25.0,
+  "target_rate_hz": 50,
+  "rest_joints_m": [
+    [0.0, 0.0, 0.0], [-0.10, 0.0, -0.05], [0.10, 0.0, -0.05], [0.0, 0.0, 0.15],
+    [-0.10, 0.0, -0.45], [0.10, 0.0, -0.45], [0.0, 0.0, 0.35], [-0.10, 0.0, -0.85],
+    [0.10, 0.0, -0.85], [0.0, 0.0, 0.55], [-0.10, 0.12, -0.92], [0.10, 0.12, -0.92],
+    [0.0, 0.0, 0.72], [-0.08, 0.0, 0.62], [0.08, 0.0, 0.62], [0.0, 0.0, 0.90],
+    [-0.22, 0.0, 0.62], [0.22, 0.0, 0.62], [-0.48, 0.0, 0.62], [0.48, 0.0, 0.62],
+    [-0.72, 0.0, 0.62], [0.72, 0.0, 0.62], [-0.82, 0.0, 0.62], [0.82, 0.0, 0.62]
+  ],
+  "translations_m": [[0.0, 0.0, 0.0], [0.10, 0.20, 0.30]],
+  "pose_overrides_axis_angle": {
+    "frame_1": {"0": [0.31, -0.47, 0.19], "12": [-0.23, 0.11, 0.37], "15": [0.17, 0.29, -0.13]}
+  }
+}

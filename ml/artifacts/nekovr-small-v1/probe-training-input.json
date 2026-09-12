@@ -1,0 +1,116 @@
+{
+  "examples": [
+    {
+      "channel_validity": [
+        [
+          [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        ],
+        [
+          [
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true,
+            true
+          ]
+        ]
+      ],
+      "features": [
+        [
+          [
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0,
+            0.0
+          ]
+        ],
+        [
+          [
+            0.01,
+            0.01,
+            0.01,
+            0.01,
+            0.01,
+            0.01,
+            0.01,
+            0.01,
+            0.01,
+            0.01,
+            0.01,
+            0.01,
+            0.01,
+            0.01,
+            0.01,
+            0.01
+          ]
+        ]
+      ],
+      "loss_weights": [
+        1.0
+      ],
+      "role_ids": [
+        1
+      ],
+      "sample_id": "personalization-probe",
+      "slot_mask": [
+        true
+      ],
+      "split": "train",
+      "target_confidence": [
+        1.0
+      ],
+      "target_correction_rotation_vectors": [
+        [
+          0.0,
+          0.0,
+          0.0
+        ]
+      ],
+      "time_deltas_s": [
+        0.02,
+        0.02
+      ]
+    }
+  ],
+  "format": "nekovr-training-input-v1"
+}

@@ -50,13 +50,14 @@ class InferenceWorkerTests {
 
 			worker.resetHistory(10, 1)
 			assertTrue(worker.submit(snapshot(3, sample(10, 1, 11f, 35f), sample(20, 0, 13f, 40f))))
+			assertTrue(eventually { worker.processedSnapshotCount == 3L })
+			assertEquals(1, session.inputs.size)
+			assertTrue(worker.submit(snapshot(4, sample(10, 1, 15f, 45f), sample(20, 0, 17f, 50f))))
 			assertTrue(session.awaitRuns(2))
 			val afterReset = session.inputs.last()
-			assertFalse(afterReset.channelValidity[0])
-			assertFalse(afterReset.channelValidity[1])
-			assertTrue(afterReset.channelValidity[afterReset.channelValidity.size - 4])
+			assertTrue(afterReset.channelValidity.all { it })
 			assertNull(worker.latest(10, 0))
-			assertNull(worker.latest(10, 1))
+			assertTrue(eventually { worker.latest(10, 1)?.sequence == 4L })
 
 			worker.configureMappings(listOf(TrackerSlotMapping(10, 1, 1), TrackerSlotMapping(20, 2, 0)))
 			assertTrue(worker.mappings().map { it.trackerId } == listOf(20, 10))
@@ -64,6 +65,28 @@ class InferenceWorkerTests {
 		}
 		assertFalse(worker.isAlive)
 		assertFalse(session.closed)
+	}
+
+	@Test
+	fun `configured context controls emitted history and changes invalidate prior frames`() {
+		val metadata = probeMetadata().copy(minimumContext = 1, maximumContext = 4)
+		val session = RecordingSession(expectedRuns = 2)
+		LatestValueInferenceWorker(session, metadata, listOf(TrackerSlotMapping(10, 1, 0)), initialContextFrames = 1).use { worker ->
+			worker.submit(snapshot(1, sample(10, 0, 1f, 2f)))
+			assertTrue(session.awaitRuns(1))
+			assertEquals(1, session.inputs.single().time)
+			worker.configureContextFrames(3)
+			assertNull(worker.latest(10, 0))
+			worker.submit(snapshot(2, sample(10, 0, 2f, 3f)))
+			assertTrue(eventually { worker.processedSnapshotCount >= 2L })
+			worker.submit(snapshot(3, sample(10, 0, 3f, 4f)))
+			assertTrue(eventually { worker.processedSnapshotCount >= 3L })
+			assertEquals(1, session.inputs.size)
+			worker.submit(snapshot(4, sample(10, 0, 4f, 5f)))
+			assertTrue(session.awaitRuns(2))
+			assertEquals(3, session.inputs.last().time)
+			assertEquals(3, worker.configuredContextFrames())
+		}
 	}
 
 	@Test

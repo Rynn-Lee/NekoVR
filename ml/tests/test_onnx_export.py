@@ -10,7 +10,7 @@ from nekovr_ml import cli
 from nekovr_ml.model import CompactCausalModel, ModelBatch, ModelConfig, SequenceSample, collate_variable_layout
 from nekovr_ml.model_metadata import load_sidecar
 from nekovr_ml.onnx_export import INPUT_NAMES, OUTPUT_NAMES, batch_to_numpy, export_model
-from nekovr_ml.onnx_validation import compare_framework_and_onnx, inspect_export
+from nekovr_ml.onnx_validation import compare_framework_and_onnx, generate_parity_evidence, inspect_export
 from nekovr_ml.training import write_model_checkpoint
 
 
@@ -148,3 +148,78 @@ def test_framework_onnxruntime_parity_covers_layouts_permutations_masks_and_disc
         assert np.all(correction[0, invalid_latest_slot] == 0.0)
         assert confidence[0, invalid_latest_slot] == 0.0
         assert drift[0, invalid_latest_slot] == 0.0
+
+
+def test_generated_parity_evidence_is_bound_to_checkpoint_and_model_bytes(tmp_path):
+    model = _model()
+    checkpoint = tmp_path / "checkpoint.json"
+    write_model_checkpoint(model, checkpoint)
+    model_path, sidecar_path = _export(tmp_path, model)
+    batches = (collate_variable_layout([_sample(5, masked_slot=4)], 4, 10),)
+    evidence = generate_parity_evidence(model, checkpoint, model_path, sidecar_path, batches)
+    assert evidence["format"] == "nekovr-onnx-parity-v2"
+    assert evidence["passed"] and evidence["finite_outputs"] and evidence["bounded_outputs"]
+    assert evidence["masked_slots_zero"]
+    assert evidence["deterministic_same_process"] and evidence["deterministic_cross_process"]
+    assert all(evidence["invalid_input_rejections"].values())
+    assert {case["context"] for case in evidence["boundary_cases"]} == {2, 60}
+    assert {case["slots"] for case in evidence["boundary_cases"]} == {5, 10}
+    assert {case["batch"] for case in evidence["boundary_cases"]} == {1, 4}
+    assert len(evidence["checkpoint_sha256"]) == len(evidence["model_sha256"]) == 64
+
+
+def test_inspection_rejects_noncanonical_sidecar_semantics_and_provenance(tmp_path):
+    model_path, sidecar_path = _export(tmp_path, _model())
+    payload = json.loads(sidecar_path.read_text())
+    payload["inputs"][0]["semantics"] = "attacker-defined but shape-compatible values"
+    sidecar_path.write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match="semantics are noncanonical"):
+        inspect_export(model_path, sidecar_path)
+
+    model_path, sidecar_path = _export(tmp_path, _model())
+    payload = json.loads(sidecar_path.read_text())
+    payload["provenance"]["dataset_hashes"] = {"source": "not-a-hash"}
+    sidecar_path.write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match="dataset hashes"):
+        inspect_export(model_path, sidecar_path)
+
+    model_path, sidecar_path = _export(tmp_path, _model())
+    payload = json.loads(sidecar_path.read_text())
+    payload["context_bounds"]["maximum"] = 61
+    sidecar_path.write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match="server-supported contract"):
+        inspect_export(model_path, sidecar_path)
+
+
+def test_inspection_rejects_unsupported_opset_even_when_sidecar_agrees(tmp_path):
+    model_path, sidecar_path = _export(tmp_path, _model())
+    graph = onnx.load(model_path)
+    graph.opset_import[0].version = 19
+    onnx.save_model(graph, model_path)
+    payload = json.loads(sidecar_path.read_text())
+    from nekovr_ml.provenance import file_sha256
+    payload["opset"] = 19
+    payload["model_size_bytes"] = model_path.stat().st_size
+    payload["model_sha256"] = file_sha256(model_path)
+    sidecar_path.write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match="supported default opset 18"):
+        inspect_export(model_path, sidecar_path)
+
+
+def test_inspection_rejects_model_and_sidecar_that_agree_on_wrong_input_name(tmp_path):
+    model_path, sidecar_path = _export(tmp_path, _model())
+    graph = onnx.load(model_path)
+    graph.graph.input[0].name = "attacker_features"
+    for node in graph.graph.node:
+        for index, name in enumerate(node.input):
+            if name == "features":
+                node.input[index] = "attacker_features"
+    onnx.save_model(graph, model_path)
+    payload = json.loads(sidecar_path.read_text())
+    from nekovr_ml.provenance import file_sha256
+    payload["inputs"][0]["name"] = "attacker_features"
+    payload["model_size_bytes"] = model_path.stat().st_size
+    payload["model_sha256"] = file_sha256(model_path)
+    sidecar_path.write_text(json.dumps(payload))
+    with pytest.raises(ValueError, match="inputs differ from the canonical"):
+        inspect_export(model_path, sidecar_path)

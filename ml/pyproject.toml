@@ -7,13 +7,13 @@ name = "nekovr-ml"
 version = "0.1.0"
 description = "Reproducible AMASS and real-session preparation for NekoVR drift models"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.11,<3.15"
 license = { text = "GPL-3.0-or-later" }
 dependencies = [
   "numpy==2.3.5",
   "onnx==1.22.0",
   "onnxruntime==1.29.0",
-  "zstandard==0.23.0",
+  "zstandard==0.25.0",
 ]
 
 [project.optional-dependencies]
@@ -23,8 +23,13 @@ test = ["pytest==8.3.5"]
 nekovr-ml = "nekovr_ml.cli:main"
 nekovr-prepare-amass = "nekovr_ml.cli:prepare_amass_main"
 nekovr-prepare-sessions = "nekovr_ml.cli:prepare_sessions_main"
+nekovr-prepare = "nekovr_ml.cli:prepare_main"
 nekovr-train = "nekovr_ml.cli:train_main"
 nekovr-evaluate = "nekovr_ml.cli:evaluate_main"
+nekovr-parity = "nekovr_ml.cli:parity_main"
+nekovr-promote = "nekovr_ml.cli:promote_main"
+nekovr-publish-catalog = "nekovr_ml.cli:publish_catalog_main"
+nekovr-compare-runs = "nekovr_ml.cli:compare_runs_main"
 nekovr-export-onnx = "nekovr_ml.cli:export_onnx_main"
 nekovr-validate-onnx = "nekovr_ml.cli:validate_onnx_main"
 nekovr-generate-probe = "nekovr_ml.cli:generate_probe_main"
@@ -40,3 +45,6 @@ nekovr_ml = ["default_config.json"]
 addopts = "-ra --strict-markers"
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+  "licensed_assets: opt-in checks requiring locally licensed AMASS and SMPL assets",
+]

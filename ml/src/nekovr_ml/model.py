@@ -191,7 +191,7 @@ class CompactCausalModel:
                 dilation = 2**layer
                 for time_index in range(len(states)):
                     next_slots = []
-                    for slot_index in range(cfg.max_slots):
+                    for slot_index in range(len(batch.role_ids[batch_index])):
                         if not batch.slot_mask[batch_index][slot_index] or not batch.time_mask[batch_index][time_index]:
                             next_slots.append((0.0,) * cfg.hidden_size)
                             continue
@@ -231,7 +231,7 @@ class CompactCausalModel:
                 for hidden in range(self.config.hidden_size)
             )
             batch_corrections, batch_confidence, batch_drift = [], [], []
-            for slot in range(self.config.max_slots):
+            for slot in range(len(batch.role_ids[batch_index])):
                 latest_channels_valid = any(
                     channel_valid and math.isfinite(value)
                     for value, channel_valid in zip(

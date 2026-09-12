@@ -23,12 +23,13 @@ object InferenceBenchmarkCommand {
 		val model = suppliedModel ?: temporary!!.resolve("probe.onnx")
 		val sidecar = suppliedSidecar ?: temporary!!.resolve("probe.onnx.json")
 		try {
-			if (temporary != null) {
-				copyResource("probe.onnx", model)
-				copyResource("probe.onnx.json", sidecar)
-			}
+			val probeBundle = if (temporary != null) {
+				listOf("probe.onnx", "probe.onnx.json", "probe-fixture.json", "manifest.json").forEach { copyResource(it, temporary.resolve(it)) }
+				OnnxProbeBundle.load(temporary)
+			} else null
 			val metadata = ModelArtifactValidator.validate(model, sidecar)
 			JavaOnnxRuntimeBackend().use { backend ->
+				if (probeBundle != null) backend.createSession(model, provider).use(probeBundle::verify)
 				val defaultTrackers = listOf(metadata.minimumSlots, metadata.maximumSlots).distinct()
 				val defaultContexts = listOf(metadata.minimumContext, metadata.maximumContext).distinct()
 				val config = InferenceBenchmarkConfig(
@@ -47,8 +48,7 @@ object InferenceBenchmarkCommand {
 			}
 		} finally {
 			if (temporary != null) {
-				Files.deleteIfExists(sidecar)
-				Files.deleteIfExists(model)
+				listOf("manifest.json", "probe-fixture.json", "probe.onnx.json", "probe.onnx").forEach { Files.deleteIfExists(temporary.resolve(it)) }
 				Files.deleteIfExists(temporary)
 			}
 		}

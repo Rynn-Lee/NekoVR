@@ -1,0 +1,30 @@
+{
+  "format": "nekovr-motion-pipeline-e2e-fixture-v1",
+  "seed": 37,
+  "real_session_count": 24,
+  "activities": [
+    "STANDING",
+    "SEATED",
+    "LYING",
+    "CROUCHING",
+    "TRANSITION",
+    "LOCOMOTION",
+    "DANCE",
+    "STATIONARY"
+  ],
+  "expected_stages": [
+    "prepare",
+    "split",
+    "normalization",
+    "global_training",
+    "checkpoint_evaluation",
+    "onnx_export",
+    "onnx_parity",
+    "promotion_decision",
+    "personalization"
+  ],
+  "reproducibility": {
+    "metric_absolute_tolerance": 1e-9,
+    "artifact_hashes": "exact"
+  }
+}

@@ -220,10 +220,10 @@ class RPCModelHandler(
 			require(mappings.map { it.slot }.toSet().size == mappings.size) { "Slots must be unique" }
 		}
 		if (mappings != null) engine.configureMappings(mappings)
+		if (mask has CONTEXT) engine.configureContextFrames(context)
 		with(engine.config) {
 			if (mask has ENABLED) enabled = request.enabled()
 			if (mask has PROVIDER) requestedProvider = provider
-			if (mask has CONTEXT) contextFrames = context
 			if (mask has CONFIDENCE) confidenceThreshold = confidence
 			if (mask has LIMITS) {
 				maximumCorrectionRadians = correction

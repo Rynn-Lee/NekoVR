@@ -16,12 +16,18 @@ import dev.slimevr.ai.OnnxRuntimeBackend
 import dev.slimevr.ai.OnnxRuntimePackage
 import dev.slimevr.ai.RuntimeTensorInfo
 import dev.slimevr.ai.TrackerSlotMapping
+import dev.slimevr.tracking.trackers.Tracker
+import dev.slimevr.tracking.trackers.TrackerPosition
+import dev.slimevr.tracking.trackers.TrackerStatus
+import io.github.axisangles.ktmath.Vector3
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.io.path.writeBytes
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
@@ -156,6 +162,71 @@ class AIDriftEngineTests {
 		assertTrue(OnnxRuntimePackage("nvidia", "1.29.0").allows(ExecutionProviderType.TENSORRT))
 		assertTrue(OnnxRuntimePackage("nvidia", "1.29.0").allows(ExecutionProviderType.CUDA))
 		assertTrue(OnnxRuntimePackage("directml", "1.29.0").allows(ExecutionProviderType.DIRECTML))
+	}
+
+	@Test
+	fun `authoritative sampling submits one immutable multi tracker snapshot and correction reads never enqueue`() {
+		val (model, sidecar) = probeFiles()
+		val metadata = ModelArtifactValidator.validate(model, sidecar)
+		val backend = FakeRuntime(metadata, setOf(ExecutionProviderType.CPU))
+		val config = dev.slimevr.ai.AIModelConfig().apply { enabled = true; contextFrames = 2 }
+		fun tracker(id: Int, acceleration: Float) = Tracker(
+			device = null, id = id, name = "ai-$id", trackerPosition = TrackerPosition.WAIST,
+			hasRotation = true, hasAcceleration = true, allowReset = false, trackRotDirection = false,
+		).apply {
+			status = TrackerStatus.OK
+			setRotation(io.github.axisangles.ktmath.Quaternion.IDENTITY)
+			setAcceleration(Vector3(acceleration, 0f, 0f))
+			dataTick()
+		}
+		val first = tracker(10, 0.5f)
+		val second = tracker(20, 0.75f)
+		AIDriftEngine(config = config, runtimeFactory = { backend }).use { engine ->
+			assertTrue(engine.loadModel(model, sidecar, ExecutionProviderType.CPU).activated)
+			engine.configureMappings(listOf(TrackerSlotMapping(10, 1, 0), TrackerSlotMapping(20, 2, 1)))
+			assertTrue(engine.sampleTrackers(listOf(first, second), 1_000_000_000L, 0.01f))
+			assertTrue(eventually { engine.runtimeStatus().metrics.processedInferences == 1L })
+			assertTrue(engine.sampleTrackers(listOf(first, second), 1_030_000_000L, 0.03f))
+			assertTrue(eventually { backend.sessions.last().inputs.size == 1 })
+			val input = backend.sessions.last().inputs.single()
+			assertEquals(2, input.time)
+			assertContentEquals(floatArrayOf(0.01f, 0.03f), input.timeDeltasSeconds)
+			assertContentEquals(longArrayOf(1, 2), input.roleIds)
+			assertEquals(0.5f, input.features[1])
+			assertEquals(0.75f, input.features[3])
+			val processed = engine.runtimeStatus().metrics.processedInferences
+			repeat(8) { engine.correctionFor(10, io.github.axisangles.ktmath.Quaternion.IDENTITY, Vector3.NULL, 0L) }
+			Thread.sleep(25)
+			assertEquals(processed, engine.runtimeStatus().metrics.processedInferences)
+		}
+	}
+
+	@Test
+	fun `overlapping activations are serialized and never close the winning session`() {
+		val (model, sidecar) = probeFiles()
+		val metadata = ModelArtifactValidator.validate(model, sidecar)
+		val backend = BlockingRuntime(metadata)
+		AIDriftEngine(runtimeFactory = { backend }).use { engine ->
+			val results = java.util.concurrent.CopyOnWriteArrayList<dev.slimevr.ai.ModelActivationResult>()
+			val first = Thread { results += engine.loadModel(model, sidecar, ExecutionProviderType.CPU) }.apply { start() }
+			assertTrue(backend.firstProbeEntered.await(2, TimeUnit.SECONDS))
+			val second = Thread { results += engine.loadModel(model, sidecar, ExecutionProviderType.CPU) }.apply { start() }
+			Thread.sleep(25)
+			assertEquals(1, backend.sessions.size)
+			backend.releaseFirstProbe.countDown()
+			first.join(2_000)
+			second.join(2_000)
+			assertFalse(first.isAlive)
+			assertFalse(second.isAlive)
+			assertEquals(2, results.size)
+			assertTrue(results.all { it.activated })
+			assertEquals(2, backend.sessions.size)
+			assertTrue(backend.sessions[0].closed)
+			assertFalse(backend.sessions[1].closed)
+			engine.unloadModel()
+			assertTrue(backend.sessions[1].closed)
+			assertNull(engine.activeStatus)
+		}
 	}
 
 	@Test
@@ -372,6 +443,7 @@ class AIDriftEngineTests {
 	) : LoadedModelSession {
 		var probeRuns = 0
 		var closed = false
+		val inputs = java.util.concurrent.CopyOnWriteArrayList<InferenceTensorBatch>()
 
 		override fun runProbe(metadata: ModelArtifactMetadata) {
 			probeRuns++
@@ -380,11 +452,48 @@ class AIDriftEngineTests {
 
 		override fun runInference(input: InferenceTensorBatch): InferenceTensorOutput {
 			if (inferenceFailure()) throw IllegalStateException("fixture inference failure")
+			inputs += input
 			return InferenceTensorOutput(FloatArray(input.slots * 3), FloatArray(input.slots), FloatArray(input.slots))
 		}
 
 		override fun close() {
 			closed = true
 		}
+	}
+
+	private class BlockingRuntime(metadata: ModelArtifactMetadata) : OnnxRuntimeBackend {
+		override val runtimePackage = OnnxRuntimePackage("cpu", "fixture")
+		override val availableProviders = setOf(ExecutionProviderType.CPU)
+		val firstProbeEntered = CountDownLatch(1)
+		val releaseFirstProbe = CountDownLatch(1)
+		val sessions = java.util.concurrent.CopyOnWriteArrayList<BlockingSession>()
+		private val inputs = metadata.inputs.associate { it.name to RuntimeTensorInfo(it.dtype, it.shape.map { value -> (value as? Number)?.toLong() ?: -1L }.toLongArray()) }
+		private val outputs = metadata.outputs.associate { it.name to RuntimeTensorInfo(it.dtype, it.shape.map { value -> (value as? Number)?.toLong() ?: -1L }.toLongArray()) }
+
+		override fun createSession(modelPath: Path, provider: ExecutionProviderType): LoadedModelSession =
+			BlockingSession(inputs, outputs, sessions.isEmpty(), firstProbeEntered, releaseFirstProbe).also(sessions::add)
+
+		override fun close() = Unit
+	}
+
+	private class BlockingSession(
+		override val inputInfo: Map<String, RuntimeTensorInfo>,
+		override val outputInfo: Map<String, RuntimeTensorInfo>,
+		private val block: Boolean,
+		private val entered: CountDownLatch,
+		private val release: CountDownLatch,
+	) : LoadedModelSession {
+		@Volatile var closed = false
+		private var probes = 0
+		override fun runProbe(metadata: ModelArtifactMetadata) {
+			if (block && probes++ == 0) {
+				entered.countDown()
+				assertTrue(release.await(2, TimeUnit.SECONDS))
+			}
+		}
+		override fun runInference(input: InferenceTensorBatch) = InferenceTensorOutput(
+			FloatArray(input.slots * 3), FloatArray(input.slots), FloatArray(input.slots),
+		)
+		override fun close() { closed = true }
 	}
 }

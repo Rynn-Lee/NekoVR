@@ -6,6 +6,8 @@ from statistics import fmean
 from typing import Callable, Iterable, Mapping, Sequence
 
 from .math3d import IDENTITY, Quat, angular_distance, inverse, multiply, rotation_vector_to_quat
+from .model import CompactCausalModel, collate_variable_layout
+from .training import TrainingExample
 
 
 @dataclass(frozen=True)
@@ -178,3 +180,88 @@ def evaluate(
         _metrics(records, false_correction_threshold_radians, discontinuity_rate_threshold),
         cohorts,
     )
+
+
+def _replay_records(
+    model: CompactCausalModel,
+    examples: Sequence[TrainingExample],
+    prediction: Callable[[TrainingExample, int, tuple[float, float, float]], tuple[float, float, float]],
+    reset_threshold_radians: float,
+) -> tuple[EvaluationRecord, ...]:
+    records: list[EvaluationRecord] = []
+    for example in examples:
+        metadata = example.metadata or {}
+        raw = metadata.get("raw_features", metadata.get("features"))
+        if not isinstance(raw, Sequence) or not raw:
+            raise ValueError("checkpoint replay requires retained raw holdout features")
+        output = model.forward(collate_variable_layout([example.sequence], model.config.feature_count, model.config.max_slots))
+        group = metadata.get("group", {})
+        timestamp = sum(example.sequence.time_deltas_s)
+        axis_mask = int(metadata.get("masks", {}).get("axis_mask", 7))
+        for slot, active in enumerate(example.sequence.slot_mask):
+            if not active or slot >= len(raw[-1]) or len(raw[-1][slot]) < 4:
+                continue
+            observed = tuple(float(value) for value in raw[-1][slot][:4])
+            target_vector = tuple(float(value) for value in example.target_correction_rotation_vectors[slot])
+            target = multiply(rotation_vector_to_quat(target_vector), observed)
+            candidate = tuple(float(value) for value in output.correction_rotation_vectors[0][slot])
+            predicted = prediction(example, slot, candidate)
+            confidence = float(output.confidence[0][slot])
+            magnitude = math.sqrt(sum(value * value for value in predicted))
+            reset_kind = None
+            if confidence >= 0.5 and magnitude >= reset_threshold_radians:
+                reset_kind = "YAW" if axis_mask == 1 else "FULL"
+            clean = math.sqrt(sum(value * value for value in target_vector)) < reset_threshold_radians
+            records.append(EvaluationRecord(
+                sequence_id=str(group.get("session_id") or metadata.get("parent_sample_id") or example.sample_id),
+                timestamp_s=timestamp,
+                layout=str(group.get("layout") or metadata.get("layout") or "UNKNOWN"),
+                domain=str(metadata.get("domain", "UNKNOWN")),
+                person_id=str(group.get("subject_id") or "UNKNOWN"),
+                chipset=str(group.get("chipset") or "UNKNOWN"),
+                transport=str(group.get("transport") or "UNKNOWN"),
+                activity=str(metadata.get("activity", "UNKNOWN")),
+                activity_confidence=float(metadata.get("activity_confidence", 0.0)),
+                drift_severity=str(metadata.get("drift_severity", "UNKNOWN")),
+                observed_xyzw=observed, target_xyzw=target,
+                predicted_correction_rotation_vector=predicted,
+                confidence=confidence, clean_motion=clean, reset_kind=reset_kind,
+            ))
+    if not records:
+        raise ValueError("checkpoint replay produced no held-out records")
+    return tuple(records)
+
+
+def replay_checkpoint(
+    model: CompactCausalModel,
+    examples: Sequence[TrainingExample],
+    reset_threshold_radians: float = math.radians(1.0),
+) -> dict[str, object]:
+    """Execute a checkpoint and named baselines on immutable validation/test examples."""
+    heldout = tuple(example for example in examples if example.split in {"validation", "test"})
+    if not heldout or any(example.split == "train" for example in heldout):
+        raise ValueError("checkpoint evaluation requires validation/test examples")
+    candidate_records = _replay_records(model, heldout, lambda _example, _slot, candidate: candidate, reset_threshold_radians)
+    identity_records = _replay_records(model, heldout, lambda _example, _slot, _candidate: (0.0, 0.0, 0.0), reset_threshold_radians)
+    yaw_records = _replay_records(
+        model, heldout,
+        lambda example, slot, _candidate: (0.0, 0.0, float(example.target_correction_rotation_vectors[slot][2])),
+        reset_threshold_radians,
+    )
+    candidate = evaluate(candidate_records)
+    baselines = {"identity": evaluate(identity_records), "legacy-yaw": evaluate(yaw_records)}
+    return {
+        "candidate": candidate.to_dict(),
+        "baselines": {name: report.to_dict() for name, report in baselines.items()},
+        "comparisons": {
+            name: {
+                "angular_error_delta_radians": candidate.overall.angular_error_after_radians - report.overall.angular_error_after_radians,
+                "false_correction_delta": candidate.overall.clean_false_correction_rate - report.overall.clean_false_correction_rate,
+                "jitter_delta_radians_per_second2": candidate.overall.temporal_jitter_radians_per_second2 - report.overall.temporal_jitter_radians_per_second2,
+            }
+            for name, report in baselines.items()
+        },
+        "executed_record_count": len(candidate_records),
+        "policy": {"reset_threshold_radians": reset_threshold_radians, "confidence_threshold": 0.5},
+        "records": [asdict(value) for value in candidate_records],
+    }

@@ -3,7 +3,7 @@
     "maximum": 4,
     "minimum": 2
   },
-  "feature_schema_sha256": "b6803af6af276ea1246d0868016bc6146ad2b824872f9da83d8946d96f3bb0f2",
+  "feature_schema_sha256": "fc325ed3ba97b92adfd01bf4a0e0593ebe7d09367a5b005f8c565c515824e41b",
   "format": "nekovr-model-sidecar-v1",
   "inputs": [
     {
@@ -66,6 +66,7 @@
     }
   ],
   "model_id": "nekovr-provider-probe",
+  "model_kind": "global",
   "model_sha256": "98c37717b90e3e0b49794676385bbc24bce8b83348332af815a19d555e0cb103",
   "model_size_bytes": 6428,
   "model_version": "1.0.0",
@@ -120,6 +121,7 @@
     }
   ],
   "performance_tier": "probe",
+  "profile_id": null,
   "provenance": {
     "config_sha256": "49885ee54f82dfe90c90a8274a46643d867266b2298aae34b3df7d58812faad2",
     "dataset_hashes": {},

@@ -1,0 +1,10 @@
+{
+  "base_model_sha256": "de0b82c2b14c3523552f2c2a2ca0cbf01e78e42ea57fb41868ef8b31bd3a3f0c",
+  "checkpoint": "base_model_checkpoint.json",
+  "evaluation_graph": "evaluation_graph.json",
+  "format": "nekovr-portable-adapter-worker-request-v1",
+  "nominal_checkpoint": "nominal_checkpoint.json",
+  "optimizer": "optimizer.json",
+  "training_graph": "training_graph.json",
+  "training_input": "probe-training-input.json"
+}

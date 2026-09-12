@@ -61,6 +61,7 @@ enum class ModelArtifactKind {
 
 object ModelArtifactValidator {
 	private const val SIDECAR_FORMAT = "nekovr-model-sidecar-v1"
+	private const val SUPPORTED_OPSET = 18
 	private val mapper = ObjectMapper()
 
 	fun validate(modelPath: Path, sidecarPath: Path, expectedFeatureSchemaSha256: String? = null): ModelArtifactMetadata {
@@ -124,6 +125,10 @@ object ModelArtifactValidator {
 		if (kind == ModelArtifactKind.PERSONAL && profileId == null) {
 			throw ModelLoadException(ModelLoadErrorCode.SIDECAR_INVALID, "Personal model sidecar requires profile_id")
 		}
+		val opset = positiveInt(root, "opset")
+		if (opset != SUPPORTED_OPSET) {
+			throw ModelLoadException(ModelLoadErrorCode.SIDECAR_INVALID, "Unsupported ONNX opset: $opset")
+		}
 		return ModelArtifactMetadata(
 			modelId = text("model_id"), modelVersion = text("model_version"), modelSha256 = expectedHash,
 			modelSizeBytes = expectedSize, featureSchemaSha256 = featureHash,
@@ -132,7 +137,7 @@ object ModelArtifactValidator {
 			minimumContext = minimumContext, maximumContext = maximumContext,
 			normalizationMean = mean, normalizationStandardDeviation = standardDeviation,
 			supportedRoles = supportedRoles,
-			opset = positiveInt(root, "opset"),
+			opset = opset,
 			performanceTier = text("performance_tier"),
 			kind = kind,
 			profileId = profileId,

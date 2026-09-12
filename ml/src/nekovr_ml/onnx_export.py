@@ -16,6 +16,30 @@ from .provenance import canonical_hash, file_sha256
 OPSET_VERSION = 18
 INPUT_NAMES = ("features", "role_ids", "slot_mask", "channel_validity", "time_deltas_s", "time_mask")
 OUTPUT_NAMES = ("correction_rotation_vectors", "confidence", "drift_rate")
+SUPPORTED_BATCH_BOUNDS = {"minimum": 1, "maximum": 4}
+SUPPORTED_CONTEXT_BOUNDS = {"minimum": 1, "maximum": 60}
+SUPPORTED_SLOT_BOUNDS = {"minimum": 1, "maximum": 16}
+
+
+def canonical_tensor_contract(feature_width: int, output_axes: int = 3) -> tuple[tuple[TensorMetadata, ...], tuple[TensorMetadata, ...]]:
+    """Return the server-owned ONNX contract; sidecars are never its authority."""
+    if feature_width <= 0 or output_axes != 3:
+        raise ValueError("NekoVR ONNX models require a positive feature width and three correction axes")
+    return (
+        (
+            TensorMetadata("features", "float32", ("batch", "time", "slots", feature_width), "normalized causal feature history"),
+            TensorMetadata("role_ids", "int64", ("batch", "slots"), "canonical body-role IDs"),
+            TensorMetadata("slot_mask", "bool", ("batch", "slots"), "mapped tracker slots"),
+            TensorMetadata("channel_validity", "bool", ("batch", "time", "slots", feature_width), "per-channel validity"),
+            TensorMetadata("time_deltas_s", "float32", ("batch", "time"), "monotonic elapsed seconds"),
+            TensorMetadata("time_mask", "bool", ("batch", "time"), "valid causal frames; rightmost frame must be valid"),
+        ),
+        (
+            TensorMetadata("correction_rotation_vectors", "float32", ("batch", "slots", output_axes), "bounded world-frame rotation vector in radians"),
+            TensorMetadata("confidence", "float32", ("batch", "slots"), "per-slot confidence in [0,1]"),
+            TensorMetadata("drift_rate", "float32", ("batch", "slots"), "bounded yaw drift-rate estimate in radians/second"),
+        ),
+    )
 
 
 def _array(name: str, values: Any, dtype: Any = np.float32) -> onnx.TensorProto:
@@ -195,19 +219,7 @@ def export_model(
     temporary = target.with_suffix(target.suffix + ".partial")
     onnx.save_model(_build_graph(model), temporary)
     temporary.replace(target)
-    inputs = (
-        TensorMetadata("features", "float32", ("batch", "time", "slots", model.config.feature_count), "normalized causal feature history"),
-        TensorMetadata("role_ids", "int64", ("batch", "slots"), "canonical body-role IDs"),
-        TensorMetadata("slot_mask", "bool", ("batch", "slots"), "mapped tracker slots"),
-        TensorMetadata("channel_validity", "bool", ("batch", "time", "slots", model.config.feature_count), "per-channel validity"),
-        TensorMetadata("time_deltas_s", "float32", ("batch", "time"), "monotonic elapsed seconds"),
-        TensorMetadata("time_mask", "bool", ("batch", "time"), "valid causal frames; rightmost frame must be valid"),
-    )
-    outputs = (
-        TensorMetadata("correction_rotation_vectors", "float32", ("batch", "slots", model.config.output_axes), "bounded world-frame rotation vector in radians"),
-        TensorMetadata("confidence", "float32", ("batch", "slots"), "per-slot confidence in [0,1]"),
-        TensorMetadata("drift_rate", "float32", ("batch", "slots"), "bounded yaw drift-rate estimate in radians/second"),
-    )
+    inputs, outputs = canonical_tensor_contract(model.config.feature_count, model.config.output_axes)
     sidecar = ModelSidecar(
         format="nekovr-model-sidecar-v1", schema_version=1, model_id=model_id, model_version=model_version,
         feature_schema_sha256=canonical_hash(feature_schema), inputs=inputs, outputs=outputs,

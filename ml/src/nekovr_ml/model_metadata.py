@@ -83,6 +83,13 @@ def validate_sidecar(sidecar: ModelSidecar, model_path: str | Path | None = None
     required_provenance = {"seed", "config_sha256", "source_commit", "dataset_hashes"}
     if not required_provenance.issubset(sidecar.provenance):
         raise ValueError("sidecar provenance is incomplete")
+    if not isinstance(sidecar.provenance["seed"], int) or not str(sidecar.provenance["source_commit"]).strip():
+        raise ValueError("sidecar provenance seed and source commit are invalid")
+    if not _is_sha256(sidecar.provenance["config_sha256"]):
+        raise ValueError("sidecar provenance config hash must be lowercase SHA-256")
+    dataset_hashes = sidecar.provenance["dataset_hashes"]
+    if not isinstance(dataset_hashes, Mapping) or any(not _is_sha256(value) for value in dataset_hashes.values()):
+        raise ValueError("sidecar provenance dataset hashes must be lowercase SHA-256 values")
     if model_path is not None:
         model = Path(model_path)
         if model.stat().st_size != sidecar.model_size_bytes or file_sha256(model) != sidecar.model_sha256:

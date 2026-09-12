@@ -176,6 +176,27 @@ jobs:
           PYTHONDONTWRITEBYTECODE: '1'
         run: python -m unittest discover -s dataset/python/tests -p test_reader_foundation.py -v
 
+  foundation-ml-lock:
+    name: Required - ML Offline Lock (Python ${{ matrix.python }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13', '3.14']
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: recursive
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: ml/requirements.lock
+      - name: Verify two fresh hash-locked offline environments
+        run: python ml/verify_lock.py
+
   java-checks:
     name: Java Checks
     runs-on: ubuntu-latest

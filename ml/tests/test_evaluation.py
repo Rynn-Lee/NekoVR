@@ -6,6 +6,8 @@ import pytest
 from nekovr_ml import cli
 from nekovr_ml.evaluation import EvaluationRecord, evaluate
 from nekovr_ml.math3d import axis_angle_to_quat
+from nekovr_ml.model import CompactCausalModel, ModelConfig
+from nekovr_ml.training import write_model_checkpoint
 
 
 def _record(index, activity="STANDING", confidence=0.9, reset=None, correction=0.1):
@@ -54,11 +56,33 @@ def test_clean_false_correction_and_discontinuity_are_visible():
 
 def test_evaluate_cli_writes_metrics_and_provenance(tmp_path):
     config = tmp_path / "config.json"
-    config.write_text(json.dumps({"schema_version": 1, "seed": 1, "deterministic": True, "sample_rate_hz": 50, "layouts": [6]}))
-    record = _record(0)
+    config.write_text(json.dumps({
+        "schema_version": 1, "seed": 1, "deterministic": True, "sample_rate_hz": 50, "layouts": [1], "max_slots": 1,
+        "model": {"feature_count": 4, "hidden_size": 3, "temporal_layers": 1, "kernel_size": 2, "role_count": 4,
+                  "output_axes": 3, "maximum_correction_degrees": 30, "maximum_drift_rate_degrees_per_second": 5},
+    }))
     evaluation_input = tmp_path / "evaluation.json"
-    evaluation_input.write_text(json.dumps({"format": "nekovr-evaluation-input-v1", "records": [record.__dict__], "split_assignments": {"session-a": "test"}, "normalization": {}}))
+    evaluation_input.write_text(json.dumps({
+        "format": "nekovr-training-input-v1", "preparation_format": "nekovr-canonical-preparation-v1",
+        "feature_schema": ["orientation_x", "orientation_y", "orientation_z", "orientation_w"],
+        "examples": [
+            {"sample_id": name, "split": "unassigned", "domain": "synthetic", "source_sha256": char * 64,
+             "group": {"source_id": name, "subject_id": name, "session_id": name, "device_cohort": name, "layout": "1", "chipset": "fixture"},
+             "features": [[[0.0, 0.0, 0.0, 1.0]]], "role_ids": [1], "slot_mask": [True],
+             "channel_validity": [[[True, True, True, True]]], "time_deltas_s": [0.02],
+             "target_correction_rotation_vectors": [[0.0, 0.0, 0.0]], "target_confidence": [1.0],
+             "loss_weights": [1.0], "masks": {}, "quality_decision": {"policy": "INCLUDE"},
+             "activity": "STANDING", "activity_confidence": 0.9}
+            for name, char in (("a", "a"), ("b", "b"), ("c", "c"))
+        ],
+    }))
+    checkpoint = tmp_path / "checkpoint.json"
+    write_model_checkpoint(CompactCausalModel(ModelConfig(feature_count=4, hidden_size=3, temporal_layers=1, kernel_size=2, role_count=4, max_slots=1), seed=3), checkpoint)
     output = tmp_path / "output"
-    assert cli._run(["evaluate", "--input", str(evaluation_input), "--output-dir", str(output), "--config", str(config)]) == 0
-    assert json.loads((output / "metrics.json").read_text())["cohorts"]["activity"]["STANDING"]["samples"] == 1
+    assert cli._run(["evaluate", "--input", str(evaluation_input), "--checkpoint", str(checkpoint), "--output-dir", str(output), "--config", str(config)]) == 0
+    payload = json.loads((output / "metrics.json").read_text())
+    assert payload["format"] == "nekovr-checkpoint-evaluation-v1"
+    assert payload["candidate"]["cohorts"]["activity"]["STANDING"]["samples"] >= 1
+    assert set(payload["baselines"]) == {"identity", "legacy-yaw"}
+    assert payload["checkpoint_sha256"]
     assert json.loads((output / "run.json").read_text())["artifact_hashes"]["metrics"]

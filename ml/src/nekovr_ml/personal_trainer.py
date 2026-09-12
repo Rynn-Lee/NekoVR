@@ -15,7 +15,7 @@ import tempfile
 from typing import Any, Callable, Iterable, Mapping, Protocol, Sequence
 import zipfile
 
-from .provenance import file_sha256
+from .provenance import canonical_hash, file_sha256
 
 
 IPC_PROTOCOL_VERSION = 1
@@ -145,6 +145,7 @@ class TrainingArtifactBundle:
             if file_sha256(artifact) != expected_hash:
                 raise ValueError(f"personalization artifact hash mismatch: {name}")
         training = json.loads(_contained_file(directory, "training_graph.json").read_text(encoding="utf-8"))
+        evaluation = json.loads(_contained_file(directory, "evaluation_graph.json").read_text(encoding="utf-8"))
         optimizer = json.loads(_contained_file(directory, "optimizer.json").read_text(encoding="utf-8"))
         trainable = tuple(manifest.get("trainable_parameters", ()))
         frozen = tuple(manifest.get("frozen_parameters", ()))
@@ -155,6 +156,18 @@ class TrainingArtifactBundle:
             raise ValueError("optimizer parameters differ from the adapter contract")
         if set(optimizer.get("frozen_parameters", ())) != set(frozen):
             raise ValueError("optimizer does not preserve the frozen backbone")
+        if training.get("worker_backend") != "portable_cpu_adapter_v1" or evaluation.get("worker_backend") != "portable_cpu_adapter_v1":
+            raise ValueError("portable training/evaluation graphs are not worker executable")
+        request_name = manifest.get("portable_worker_request")
+        request = json.loads(_contained_file(directory, str(request_name)).read_text(encoding="utf-8"))
+        if request.get("format") != "nekovr-portable-adapter-worker-request-v1" or request.get("base_model_sha256") != manifest.get("base_model_sha256"):
+            raise ValueError("portable worker request identity is invalid")
+        base_checkpoint = json.loads(_contained_file(directory, str(request.get("checkpoint"))).read_text(encoding="utf-8"))
+        if canonical_hash(base_checkpoint) != manifest.get("base_model_sha256"):
+            raise ValueError("portable worker checkpoint differs from the base identity")
+        probe_input = json.loads(_contained_file(directory, str(request.get("training_input"))).read_text(encoding="utf-8"))
+        if probe_input.get("format") != "nekovr-training-input-v1" or not probe_input.get("examples"):
+            raise ValueError("portable worker probe input is invalid")
         correction_limit = float(training.get("maximum_correction_radians", float("nan")))
         if not math.isfinite(correction_limit) or correction_limit <= 0:
             raise ValueError("training artifact correction limit is invalid")

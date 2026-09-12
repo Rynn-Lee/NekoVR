@@ -3,7 +3,7 @@
   "files": {
     "probe-fixture.json": "27880d1975d468c6cefc1538a65bea37e6f5049a6050a3be2c5969cb43493b15",
     "probe.onnx": "98c37717b90e3e0b49794676385bbc24bce8b83348332af815a19d555e0cb103",
-    "probe.onnx.json": "388d10a9c8dbe20d4c040147c1c53da870ee66bf093034762714e4c5a37ae803"
+    "probe.onnx.json": "9861f533a915e33ba6c3bb8bf5e516663699bfd4b268f3a0894c90b257b4f3ab"
   },
   "format": "nekovr-onnx-probe-manifest-v1"
 }

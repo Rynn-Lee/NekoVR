@@ -102,41 +102,41 @@
 - [x] 12.3 Reject duplicate evidence IDs, unknown or mismatched build identities, disallowed dirty builds, expired reports, missing evidence artifacts, and artifact/pilot hash changes during runtime evaluation.
 - [x] 12.4 Add negative tests proving a copied, hand-authored, stale, duplicated, or post-generation-mutated report cannot unlock a production collection profile.
 - [x] 12.5 Generate and retain direct simulated-pilot evidence through both readers; keep the gate closed until the required physical real-pilot artifacts are supplied and hashed rather than marking their absence as implemented evidence.
-- [ ] 12.6 Re-run the GUI/server readiness surfaces against accepted and rejected reports and prove server enforcement cannot be bypassed by forged renderer state.
-- [ ] 12.7 Re-audit original tasks 6.1–6.5 and update their completion state only from direct category checks and actual pilot artifacts.
+- [x] 12.6 Re-run the GUI/server readiness surfaces against accepted and rejected reports and prove server enforcement cannot be bypassed by forged renderer state.
+- [x] 12.7 Re-audit original tasks 6.1–6.5 and update their completion state only from direct category checks and actual pilot artifacts.
 
 ## 13. Connect and Verify the Motion Training Pipeline
 
-- [ ] 13.1 Replace top-level-only pins with a fully resolved, hash-locked dependency closure for the supported Python version(s), and verify a fresh offline/repeatable environment uses exactly that closure.
-- [ ] 13.2 Add a distributable structural SMPL fixture plus an opt-in licensed-asset integration check covering the real kinematic tree, canonical root/HMD reference, joint-to-segment mapping, resampling, units, and non-commuting coordinate transforms.
-- [ ] 13.3 Implement one versioned preparation path that converts AMASS layouts/simulation and validated real archives into the same canonical training-example contract with source hashes, masks, reset windows, and quality decisions.
-- [ ] 13.4 Invoke grouped splitting before window extraction, reject forbidden overlap or unusable empty holdouts, fit normalization only from training groups, and persist the split audit and normalization membership.
-- [ ] 13.5 Wire dense synthetic, sparse real-reset, temporal, self-supervised, domain, axis, provenance, and quality masks into the loss actually optimized over temporal samples; train the declared global encoder/heads while keeping frozen-backbone training exclusive to personalization.
-- [ ] 13.6 Wire contextual feature normalization, missingness augmentation, per-feature ablation, and unseen-device/session checks into training and promotion, recording every inclusion/exclusion decision in run provenance.
-- [ ] 13.7 Make evaluation load a real checkpoint and replay held-out examples to generate predictions and named baseline comparisons; derive safety, cohort, reset-rate, time-to-first-reset, and no-reset-interval metrics from executed model/policy behavior rather than caller-supplied prediction records.
-- [ ] 13.8 Generate promotion decisions from hash-bound evaluation, ONNX parity, activity/layout/domain/hardware coverage, and non-regression artifacts; do not accept caller-asserted pass booleans as evidence.
-- [ ] 13.9 Extend run provenance to identify every source archive/motion, group/window assignment, loss summary, feature decision, checkpoint, evaluation, and exported artifact, and add a deterministic repeat-run comparison with documented tolerances.
-- [ ] 13.10 Derive personalization base identity from the actual model bytes or canonical parameter values, produce worker-executable integrity-bound training/evaluation/optimizer/checkpoint artifacts for every eligible catalog model, and prove equal shapes with different weights cannot share an identity.
-- [ ] 13.11 Add a deterministic end-to-end fixture that traverses AMASS/real preparation, split, normalization, global training, checkpoint evaluation, ONNX export/parity, promotion, and personalization generation without bypassing intermediate contracts.
-- [ ] 13.12 Re-audit original tasks 7.1–7.13 and update their completion state only when the connected CLI and end-to-end evidence demonstrate the declared semantics.
+- [x] 13.1 Replace top-level-only pins with a fully resolved, hash-locked dependency closure for the supported Python version(s), and verify a fresh offline/repeatable environment uses exactly that closure.
+- [x] 13.2 Add a distributable structural SMPL fixture plus an opt-in licensed-asset integration check covering the real kinematic tree, canonical root/HMD reference, joint-to-segment mapping, resampling, units, and non-commuting coordinate transforms.
+- [x] 13.3 Implement one versioned preparation path that converts AMASS layouts/simulation and validated real archives into the same canonical training-example contract with source hashes, masks, reset windows, and quality decisions.
+- [x] 13.4 Invoke grouped splitting before window extraction, reject forbidden overlap or unusable empty holdouts, fit normalization only from training groups, and persist the split audit and normalization membership.
+- [x] 13.5 Wire dense synthetic, sparse real-reset, temporal, self-supervised, domain, axis, provenance, and quality masks into the loss actually optimized over temporal samples; train the declared global encoder/heads while keeping frozen-backbone training exclusive to personalization.
+- [x] 13.6 Wire contextual feature normalization, missingness augmentation, per-feature ablation, and unseen-device/session checks into training and promotion, recording every inclusion/exclusion decision in run provenance.
+- [x] 13.7 Make evaluation load a real checkpoint and replay held-out examples to generate predictions and named baseline comparisons; derive safety, cohort, reset-rate, time-to-first-reset, and no-reset-interval metrics from executed model/policy behavior rather than caller-supplied prediction records.
+- [x] 13.8 Generate promotion decisions from hash-bound evaluation, ONNX parity, activity/layout/domain/hardware coverage, and non-regression artifacts; do not accept caller-asserted pass booleans as evidence.
+- [x] 13.9 Extend run provenance to identify every source archive/motion, group/window assignment, loss summary, feature decision, checkpoint, evaluation, and exported artifact, and add a deterministic repeat-run comparison with documented tolerances.
+- [x] 13.10 Derive personalization base identity from the actual model bytes or canonical parameter values, produce worker-executable integrity-bound training/evaluation/optimizer/checkpoint artifacts for every eligible catalog model, and prove equal shapes with different weights cannot share an identity.
+- [x] 13.11 Add a deterministic end-to-end fixture that traverses AMASS/real preparation, split, normalization, global training, checkpoint evaluation, ONNX export/parity, promotion, and personalization generation without bypassing intermediate contracts.
+- [x] 13.12 Re-audit original tasks 7.1–7.13 and update their completion state only when the connected CLI and end-to-end evidence demonstrate the declared semantics.
 
 ## 14. Harden ONNX Artifact and Probe Evidence
 
-- [ ] 14.1 Enforce the canonical input/output names, dtypes, ranks, symbolic dimensions, feature width, output semantics, supported opset, bounds, and well-formed provenance hashes independently of what an untrusted sidecar declares.
-- [ ] 14.2 Stage model, sidecar, parity report, validation metrics, and promotion evidence as one atomic hash-addressed bundle so a failed export cannot leave a publishable partial artifact.
-- [ ] 14.3 Extend parity coverage to minimum and maximum context, supported batch/slot bounds, invalid shapes/role IDs, all declared outputs, and deterministic cross-process repeats; reject metadata bounds the graph does not actually support.
-- [ ] 14.4 Complete task 13.8 by making catalog publication load and hash-check generated parity, safety, quality, and cohort reports instead of accepting an `ArtifactPromotionEvidence` object populated by the caller.
-- [ ] 14.5 Package the probe manifest and expected-output fixture with the model, verify every file hash, and compare every provider's outputs against the committed tensors/tolerances rather than checking only that outputs are finite.
-- [ ] 14.6 Add tampered sidecar, mutually consistent malicious model/sidecar, changed evidence, wrong expected output, unsupported opset, and partial-bundle negative tests in Python and Kotlin.
-- [ ] 14.7 Re-audit original tasks 8.1–8.5 and update their completion state only when publication and packaged probes consume the hardened evidence.
+- [x] 14.1 Enforce the canonical input/output names, dtypes, ranks, symbolic dimensions, feature width, output semantics, supported opset, bounds, and well-formed provenance hashes independently of what an untrusted sidecar declares.
+- [x] 14.2 Stage model, sidecar, parity report, validation metrics, and promotion evidence as one atomic hash-addressed bundle so a failed export cannot leave a publishable partial artifact.
+- [x] 14.3 Extend parity coverage to minimum and maximum context, supported batch/slot bounds, invalid shapes/role IDs, all declared outputs, and deterministic cross-process repeats; reject metadata bounds the graph does not actually support.
+- [x] 14.4 Complete task 13.8 by making catalog publication load and hash-check generated parity, safety, quality, and cohort reports instead of accepting an `ArtifactPromotionEvidence` object populated by the caller.
+- [x] 14.5 Package the probe manifest and expected-output fixture with the model, verify every file hash, and compare every provider's outputs against the committed tensors/tolerances rather than checking only that outputs are finite.
+- [x] 14.6 Add tampered sidecar, mutually consistent malicious model/sidecar, changed evidence, wrong expected output, unsupported opset, and partial-bundle negative tests in Python and Kotlin.
+- [x] 14.7 Re-audit original tasks 8.1–8.5 and update their completion state only when publication and packaged probes consume the hardened evidence.
 
 ## 15. Repair the Runtime Feature and History Contract
 
-- [ ] 15.1 Define a versioned Kotlin feature registry/extractor with feature IDs, order, units, source, validity, and missingness semantics, and require every activated model's feature-schema hash to match it.
-- [ ] 15.2 Build exactly one immutable multi-tracker inference snapshot at the authoritative server sampling boundary with actual monotonic delta and synchronized mapping/epoch state; remove inference submission from per-tracker correction reads.
-- [ ] 15.3 Extract every declared feature from authoritative runtime state, mark unavailable channels invalid, and reject models whose required inputs cannot be produced instead of filling an anonymous quaternion/acceleration prefix.
-- [ ] 15.4 Make `contextFrames` control the worker's retained and emitted history within active-model bounds, and atomically clear/rebuild history when context, mapping, model, schema, or reset epoch changes.
-- [ ] 15.5 Serialize concurrent load/reload/unload operations across RPC and personal activation, and prove a losing activation cannot close or replace the winning session or leak native resources.
+- [x] 15.1 Define a versioned Kotlin feature registry/extractor with feature IDs, order, units, source, validity, and missingness semantics, and require every activated model's feature-schema hash to match it.
+- [x] 15.2 Build exactly one immutable multi-tracker inference snapshot at the authoritative server sampling boundary with actual monotonic delta and synchronized mapping/epoch state; remove inference submission from per-tracker correction reads.
+- [x] 15.3 Extract every declared feature from authoritative runtime state, mark unavailable channels invalid, and reject models whose required inputs cannot be produced instead of filling an anonymous quaternion/acceleration prefix.
+- [x] 15.4 Make `contextFrames` control the worker's retained and emitted history within active-model bounds, and atomically clear/rebuild history when context, mapping, model, schema, or reset epoch changes.
+- [x] 15.5 Serialize concurrent load/reload/unload operations across RPC and personal activation, and prove a losing activation cannot close or replace the winning session or leak native resources.
 - [ ] 15.6 Verify each supported packaged provider with the expected-output probe and record platform/runtime/native-library identity; do not claim CUDA, TensorRT, or DirectML packaging from configuration or documentation alone.
 - [ ] 15.7 Add a production-path integration test using a real ONNX session, multiple real tracker callbacks, nonuniform deltas, missing channels, remapping, resets, context changes, stale results, and watchdog failure without direct test-only snapshot injection.
 - [ ] 15.8 Re-audit original tasks 9.1–9.8 and update their completion state only after the production sampling/extraction path supplies compatible inputs and direct runtime evidence.

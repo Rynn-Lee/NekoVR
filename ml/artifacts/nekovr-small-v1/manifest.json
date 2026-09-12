@@ -1,11 +1,15 @@
 {
   "artifact_sha256": {
-    "evaluation_graph.json": "015ed5c0eb64c67ddb1d2bd58f74579d63db4bd1db2c7134e747c9707b8de1b8",
-    "nominal_checkpoint.json": "fe64a9f8a495fa9272cfc3ed1e1d59afb87947d34f647609dc219ec29473b5a2",
+    "base_model_checkpoint.json": "daf0f0282039296e35d0ff20f8428c57b3d068c1317167ef8436c40fc97d740d",
+    "evaluation_graph.json": "0288a8d2d43601be56b88f3443c5091db1da77382a0353a07688a007457d8652",
+    "nominal_checkpoint.json": "54680fa8aeec3b4787ebcf4508dda59f3cce8269fbd090372c1dd813795ac5ef",
     "optimizer.json": "b8b187950a1d20b13328a252c18223a77e0070ffc5e815db4245fe14c604f549",
-    "training_graph.json": "1add86c26d801148ccf3ec550feeff890db8af3687bb3676f7584f1f530560b1"
+    "probe-training-input.json": "0c0dfbce3c5b5b39c54d0c0f3f326acaf9080f439c5ace7930956f7578b9e35b",
+    "training_graph.json": "a28128b9a34dfb7e330c9eac1eb463d8c2f2a96636d71872e21e81d4dd4f1f76",
+    "worker-request.json": "47c31e804152e26894f9870c44d5cfe8dba7712d9c6aa2329f4bd163df0fed3c"
   },
-  "base_model_sha256": "92fc34bbae8dc55e80cb345edbb68804cbfdec34fd84590ad2d874e599d67e46",
+  "base_identity_kind": "canonical-config-and-parameter-values",
+  "base_model_sha256": "de0b82c2b14c3523552f2c2a2ca0cbf01e78e42ea57fb41868ef8b31bd3a3f0c",
   "frozen_parameter_count": 1524,
   "frozen_parameters": [
     "input_weights",
@@ -17,6 +21,7 @@
   ],
   "model_id": "nekovr-small-v1",
   "personalization_ready": true,
+  "portable_worker_request": "worker-request.json",
   "resource_expectations": {
     "maximum_checkpoint_mib": 8,
     "minimum_ram_mib": 256,

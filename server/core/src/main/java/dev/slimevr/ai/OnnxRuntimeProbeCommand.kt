@@ -8,21 +8,15 @@ object OnnxRuntimeProbeCommand {
 		val provider = arguments.firstOrNull()?.let { ExecutionProviderType.valueOf(it.uppercase()) } ?: ExecutionProviderType.CPU
 		if (provider == ExecutionProviderType.AUTO) error("Pass a concrete provider to verify packaging")
 		val directory = Files.createTempDirectory("nekovr-onnx-probe-")
-		val model = directory.resolve("probe.onnx")
-		val sidecar = directory.resolve("probe.onnx.json")
 		try {
-			copyResource("probe.onnx", model)
-			copyResource("probe.onnx.json", sidecar)
-			AIDriftEngine().use { engine ->
-				val result = engine.loadModel(model, sidecar, provider)
-				check(result.activated && result.provider == provider) {
-					"$provider package probe failed: ${result.failure?.code} ${result.failure?.message}"
-				}
-				println("ONNX_RUNTIME_PROBE_OK provider=$provider runtime=${engine.activeStatus?.runtimeVersion} flavor=${engine.activeStatus?.runtimeFlavor}")
+			listOf("probe.onnx", "probe.onnx.json", "probe-fixture.json", "manifest.json").forEach { copyResource(it, directory.resolve(it)) }
+			val bundle = OnnxProbeBundle.load(directory)
+			JavaOnnxRuntimeBackend().use { backend ->
+				backend.createSession(directory.resolve("probe.onnx"), provider).use(bundle::verify)
+				println("ONNX_RUNTIME_PROBE_OK provider=$provider runtime=${backend.runtimePackage.version} flavor=${backend.runtimePackage.flavor}")
 			}
 		} finally {
-			Files.deleteIfExists(sidecar)
-			Files.deleteIfExists(model)
+			listOf("manifest.json", "probe-fixture.json", "probe.onnx.json", "probe.onnx").forEach { Files.deleteIfExists(directory.resolve(it)) }
 			Files.deleteIfExists(directory)
 		}
 	}

@@ -27,14 +27,20 @@ object InstalledInferenceSmokeCommand {
 		try {
 			val sourceModel = temporary.resolve("small.onnx")
 			val sourceSidecar = temporary.resolve("small.onnx.json")
-			copyResource("small.onnx", sourceModel)
-			copyResource("small.onnx.json", sourceSidecar)
+			copyResource("benchmark", "small.onnx", sourceModel)
+			copyResource("benchmark", "small.onnx.json", sourceSidecar)
+			val probeDirectory = temporary.resolve("probe").also(Files::createDirectory)
+			listOf("probe.onnx", "probe.onnx.json", "probe-fixture.json", "manifest.json").forEach {
+				copyResource("probe", it, probeDirectory.resolve(it))
+			}
+			val probe = OnnxProbeBundle.load(probeDirectory)
 			val managed = ManagedModelStore(temporary.resolve("models")).importModel(sourceModel, sourceSidecar)
 			val passed = mutableListOf<String>()
 			JavaOnnxRuntimeBackend().use { backend ->
 				val providers = listOf(ExecutionProviderType.CPU) + backend.availableProviders
 					.filter { it != ExecutionProviderType.CPU && backend.runtimePackage.allows(it) }.sortedBy { it.name }
 				for (provider in providers.distinct()) {
+					backend.createSession(probeDirectory.resolve("probe.onnx"), provider).use(probe::verify)
 					backend.createSession(managed.modelPath, provider).use { session ->
 						ModelArtifactValidator.validateTensorContract(managed.metadata, session.inputInfo, session.outputInfo)
 						session.runProbe(managed.metadata.copy(minimumContext = 60, maximumContext = 60, minimumSlots = 10))
@@ -57,9 +63,9 @@ object InstalledInferenceSmokeCommand {
 		}
 	}
 
-	private fun copyResource(name: String, target: Path) {
-		val resource = requireNotNull(InstalledInferenceSmokeCommand::class.java.getResourceAsStream("benchmark/$name")) {
-			"Packaged benchmark model is missing: $name"
+	private fun copyResource(folder: String, name: String, target: Path) {
+		val resource = requireNotNull(InstalledInferenceSmokeCommand::class.java.getResourceAsStream("$folder/$name")) {
+			"Packaged inference resource is missing: $folder/$name"
 		}
 		resource.use { Files.copy(it, target) }
 	}

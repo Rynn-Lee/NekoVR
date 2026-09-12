@@ -70,13 +70,28 @@ def grouped_split(
     components: dict[int, list[int]] = {}
     for index in range(len(samples)):
         components.setdefault(union.find(index), []).append(index)
-    assignments: dict[str, str] = {}
-    train_edge = fractions["train"]
-    validation_edge = train_edge + fractions["validation"]
+    ranked_components: list[tuple[float, list[int]]] = []
     for indices in components.values():
         stable_ids = "\0".join(sorted(samples[i].sample_id for i in indices))
         value = int.from_bytes(hashlib.sha256(f"{seed}\0{stable_ids}".encode()).digest()[:8], "big") / 2**64
-        split = "train" if value < train_edge else "validation" if value < validation_edge else "test"
+        ranked_components.append((value, indices))
+    ranked_components.sort(key=lambda item: item[0])
+    component_count = len(ranked_components)
+    counts = {name: int(math.floor(fractions[name] * component_count)) for name in SPLIT_NAMES}
+    if component_count >= len(SPLIT_NAMES):
+        for name in SPLIT_NAMES:
+            if fractions[name] > 0 and counts[name] == 0:
+                counts[name] = 1
+    while sum(counts.values()) > component_count:
+        candidates = [name for name in SPLIT_NAMES if counts[name] > 1]
+        if not candidates:
+            break
+        counts[max(candidates, key=lambda name: counts[name] - fractions[name] * component_count)] -= 1
+    while sum(counts.values()) < component_count:
+        counts[max(SPLIT_NAMES, key=lambda name: fractions[name] * component_count - counts[name])] += 1
+    ordered_splits = tuple(name for name in SPLIT_NAMES for _ in range(counts[name]))
+    assignments: dict[str, str] = {}
+    for (_, indices), split in zip(ranked_components, ordered_splits):
         for index in indices:
             assignments[samples[index].sample_id] = split
     audit = audit_split(samples, assignments, group_fields)
@@ -128,4 +143,3 @@ def fit_training_normalization(features: Mapping[str, Sequence[float]], assignme
     variances = tuple(sum((float(row[index]) - means[index]) ** 2 for row in rows) / len(rows) for index in range(width))
     scales = tuple(math.sqrt(value) if value > 1e-12 else 1.0 for value in variances)
     return Normalization(means, scales, training_ids)
-
